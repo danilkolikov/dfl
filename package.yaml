@@ -1,0 +1,56 @@
+name: dfl
+version: 0.1.0.0
+synopsis: Differentiable Functional Language
+description: Please see the README on GitHub at <https://github.com/danilkolikov/dfl#readme>
+
+github: danilkolikov/dfl
+license: MIT
+author: Danil Kolikov
+maintainer: danilkolikov@gmail.com
+copyright: 2019 Danil Kolikov
+
+ghc-options:  -Wall -Werror
+dependencies:
+- base >= 4.7 && < 5
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+library:
+  source-dirs: src
+  dependencies:
+  - containers >= 0.6.0.1
+  - hashable >= 1.2.7.0
+  - megaparsec >= 7.0.4
+  - parser-combinators >= 1.0.1
+  - transformers >= 0.5.6.2
+  - unordered-containers >= 0.2.10.0
+
+tests:
+  dfl-test:
+    source-dirs: test
+    main: Spec.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - containers >= 0.6.0.1
+    - dfl
+    - hspec >= 2.6.1
+    - hspec-megaparsec >= 2.0.0
+    - megaparsec >= 7.0.4
+    - random >= 1.1
+    - transformers >= 0.5.6.2
+    - unordered-containers >= 0.2.9.0
+
+executables:
+  dfl-exe:
+    source-dirs: app
+    main: Main.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - dfl
