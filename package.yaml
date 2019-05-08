@@ -25,6 +25,10 @@ library:
   - parser-combinators >= 1.0.1
   - transformers >= 0.5.6.2
   - unordered-containers >= 0.2.10.0
+  exposed-modules:
+  - Frontend.Grammar.Lexer
+  - Frontend.Grammar.Position
+  - Frontend.Grammar.Token
 
 tests:
   dfl-test:
