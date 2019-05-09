@@ -17,8 +17,7 @@ module Frontend.Grammar.Lexer
 import Control.Applicative ((<$>), (<|>), empty, liftA2)
 import Control.Monad.Combinators (between, choice, many, sepBy, skipMany)
 import Data.Char (isDigit, isLower, isSpace, isUpper)
-import Data.Foldable (asum)
-import Data.Functor (($>), (<$))
+import Data.Functor ((<$))
 import qualified Data.HashMap.Lazy as HM
 import Data.Hashable (Hashable)
 import qualified Data.Set as S
@@ -27,6 +26,7 @@ import Data.Void
 import Text.Megaparsec
     ( Parsec
     , (<?>)
+    , anySingle
     , eof
     , satisfy
     , takeWhile1P
@@ -36,12 +36,11 @@ import Text.Megaparsec
     )
 import Text.Megaparsec.Char
     ( char
-    , digitChar
+    , char'
     , hexDigitChar
     , octDigitChar
     , space1
     , spaceChar
-    , string
     )
 import qualified Text.Megaparsec.Char.Lexer as L
 
@@ -114,37 +113,33 @@ instance Lexable Keyword where
 instance Lexable IntT where
     lexer =
         IntT <$>
-        asum
-            [ string "0o" *> L.octal
-            , string "0O" *> L.octal
-            , string "0x" *> L.hexadecimal
-            , string "0X" *> L.hexadecimal
-            , L.decimal
-            ]
+        ((char '0' *> choice [char' 'o' *> L.octal, char' 'x' *> L.hexadecimal]) <|>
+         L.decimal)
 
 instance Lexable FloatT where
     lexer = FloatT <$> L.float
 
 escapedCharLexer :: Lexer Char
 escapedCharLexer =
-    try $
-    char '\\' *>
-    (asum
-         [ char 'a' $> '\a'
-         , char 'b' $> '\b'
-         , char 'f' $> '\f'
-         , char 'n' $> '\n'
-         , char 'r' $> '\r'
-         , char 't' $> '\t'
-         , char 'v' $> '\v'
-         , char '\\' $> '\\'
-         , char '"' $> '"'
-         , char '\'' $> '\''
-         , digitChar
-         , char 'o' *> octDigitChar
-         , char 'x' *> hexDigitChar
-         ] <?>
-     "escape character")
+    try (do _ <- char '\\'
+            next <- anySingle
+            case next of
+                'a' -> return '\a'
+                'b' -> return '\b'
+                'f' -> return '\f'
+                'n' -> return '\n'
+                'r' -> return '\r'
+                't' -> return '\t'
+                'v' -> return '\v'
+                '\\' -> return '\\'
+                '"' -> return '"'
+                '\'' -> return '\''
+                c
+                    | isDigit c -> return c
+                    | c == 'o' -> octDigitChar
+                    | c == 'x' -> hexDigitChar
+                    | otherwise -> empty) <?>
+    "escaped character"
 
 graphicLexer :: Char -> Lexer Char
 graphicLexer extra =
