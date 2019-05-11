@@ -1,28 +1,27 @@
 {- |
 Module      :  Frontend.Grammar.Layout
-Description :  Parser of indentation
+Description :  Functions for layout-based parsing
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Module which has functions for restoring missing tokens, based on layout of
-source files.
+Module with functions for restoring missing tokens, using information about
+layout of source files.
 
-Algorithms from this module follow ones defined in specifications of
+Functions from this module implement algorithms defined in the specification of
 <https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
 -}
-module Frontend.Grammar.Layout (
-  IndentTracker,
-  Layout(..),
-  LayoutError(..),
-  algorithmL,
-  insertIndents,
-  filterConsequentIndents,
-  getFirstIndent,
-  prepareLayout,
-  restoreMissingTokens,
-  withExpectedIndent,
-  withIndents
-) where
+module Frontend.Grammar.Layout
+    ( Layout(..)
+    , LayoutError(..)
+    , algorithmL
+    , insertIndents
+    , filterConsequentIndents
+    , getFirstIndent
+    , prepareLayout
+    , restoreMissingTokens
+    , withExpectedIndent
+    , withIndents
+    ) where
 
 import Control.Applicative (liftA2)
 import Control.Monad.Trans.State (State, evalState, get, put)
@@ -38,14 +37,14 @@ import Frontend.Grammar.Position
     )
 import Frontend.Grammar.Token (Keyword(..), Special(..), Token(..))
 
--- | Type describes information, required for restoration of layout.
+-- | Type describes information about layout of source files
 data Layout
     = LayoutToken (WithLocation Token) -- ^ Token
-    | LayoutIndent Int -- ^ Indent of current line
+    | LayoutIndent Int -- ^ Indent of the current line
     | LayoutExpectedIndent Int -- ^ Expected indent of following tokens
     deriving (Eq, Show)
 
--- | Type of a structure for tracking of indents
+-- | Structure for indentation tracking
 type IndentTracker a = State Int a
 
 -- | Function adds expected indents, if they're required
@@ -66,7 +65,8 @@ withExpectedIndent tok next'
                   -- { found, just return token
                  -> [LayoutToken tok]
                 | otherwise
-                  -- Missing {, expect following token to be indented as the next one
+                  -- Missing {, expect following tokens to be indented
+                  -- as the next one
                  -> [LayoutToken tok, LayoutExpectedIndent column]
     -- We don't expect indent after other tokens
     | otherwise = [LayoutToken tok]
@@ -82,13 +82,13 @@ withIndents token' next =
             getLocationStart . getLocation $ token'
      in do line <- get
            if line < curLine
-              -- This token is the first on the line, add line indent
+              -- This token is the first on the line, we should save its indent
                then do
                    put curLine
                    return $ LayoutIndent curColumn : withExpected
                else return withExpected
 
--- | Function returns expected indent, which should prepend provided tokens
+-- | Function returns expected indent of the first token from the provided list
 getFirstIndent :: [WithLocation Token] -> Maybe Layout
 getFirstIndent [] = Nothing
 getFirstIndent (WithLocation token' location:_)

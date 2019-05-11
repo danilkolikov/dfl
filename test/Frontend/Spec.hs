@@ -1,7 +1,7 @@
 module Frontend.Spec where
 
-import Frontend.Grammar.Spec as G
+import Frontend.Grammar.Spec as Grammar
 
 testSuite :: IO ()
 testSuite = do
-    G.testSuite
+    Grammar.testSuite

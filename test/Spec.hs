@@ -1,5 +1,5 @@
-import Frontend.Spec as F
+import Frontend.Spec as Frontend
 
 main :: IO ()
 main = do
-    F.testSuite
+    Frontend.testSuite
