@@ -1,7 +1,9 @@
 module Frontend.Grammar.Spec where
 
-import Frontend.Grammar.LexerTest as L
+import Frontend.Grammar.LexerTest as Lexer
+import Frontend.Grammar.LayoutTest as Layout
 
 testSuite :: IO ()
 testSuite = do
-    L.testSuite
+    Lexer.testSuite
+    Layout.testSuite

@@ -6,7 +6,10 @@ import Text.Megaparsec (parse)
 
 import qualified Data.HashMap.Lazy as HM
 import Frontend.Grammar.Lexer (Lexable(..), Lexer, programLexer, whitespace)
-import Frontend.Grammar.Position (WL, WithLocation(..), sourceLocation)
+import Frontend.Grammar.Position
+    ( WithLocation(..)
+    , sourceLocation
+    )
 import Frontend.Grammar.Token
 
 testSuite :: IO ()
@@ -142,5 +145,5 @@ testSuite =
     shouldParseReserved :: (a -> Token) -> HM.HashMap String a -> Expectation
     shouldParseReserved wrapper =
         mapM_ (\(s, x) -> shouldParseLexeme s (wrapper x)) . HM.toList
-    shouldParseProgram :: String -> [WL Token] -> Expectation
+    shouldParseProgram :: String -> [WithLocation Token] -> Expectation
     shouldParseProgram = shouldParse' programLexer

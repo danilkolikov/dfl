@@ -29,6 +29,7 @@ library:
   - Frontend.Grammar.Lexer
   - Frontend.Grammar.Position
   - Frontend.Grammar.Token
+  - Frontend.Grammar.Layout
 
 tests:
   dfl-test:

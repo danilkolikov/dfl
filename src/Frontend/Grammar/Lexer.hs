@@ -214,7 +214,7 @@ instance (Lexable a) => Lexable (WithLocation a) where
     lexer = do
         startPos <- getSourcePosition
         res <- lexer
-        WithLocation res . SourceLoc startPos <$> getSourcePosition
+        WithLocation res . SourceLocation startPos <$> getSourcePosition
 
 -- | Lexer for whitespace and comments
 whitespace :: Lexer ()
