@@ -56,3 +56,9 @@ data WithLocation a = WithLocation
 
 instance Functor WithLocation where
     fmap f (WithLocation x loc) = WithLocation (f x) loc
+
+instance Foldable WithLocation where
+    foldMap = (. getValue)
+
+instance Traversable WithLocation where
+    traverse f (WithLocation x loc) = fmap (`WithLocation` loc) (f x)

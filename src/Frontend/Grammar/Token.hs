@@ -33,7 +33,7 @@ newtype StringT =
     StringT String
     deriving (Show, Eq, Ord)
 
--- | Type representing IDs of variables or functions
+-- | Type representing IDs of functions
 newtype VarId =
     VarId TokenT
     deriving (Show, Eq, Ord)

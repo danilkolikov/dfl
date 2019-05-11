@@ -8,10 +8,10 @@ Lexer of DFL. Definitions of tokens follow ones from
 <https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
 -}
 module Frontend.Grammar.Lexer
-    ( Lexable(..)
-    , Lexer
-    , programLexer
+    ( Lexer
+    , Lexable(..)
     , sourceLexer
+    , programLexer
     , whitespace
     ) where
 

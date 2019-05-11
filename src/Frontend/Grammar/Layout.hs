@@ -13,14 +13,14 @@ Functions from this module implement algorithms defined in the specification of
 module Frontend.Grammar.Layout
     ( Layout(..)
     , LayoutError(..)
-    , algorithmL
-    , insertIndents
-    , filterConsequentIndents
-    , getFirstIndent
-    , prepareLayout
     , restoreMissingTokens
-    , withExpectedIndent
     , withIndents
+    , withExpectedIndent
+    , getFirstIndent
+    , filterConsequentIndents
+    , prepareLayout
+    , insertIndents
+    , algorithmL
     ) where
 
 import Control.Applicative (liftA2)
