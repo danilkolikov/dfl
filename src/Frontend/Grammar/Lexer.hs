@@ -11,6 +11,7 @@ module Frontend.Grammar.Lexer
     ( Lexable(..)
     , Lexer
     , programLexer
+    , sourceLexer
     , whitespace
     ) where
 
@@ -21,12 +22,12 @@ import Data.Functor ((<$))
 import qualified Data.HashMap.Lazy as HM
 import Data.Hashable (Hashable)
 import qualified Data.Set as S
-import Data.Void
 
 import Text.Megaparsec
     ( Parsec
     , (<?>)
     , anySingle
+    , customFailure
     , eof
     , satisfy
     , takeWhile1P
@@ -44,6 +45,7 @@ import Text.Megaparsec.Char
     )
 import qualified Text.Megaparsec.Char.Lexer as L
 
+import Frontend.Grammar.Layout(LayoutError, restoreMissingTokens)
 import Frontend.Grammar.Position
     ( SourceLocation(..)
     , WithLocation(..)
@@ -54,7 +56,7 @@ import Frontend.Grammar.Token
 
 -- | Type of a lexer.
 --   Lexer is a parser which consumes strings and produces array of tokens
-type Lexer = Parsec Void String
+type Lexer = Parsec LayoutError String
 
 -- | Class for types which can be "parsed" from a string
 class Lexable a where
@@ -234,3 +236,11 @@ programLexer =
                  then token' <$ empty
                  else return token') <*
     whitespace
+
+-- | Lexer of source files. It inserts missing tokens, based on code layout
+sourceLexer :: Lexer [WithLocation Token]
+sourceLexer = do
+    program <- programLexer
+    case restoreMissingTokens program of
+        Left lexerError -> customFailure lexerError
+        Right result -> return result

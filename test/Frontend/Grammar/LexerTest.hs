@@ -5,9 +5,16 @@ import Test.Hspec.Megaparsec
 import Text.Megaparsec (parse)
 
 import qualified Data.HashMap.Lazy as HM
-import Frontend.Grammar.Lexer (Lexable(..), Lexer, programLexer, whitespace)
+import Frontend.Grammar.Lexer
+    ( Lexable(..)
+    , Lexer
+    , programLexer
+    , sourceLexer
+    , whitespace
+    )
 import Frontend.Grammar.Position
     ( WithLocation(..)
+    , dummyLocation
     , sourceLocation
     )
 import Frontend.Grammar.Token
@@ -135,6 +142,84 @@ testSuite =
                           (TokenInteger (IntT 2))
                           (sourceLocation 4 14 4 15)
                     ]
+        describe "sourceLexer" $ do
+            let lCurly = WithLocation (TokenSpecial SpecialLCurly) dummyLocation
+                rCurly = WithLocation (TokenSpecial SpecialRCurly) dummyLocation
+                semicolon =
+                    WithLocation (TokenSpecial SpecialSemicolon) dummyLocation
+            it "parses empty program" $ sourceLexerShouldBe "" []
+            it "inserts brackets" $ do
+                sourceLexerShouldBe
+                    "x = 5\ny = 6.5"
+                    [ lCurly
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "x")))
+                          (sourceLocation 1 1 1 2)
+                    , WithLocation
+                          (TokenOperator OperatorEq)
+                          (sourceLocation 1 3 1 4)
+                    , WithLocation
+                          (TokenInteger (IntT 5))
+                          (sourceLocation 1 5 1 6)
+                    , semicolon
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "y")))
+                          (sourceLocation 2 1 2 2)
+                    , WithLocation
+                          (TokenOperator OperatorEq)
+                          (sourceLocation 2 3 2 4)
+                    , WithLocation
+                          (TokenFloat (FloatT 6.5))
+                          (sourceLocation 2 5 2 8)
+                    , rCurly
+                    ]
+                sourceLexerShouldBe
+                    "do \n  x\n  y"
+                    [ lCurly
+                    , WithLocation
+                          (TokenKeyword KeywordDo)
+                          (sourceLocation 1 1 1 3)
+                    , lCurly
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "x")))
+                          (sourceLocation 2 3 2 4)
+                    , semicolon
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "y")))
+                          (sourceLocation 3 3 3 4)
+                    , rCurly
+                    , rCurly
+                    ]
+            it "inserts brackets after keywords" $
+                sourceLexerShouldBe
+                    "let x = 5 in x"
+                    [ WithLocation (TokenSpecial SpecialLCurly) dummyLocation
+                    , WithLocation
+                          (TokenKeyword KeywordLet)
+                          (sourceLocation 1 1 1 4)
+                    , WithLocation (TokenSpecial SpecialLCurly) dummyLocation
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "x")))
+                          (sourceLocation 1 5 1 6)
+                    , WithLocation
+                          (TokenOperator OperatorEq)
+                          (sourceLocation 1 7 1 8)
+                    , WithLocation
+                          (TokenInteger (IntT 5))
+                          (sourceLocation 1 9 1 10)
+                    , WithLocation (TokenSpecial SpecialRCurly) dummyLocation
+                    , WithLocation
+                          (TokenKeyword KeywordIn)
+                          (sourceLocation 1 11 1 13)
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "x")))
+                          (sourceLocation 1 14 1 15)
+                    , WithLocation (TokenSpecial SpecialRCurly) dummyLocation
+                    ]
+            it "fails on wrong bracket sequence" $ do
+                sourceLexerShouldFailOn "{"
+                sourceLexerShouldFailOn "}"
+                sourceLexerShouldFailOn "let x = 5} in x"
   where
     shouldParse' :: (Show a, Eq a) => Lexer a -> String -> a -> Expectation
     shouldParse' lexer' s = shouldParse $ parse lexer' "" s
@@ -147,3 +232,7 @@ testSuite =
         mapM_ (\(s, x) -> shouldParseLexeme s (wrapper x)) . HM.toList
     shouldParseProgram :: String -> [WithLocation Token] -> Expectation
     shouldParseProgram = shouldParse' programLexer
+    sourceLexerShouldBe :: String -> [WithLocation Token] -> Expectation
+    sourceLexerShouldBe = shouldParse' sourceLexer
+    sourceLexerShouldFailOn :: String -> Expectation
+    sourceLexerShouldFailOn = shouldFailOn $ parse sourceLexer ""
