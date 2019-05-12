@@ -53,16 +53,32 @@ testSuite =
             it "parses minus" $
                 minus `shouldParse`
                 [defaultLocation $ TokenName [] (NameVarSym $ VarSym "-")] $
-                (VarSym "-")
+                VarSym "-"
             it "parses colon" $
                 colon `shouldParse`
                 [defaultLocation $ TokenName [] (NameConSym $ ConSym ":")] $
-                (ConSym ":")
+                ConSym ":"
             it "parses QConSym" $
                 shouldParseAllExamples (Proxy :: Proxy QConSym)
             it "parses ConSym" $ shouldParseAllExamples (Proxy :: Proxy ConSym)
             it "parses QModId" $ shouldParseAllExamples (Proxy :: Proxy QModId)
             it "parses EOF" $ shouldParseAllExamples (Proxy :: Proxy EOF)
+        describe "Composite parsers" $ do
+            it "parses Literal" $ shouldParseAllExamples (Proxy :: Proxy Literal)
+            it "parses GCon" $ shouldParseAllExamples (Proxy :: Proxy GCon)
+            it "parses GTyCon" $ shouldParseAllExamples (Proxy :: Proxy GTyCon)
+            it "parses Var" $ shouldParseAllExamples (Proxy :: Proxy Var)
+            it "parses QVar" $ shouldParseAllExamples (Proxy :: Proxy QVar)
+            it "parses Con" $ shouldParseAllExamples (Proxy :: Proxy Con)
+            it "parses QCon" $ shouldParseAllExamples (Proxy :: Proxy QCon)
+            it "parses VarOp" $ shouldParseAllExamples (Proxy :: Proxy VarOp)
+            it "parses QVarOp" $ shouldParseAllExamples (Proxy :: Proxy QVarOp)
+            it "parses ConOp" $ shouldParseAllExamples (Proxy :: Proxy ConOp)
+            it "parses QConOp" $ shouldParseAllExamples (Proxy :: Proxy QConOp)
+            it "parses Op" $ shouldParseAllExamples (Proxy :: Proxy Op)
+            it "parses QOp" $ shouldParseAllExamples (Proxy :: Proxy QOp)
+            it "parses GConSym" $
+                shouldParseAllExamples (Proxy :: Proxy GConSym)
         describe "Location tracking" $
             it "tracks locations" $
             (parser :: Parser (WithLocation EOF)) `shouldParse`

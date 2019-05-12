@@ -13,47 +13,47 @@ import qualified Data.HashMap.Lazy as HM
 -- | Underlying type of tokens
 type TokenT = String
 
--- | Type representing integer numbers
+-- | Integer number
 newtype IntT =
     IntT Int
     deriving (Show, Eq, Ord)
 
--- | Type representing floating point numbers
+-- | Floating point number
 newtype FloatT =
     FloatT Double
     deriving (Show, Eq, Ord)
 
--- | Type representing characters
+-- | Character
 newtype CharT =
     CharT Char
     deriving (Show, Eq, Ord)
 
--- | Type representing strings
+-- | String
 newtype StringT =
     StringT String
     deriving (Show, Eq, Ord)
 
--- | Type representing IDs of functions
+-- | Name of a function
 newtype VarId =
     VarId TokenT
     deriving (Show, Eq, Ord)
 
--- | Type representing IDs of constructors
+-- | Name of a constructor
 newtype ConId =
     ConId TokenT
     deriving (Show, Eq, Ord)
 
--- | Type representing user-defined operators
+-- | Symbol of an infix operator
 newtype VarSym =
     VarSym TokenT
     deriving (Show, Eq, Ord)
 
--- | Type representing constructor operators
+-- | Symbol of a constructor operator
 newtype ConSym =
     ConSym TokenT
     deriving (Show, Eq, Ord)
 
--- | Type representing IDs of modules
+-- | Name of a module
 type ModId = ConId
 
 -- | Token of DFL
@@ -62,7 +62,7 @@ data Token
     | TokenKeyword Keyword -- ^ Reserved keyword
     | TokenSpecial Special -- ^ Special symbol
     | TokenInteger IntT -- ^ Integer number
-    | TokenFloat FloatT -- ^ Float number
+    | TokenFloat FloatT -- ^ Floating point number
     | TokenChar CharT -- ^ Character
     | TokenString StringT -- ^ String
     | TokenName [ModId]

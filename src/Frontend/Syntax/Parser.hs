@@ -16,21 +16,24 @@ module Frontend.Syntax.Parser
     ) where
 
 import Control.Monad (guard, when)
+import Control.Monad.Combinators.NonEmpty (some)
 import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Trans.State as ST (State, get, put, runState)
 import Data.List (find)
+import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import Data.Void (Void)
-
 import Text.Megaparsec
     ( ParseErrorBundle
     , ParsecT
     , State(..)
     , (<?>)
+    , between
     , choice
     , empty
     , getParserState
+    , optional
     , runParserT
     , token
     , try
@@ -140,10 +143,75 @@ instance (Parseable a) => Parseable (WithLocation a) where
                  -- Find the first non-implicit token and return its location
                  find (/= dummyLocation) (map getLocation $ getTokens input))
 
+instance Parseable Literal where
+    parser =
+        safeChoice
+            [ LiteralInteger <$> parser
+            , LiteralFloat <$> parser
+            , LiteralChar <$> parser
+            , LiteralString <$> parser
+            ]
+
+instance Parseable GCon where
+    parser =
+        safeChoice
+            [ inParens $ do
+                  commas <- safeOptional $ some (try $ expect SpecialComma)
+                  return $
+                      case commas of
+                          Just cmms -> GConTuple $ NE.length cmms + 1
+                          Nothing -> GConUnit
+            , inBrackets $ return GConList
+            , liftP1 GConNamed
+            ]
+
+instance Parseable GTyCon where
+    parser =
+        safeChoice
+            [ liftP1 GTyConNamed
+            , inParens $
+              safeChoice
+                  [ GTyConFunction <$ expect OperatorRArrow
+                  , GTyConTuple . (+ 1) . NE.length <$>
+                    some (try $ expect SpecialComma)
+                  , return GTyConUnit
+                  ]
+            , inBrackets $ return GTyConList
+            ]
+
+instance (Parseable a, Parseable b) => Parseable (FuncLabel a b) where
+    parser = safeChoice [inParens $ liftP1 FuncLabelSym, liftP1 FuncLabelId]
+
+instance (Parseable a, Parseable b) => Parseable (OpLabel a b) where
+    parser = safeChoice [inBackticks $ liftP1 OpLabelId, liftP1 OpLabelSym]
+
+instance Parseable GConSym where
+    parser = safeChoice [GConSymColon <$ colon, liftP1 GConSymOp]
+
 -- Helper functions
 -- | Try every parser and choose the first succeeded one.
 safeChoice :: [Parser a] -> Parser a
 safeChoice = choice . map try
+
+-- | Try to run a parser and reset back, if the parser fails
+safeOptional :: Parser a -> Parser (Maybe a)
+safeOptional = optional . try
+
+-- | "Wrap" the parser in parenthesis
+inParens :: Parser a -> Parser a
+inParens = between (expect SpecialLParen) (expect SpecialRParen)
+
+-- | "Wrap" the parser in square brackets
+inBrackets :: Parser a -> Parser a
+inBrackets = between (expect SpecialLBracket) (expect SpecialRBracket)
+
+-- | "Wrap" the parser in backticks
+inBackticks :: Parser a -> Parser a
+inBackticks = between (expect SpecialBacktick) (expect SpecialBacktick)
+
+-- | Run parser and pass result as an argument to a function
+liftP1 :: (Parseable a) => (a -> b) -> Parser b
+liftP1 f = f <$> parser
 
 -- | Parser for types from TokenContains type class
 --   This is the most low-level parser. After a token is parsed,
