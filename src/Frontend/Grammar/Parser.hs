@@ -8,6 +8,7 @@ Parser for DFL.
 -}
 module Frontend.Grammar.Parser
     ( Parser
+    , ParserState
     , Parseable(..)
     , runParser
     , minus
