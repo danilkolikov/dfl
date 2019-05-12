@@ -24,7 +24,7 @@ library:
   - megaparsec >= 7.0.4
   - parser-combinators >= 1.0.1
   - transformers >= 0.5.6.2
-  - unordered-containers >= 0.2.10.0
+  - unordered-containers >= 0.2.9.0
   exposed-modules:
   - Frontend.Syntax.Ast
   - Frontend.Syntax.Layout

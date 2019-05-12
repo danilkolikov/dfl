@@ -15,13 +15,15 @@ module Frontend.Syntax.Parser
     , colon
     ) where
 
+import Control.Applicative (liftA2)
 import Control.Monad (guard, when)
-import Control.Monad.Combinators.NonEmpty (some)
+import Control.Monad.Combinators (sepEndBy)
+import Control.Monad.Combinators.NonEmpty (sepEndBy1, some)
 import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Trans.State as ST (State, get, put, runState)
 import Data.List (find)
 import qualified Data.List.NonEmpty as NE
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Set as S
 import Data.Void (Void)
 import Text.Megaparsec
@@ -152,6 +154,70 @@ instance Parseable Literal where
             , LiteralString <$> parser
             ]
 
+instance Parseable Module where
+    parser =
+        safeChoice
+            [ do _ <- expect KeywordModule
+                 modId <- parser
+                 exports <-
+                     safeOptional $ inParens $ parser `sepByP` SpecialComma
+                 _ <- expect KeywordWhere
+                 body <- parser
+                 return $ ModuleExplicit modId exports body
+            , liftP1 ModuleImplicit
+            ]
+
+instance Parseable Export where
+    parser =
+        safeChoice
+            [ liftP1 ExportFunction
+            , liftP2 ExportDataOrClass
+            , expect KeywordModule *> liftP1 ExportModule
+            ]
+
+instance Parseable ImpExpList where
+    parser =
+        fromMaybe ImpExpNothing <$>
+        safeOptional
+            (inParens $
+             safeChoice
+                 [ ImpExpAll <$ expect OperatorDDot
+                 , ImpExpSome <$> parser `sepBy1P` SpecialComma
+                 , return ImpExpNothing
+                 ])
+
+instance Parseable Body where
+    parser =
+        inCurly $
+        safeChoice
+            [ do impDecls <- parseImpDecls
+                 return $ Body impDecls
+            , return $ Body []
+            ]
+      where
+        parseImpDecls :: Parser [WithLocation ImpDecl]
+        parseImpDecls =
+            NE.toList <$>
+            try parser `sepEndBy1` try (some $ expect SpecialSemicolon)
+
+instance Parseable ImpDecl where
+    parser = do
+        _ <- expect KeywordImport
+        qual <- safeOptional $ expect (VarId "qualified")
+        name <- parser
+        asModId <- safeOptional $ expect (VarId "as") *> parser
+        impSpec <- safeOptional parser
+        return $ ImpDecl (isJust qual) name asModId impSpec
+
+instance Parseable ImpSpec where
+    parser = do
+        hiding <- safeOptional $ expect (VarId "hiding")
+        imports <- inParens $ parser `sepByP` SpecialComma
+        return $ ImpSpec (isJust hiding) imports
+
+instance Parseable Import where
+    parser = safeChoice [liftP1 ImportFunction, liftP2 ImportDataOrClass]
+
 instance Parseable GCon where
     parser =
         safeChoice
@@ -197,21 +263,36 @@ safeChoice = choice . map try
 safeOptional :: Parser a -> Parser (Maybe a)
 safeOptional = optional . try
 
--- | "Wrap" the parser in parenthesis
+-- | "Wrap" a parser in parenthesis
 inParens :: Parser a -> Parser a
 inParens = between (expect SpecialLParen) (expect SpecialRParen)
 
--- | "Wrap" the parser in square brackets
+-- | "Wrap" a parser in curly brackets
+inCurly :: Parser a -> Parser a
+inCurly = between (expect SpecialLCurly) (expect SpecialRCurly)
+
+-- | "Wrap" a parser in square brackets
 inBrackets :: Parser a -> Parser a
 inBrackets = between (expect SpecialLBracket) (expect SpecialRBracket)
 
--- | "Wrap" the parser in backticks
+-- | "Wrap" a parser in backticks
 inBackticks :: Parser a -> Parser a
 inBackticks = between (expect SpecialBacktick) (expect SpecialBacktick)
+
+sepByP :: (Parseable b, Eq b, Show b) => Parser a -> b -> Parser [a]
+sepByP item sep = try item `sepEndBy` try (expect sep)
+
+sepBy1P ::
+       (Parseable b, Eq b, Show b) => Parser a -> b -> Parser (NE.NonEmpty a)
+sepBy1P item sep = try item `sepEndBy1` try (expect sep)
 
 -- | Run parser and pass result as an argument to a function
 liftP1 :: (Parseable a) => (a -> b) -> Parser b
 liftP1 f = f <$> parser
+
+-- | Run 2 parsers and pass results as arguments to a function
+liftP2 :: (Parseable a, Parseable b) => (a -> b -> c) -> Parser c
+liftP2 f = liftA2 f parser parser
 
 -- | Parser for types from TokenContains type class
 --   This is the most low-level parser. After a token is parsed,

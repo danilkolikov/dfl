@@ -5,9 +5,11 @@ Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Abstract Syntax Tree of DFL. Follows the specification of
-<https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
+<https:ororwww.haskell.orgoronlinereportorhaskell2010orhaskellch10.html Haskell 2010>.
 -}
 module Frontend.Syntax.Ast where
+
+import Data.List.NonEmpty (NonEmpty)
 
 import Frontend.Syntax.Position (WithLocation)
 import Frontend.Syntax.Token
@@ -65,6 +67,60 @@ data Literal
     | LiteralChar (WithLocation CharT) -- ^ Character
     | LiteralString (WithLocation StringT) -- ^ String
     deriving (Show, Eq)
+
+-- | Module
+data Module
+    = ModuleExplicit (WithLocation QModId)
+                     (Maybe [WithLocation Export])
+                     (WithLocation Body) -- ^ Named module
+    | ModuleImplicit (WithLocation Body) -- ^ Implicit module
+    deriving (Show, Eq)
+
+-- | Body of a module
+data Body =
+    Body [WithLocation ImpDecl]
+    deriving (Show, Eq)
+
+-- | List of imported or exported functions
+data ImpExpList
+    = ImpExpNothing -- ^ Import or export only name
+    | ImpExpSome (NonEmpty (WithLocation CName)) -- ^ Import or export name with some members
+    | ImpExpAll -- ^ Import or export name with all members
+    deriving (Show, Eq)
+
+-- | Export declaration
+data Export
+    = ExportFunction (WithLocation QVar) -- ^ Export function
+    | ExportDataOrClass (WithLocation QTyCon) -- ^ Export data or class
+                        (WithLocation ImpExpList)
+    | ExportModule (WithLocation QModId) -- ^ Export module
+    deriving (Show, Eq)
+
+-- | Import declaration.
+--   Import can be qualified or not, has an alernative name and
+--   a list of imported definitions
+data ImpDecl =
+    ImpDecl Bool
+            (WithLocation QModId)
+            (Maybe (WithLocation QModId))
+            (Maybe (WithLocation ImpSpec))
+    deriving (Show, Eq)
+
+-- | Specification of import. Import can be marked as "hiding"
+data ImpSpec =
+    ImpSpec Bool
+            [WithLocation Import]
+    deriving (Show, Eq)
+
+-- | Single import
+data Import
+    = ImportFunction (WithLocation Var) -- ^ Import function
+    | ImportDataOrClass (WithLocation TyCon)
+                        (WithLocation ImpExpList) -- ^ Import data or class
+    deriving (Show, Eq)
+
+-- | Name of imported or exported member of class or type
+type CName = Either Var Con
 
 -- | Constructors
 data GCon

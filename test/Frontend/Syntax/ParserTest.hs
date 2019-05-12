@@ -64,7 +64,19 @@ testSuite =
             it "parses QModId" $ shouldParseAllExamples (Proxy :: Proxy QModId)
             it "parses EOF" $ shouldParseAllExamples (Proxy :: Proxy EOF)
         describe "Composite parsers" $ do
-            it "parses Literal" $ shouldParseAllExamples (Proxy :: Proxy Literal)
+            it "parses Literal" $
+                shouldParseAllExamples (Proxy :: Proxy Literal)
+            it "parses Module" $ shouldParseAllExamples (Proxy :: Proxy Module)
+            it "parses ImpExpList" $
+                shouldParseAllExamples (Proxy :: Proxy ImpExpList)
+            it "parses Export" $ shouldParseAllExamples (Proxy :: Proxy Export)
+            it "parses Body" $ shouldParseAllExamples (Proxy :: Proxy Body)
+            it "parses ImpDecl" $
+                shouldParseAllExamples (Proxy :: Proxy ImpDecl)
+            it "parses ImpSpec" $
+                shouldParseAllExamples (Proxy :: Proxy ImpSpec)
+            it "parses Import" $ shouldParseAllExamples (Proxy :: Proxy Import)
+            it "parses CName" $ shouldParseAllExamples (Proxy :: Proxy CName)
             it "parses GCon" $ shouldParseAllExamples (Proxy :: Proxy GCon)
             it "parses GTyCon" $ shouldParseAllExamples (Proxy :: Proxy GTyCon)
             it "parses Var" $ shouldParseAllExamples (Proxy :: Proxy Var)
@@ -80,10 +92,59 @@ testSuite =
             it "parses GConSym" $
                 shouldParseAllExamples (Proxy :: Proxy GConSym)
         describe "Location tracking" $
-            it "tracks locations" $
-            (parser :: Parser (WithLocation EOF)) `shouldParse`
-            [WithLocation (TokenEOF EOF) (sourceLocation 1 2 1 3)] $
-            WithLocation EOF (sourceLocation 1 2 1 3)
+            it "tracks locations" $ do
+                (parser :: Parser (WithLocation EOF)) `shouldParse`
+                    [WithLocation (TokenEOF EOF) (sourceLocation 1 2 1 3)] $
+                    WithLocation EOF (sourceLocation 1 2 1 3)
+                (parser :: Parser (WithLocation ImpSpec)) `shouldParse`
+                    [ WithLocation
+                          (TokenName [] (NameVarId (VarId "hiding")))
+                          (sourceLocation 1 1 1 7)
+                    , WithLocation
+                          (TokenSpecial SpecialLParen)
+                          (sourceLocation 1 8 1 9)
+                    , WithLocation
+                          (TokenName [] (NameVarId (VarId "foo")))
+                          (sourceLocation 2 4 2 7)
+                    , WithLocation
+                          (TokenSpecial SpecialComma)
+                          (sourceLocation 2 7 2 8)
+                    , WithLocation
+                          (TokenName [] (NameConId (ConId "Data")))
+                          (sourceLocation 3 4 3 8)
+                    , WithLocation
+                          (TokenSpecial SpecialLParen)
+                          (sourceLocation 3 8 3 9)
+                    , WithLocation
+                          (TokenOperator OperatorDDot)
+                          (sourceLocation 3 9 3 11)
+                    , WithLocation
+                          (TokenSpecial SpecialRParen)
+                          (sourceLocation 3 11 3 12)
+                    , WithLocation
+                          (TokenSpecial SpecialRParen)
+                          (sourceLocation 3 12 3 13)
+                    ] $
+                    WithLocation
+                        (ImpSpec
+                             True
+                             [ WithLocation
+                                   (ImportFunction
+                                        (WithLocation
+                                             (FuncLabelId $ VarId "foo")
+                                             (sourceLocation 2 4 2 7)))
+                                   (sourceLocation 2 4 2 7)
+                             , WithLocation
+                                   (ImportDataOrClass
+                                        (WithLocation
+                                             (ConId "Data")
+                                             (sourceLocation 3 4 3 8))
+                                        (WithLocation
+                                             ImpExpAll
+                                             (sourceLocation 3 8 3 12)))
+                                   (sourceLocation 3 4 3 12)
+                             ])
+                        (sourceLocation 1 1 3 13)
   where
     parseState ::
            Parser a

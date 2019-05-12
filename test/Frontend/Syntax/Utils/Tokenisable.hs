@@ -8,6 +8,9 @@ Module converts abstract syntax trees to tokens.
 -}
 module Frontend.Syntax.Utils.Tokenisable where
 
+import Data.List (intercalate)
+import qualified Data.List.NonEmpty as NE (toList)
+
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token
@@ -79,6 +82,52 @@ instance Tokenisable Literal where
     toTokens (LiteralChar x) = toTokens x
     toTokens (LiteralString x) = toTokens x
 
+instance Tokenisable Module where
+    toTokens (ModuleExplicit name exports body) =
+        [TokenKeyword KeywordModule] ++
+        toTokens name ++
+        toTokens (fmap (inParens . sepByComma) exports) ++
+        [TokenKeyword KeywordWhere] ++ toTokens body
+    toTokens (ModuleImplicit body) = toTokens body
+
+instance Tokenisable Body where
+    toTokens (Body imps) =
+        toTokens
+            (inCurly $
+             Tokens $
+             intercalate
+                 [TokenSpecial SpecialSemicolon]
+                 (map toTokens imps))
+
+instance Tokenisable ImpExpList where
+    toTokens ImpExpAll = toTokens (inParens $ TokenOperator OperatorDDot)
+    toTokens ImpExpNothing = toTokens (inParens (Nothing :: Maybe Token))
+    toTokens (ImpExpSome lst) = toTokens (inParens $ sepByComma $ NE.toList lst)
+
+instance Tokenisable Export where
+    toTokens (ExportFunction name) = toTokens name
+    toTokens (ExportDataOrClass name lst) = toTokens name ++ toTokens lst
+    toTokens (ExportModule name) = TokenKeyword KeywordModule : toTokens name
+
+instance Tokenisable ImpDecl where
+    toTokens (ImpDecl qualified name as spec) =
+        TokenKeyword KeywordImport :
+        [TokenName [] (NameVarId (VarId "qualified")) | qualified] ++
+        toTokens name ++
+        (case toTokens as of
+             [] -> []
+             toks -> TokenName [] (NameVarId (VarId "as")) : toks) ++
+        toTokens spec
+
+instance Tokenisable ImpSpec where
+    toTokens (ImpSpec hiding lst) =
+        [TokenName [] (NameVarId (VarId "hiding")) | hiding] ++
+        toTokens (inParens $ sepByComma lst)
+
+instance Tokenisable Import where
+    toTokens (ImportFunction name) = toTokens name
+    toTokens (ImportDataOrClass name lst) = toTokens name ++ toTokens lst
+
 instance Tokenisable GCon where
     toTokens GConUnit = toTokens (inParens (Nothing :: Maybe Token))
     toTokens GConList = toTokens (inBrackets (Nothing :: Maybe Token))
@@ -134,6 +183,10 @@ instance (Tokenisable a) => Tokenisable (Between a) where
 inParens :: a -> Between a
 inParens = Between (TokenSpecial SpecialLParen) (TokenSpecial SpecialRParen)
 
+-- | Wrap object in 2 curly brackets
+inCurly :: a -> Between a
+inCurly = Between (TokenSpecial SpecialLCurly) (TokenSpecial SpecialRCurly)
+
 -- | Wrap object in 2 square brackets
 inBrackets :: a -> Between a
 inBrackets =
@@ -143,3 +196,19 @@ inBrackets =
 inBackticks :: a -> Between a
 inBackticks =
     Between (TokenSpecial SpecialBacktick) (TokenSpecial SpecialBacktick)
+
+-- | List of objects, separated by tokens
+data SepBy a =
+    SepBy Token
+          [a]
+
+instance (Tokenisable a) => Tokenisable (SepBy a) where
+    toTokens (SepBy token xs) = intercalate [token] (map toTokens xs)
+
+-- | Separate objects by comma
+sepByComma :: [a] -> SepBy a
+sepByComma = SepBy (TokenSpecial SpecialComma)
+
+-- | Separate objects by semicolon
+sepBySemicolon :: [a] -> SepBy a
+sepBySemicolon = SepBy (TokenSpecial SpecialSemicolon)

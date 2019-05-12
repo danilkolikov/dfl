@@ -8,9 +8,10 @@ Module generates random abstract syntax trees.
 -}
 module Frontend.Syntax.Utils.AstExamples where
 
-import Control.Applicative (liftA2)
-import Control.Monad (replicateM)
+import Control.Applicative (liftA2, liftA3)
+import Control.Monad (liftM4, replicateM)
 import qualified Data.HashMap.Lazy as HM (elems)
+import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
@@ -38,7 +39,14 @@ instance (WithExamples a, WithExamples b) => WithExamples (Either a b) where
 
 instance (WithExamples a) => WithExamples [a] where
     getExample =
-        selectFromRandom [return [], liftE1 (: []), liftE2 (\x y -> [x, y])]
+        selectFromRandom [return [], liftE1 return, liftE2 (\x y -> [x, y])]
+
+instance (WithExamples a) => WithExamples (NE.NonEmpty a) where
+    getExample =
+        selectFromRandom [liftE1 (NE.:| []), liftE2 (\x y -> x NE.:| [y])]
+
+instance WithExamples Bool where
+    getExample = selectRandom [False, True]
 
 instance WithExamples IntT where
     getExample = selectRandom $ map IntT [0, 1, 2]
@@ -91,6 +99,35 @@ instance WithExamples Literal where
             , liftE1 LiteralString
             ]
 
+instance WithExamples Module where
+    getExample = selectFromRandom [liftE3 ModuleExplicit, liftE1 ModuleImplicit]
+
+instance WithExamples Body where
+    getExample = liftE1 Body
+
+instance WithExamples ImpExpList where
+    getExample =
+        selectFromRandom
+            [return ImpExpAll, return ImpExpNothing, liftE1 ImpExpSome]
+
+instance WithExamples Export where
+    getExample =
+        selectFromRandom
+            [ liftE1 ExportFunction
+            , liftE2 ExportDataOrClass
+            , liftE1 ExportModule
+            ]
+
+instance WithExamples ImpDecl where
+    getExample = liftE4 ImpDecl
+
+instance WithExamples ImpSpec where
+    getExample = liftE2 ImpSpec
+
+instance WithExamples Import where
+    getExample =
+        selectFromRandom [liftE1 ImportFunction, liftE2 ImportDataOrClass]
+
 instance WithExamples GCon where
     getExample =
         selectFromRandom
@@ -119,9 +156,7 @@ instance (WithExamples a, WithExamples b) => WithExamples (OpLabel a b) where
 instance WithExamples GConSym where
     getExample = selectFromRandom [return GConSymColon, liftE1 GConSymOp]
 
-
 -- Helper functions
-
 -- | Gets a random value and applies the provided function to it
 liftE1 :: (WithExamples a) => (a -> b) -> RandomSelector b
 liftE1 f = f <$> getExample
@@ -129,3 +164,17 @@ liftE1 f = f <$> getExample
 -- | Gets 2 random values and applies the provided function to them
 liftE2 :: (WithExamples a, WithExamples b) => (a -> b -> c) -> RandomSelector c
 liftE2 f = liftA2 f getExample getExample
+
+-- | Gets 3 random values and applies the provided function to them
+liftE3 ::
+       (WithExamples a, WithExamples b, WithExamples c)
+    => (a -> b -> c -> d)
+    -> RandomSelector d
+liftE3 f = liftA3 f getExample getExample getExample
+
+-- | Gets 4 random values and applies the provided function to them
+liftE4 ::
+       (WithExamples a, WithExamples b, WithExamples c, WithExamples d)
+    => (a -> b -> c -> d -> e)
+    -> RandomSelector e
+liftE4 f = liftM4 f getExample getExample getExample getExample
