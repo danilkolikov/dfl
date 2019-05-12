@@ -151,6 +151,38 @@ instance Tokenisable GTyCon where
     toTokens (GTyConTuple n) =
         toTokens (inParens (Tokens $ replicate (n - 1) (TokenSpecial SpecialComma)))
 
+instance Tokenisable Pat where
+    toTokens (PatInfix l op r) = toTokens l ++ toTokens op ++ toTokens r
+    toTokens (PatSimple pat) = toTokens pat
+
+instance Tokenisable LPat where
+    toTokens (LPatSimple pat) = toTokens pat
+    toTokens (LPatNegated n) =
+        TokenName [] (NameVarSym (VarSym "-")) : toTokens n
+    toTokens (LPatConstructor name args) =
+        toTokens name ++ toTokens (NotSep $ NE.toList args)
+
+instance Tokenisable APat where
+    toTokens (APatVariable var as) =
+        toTokens var ++
+        (case toTokens as of
+             [] -> []
+             ts -> TokenOperator OperatorAt : ts)
+    toTokens (APatConstructor name) = toTokens name
+    toTokens (APatLabelled name pats) =
+        toTokens name ++ toTokens (inCurly $ sepByComma pats)
+    toTokens (APatLiteral l) = toTokens l
+    toTokens APatWildcard = [TokenKeyword KeywordUnderscore]
+    toTokens (APatParens pat) = toTokens $ inParens pat
+    toTokens (APatTuple f s rest) =
+        toTokens $ inParens $ sepByComma $ f : s : rest
+    toTokens (APatList pats) =
+        toTokens $ inBrackets $ sepByComma $ NE.toList pats
+
+instance Tokenisable FPat where
+    toTokens (FPat var pat) =
+        toTokens var ++ [TokenOperator OperatorEq] ++ toTokens pat
+
 instance Tokenisable GCon where
     toTokens GConUnit = toTokens (inParens (Nothing :: Maybe Token))
     toTokens GConList = toTokens (inBrackets (Nothing :: Maybe Token))

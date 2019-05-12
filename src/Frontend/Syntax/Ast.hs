@@ -152,6 +152,44 @@ data GTyCon
     | GTyConFunction -- ^ Function type construtor - (->)
     deriving (Show, Eq)
 
+-- | Pattern
+data Pat
+    = PatInfix (WithLocation Pat)
+               (WithLocation QConOp)
+               (WithLocation Pat) -- ^ Infix pattern
+    | PatSimple (WithLocation LPat) -- ^ Simple pattern
+    deriving (Show, Eq)
+
+-- | Argument of infix pattern
+data LPat
+    = LPatSimple (WithLocation APat) -- ^ Simple pattern
+    | LPatNegated (WithLocation (Either IntT FloatT)) -- ^ Negated numbers
+    | LPatConstructor (WithLocation GCon)
+                      (NonEmpty (WithLocation APat)) -- ^ Pattern application
+    deriving (Show, Eq)
+
+-- | Atomic pattern
+data APat
+    = APatVariable (WithLocation Var)
+                   (Maybe (WithLocation APat)) -- ^ Named pattern
+    | APatConstructor (WithLocation GCon) -- ^ Constructor
+    | APatLabelled (WithLocation QCon)
+                   [WithLocation FPat] -- ^ Record construction
+    | APatLiteral (WithLocation Literal) -- ^ Literal
+    | APatWildcard -- ^ Wildcard
+    | APatParens (WithLocation Pat) -- ^ Pattern in parenthesis
+    | APatTuple (WithLocation Pat)
+                (WithLocation Pat)
+                [WithLocation Pat] -- ^ Tuple of patterns
+    | APatList (NonEmpty (WithLocation Pat)) -- ^ List of patterns
+    deriving (Show, Eq)
+
+-- | Record pattern
+data FPat =
+    FPat (WithLocation QVar)
+         (WithLocation Pat)
+    deriving (Show, Eq)
+
 -- | Constructors
 data GCon
     = GConNamed (WithLocation QCon) -- ^ Named constructor

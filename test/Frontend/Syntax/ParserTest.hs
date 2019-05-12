@@ -20,7 +20,7 @@ import Frontend.Syntax.Parser
 import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
 import Frontend.Syntax.Stream (TokenStream)
 import Frontend.Syntax.Token
-import Frontend.Syntax.Utils.AstExamples
+import Frontend.Syntax.Utils.AstExamples (WithExamples(..))
 import Frontend.Syntax.Utils.RandomSelector
 import Frontend.Syntax.Utils.Tokenisable
 
@@ -92,6 +92,10 @@ testSuite =
             it "parses QConOp" $ shouldParseAllExamples (Proxy :: Proxy QConOp)
             it "parses Op" $ shouldParseAllExamples (Proxy :: Proxy Op)
             it "parses QOp" $ shouldParseAllExamples (Proxy :: Proxy QOp)
+            it "parses Pat" $ shouldParseAllExamples (Proxy :: Proxy Pat)
+            it "parses LPat" $ shouldParseAllExamples (Proxy :: Proxy LPat)
+            it "parses APat" $ shouldParseAllExamples (Proxy :: Proxy APat)
+            it "parses FPat" $ shouldParseAllExamples (Proxy :: Proxy FPat)
             it "parses GConSym" $
                 shouldParseAllExamples (Proxy :: Proxy GConSym)
         describe "Location tracking" $
@@ -189,6 +193,7 @@ testSuite =
         -> Proxy a
         -> Expectation
     shouldParseAllExamples' n pxy =
-        mapM_ (shouldParseExamples pxy) $ evalRandomSelector (getExamples n) 42 5
+        mapM_ (shouldParseExamples pxy) $
+        evalRandomSelector (getExamples n) 42 5
     defaultLocation :: a -> WithLocation a
     defaultLocation x = WithLocation x (sourceLocation 1 1 1 1) -- Fake location

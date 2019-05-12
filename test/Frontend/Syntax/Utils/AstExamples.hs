@@ -6,7 +6,9 @@ License     :  MIT
 
 Module generates random abstract syntax trees.
 -}
-module Frontend.Syntax.Utils.AstExamples where
+module Frontend.Syntax.Utils.AstExamples
+    ( WithExamples(..)
+    ) where
 
 import Control.Applicative (liftA2, liftA3)
 import Control.Monad (liftM4, replicateM)
@@ -77,7 +79,7 @@ instance WithExamples ConId where
     getExample = selectRandom [ConId "Constructor", ConId "Type", ConId "Class"]
 
 instance WithExamples ConSym where
-    getExample = selectRandom [ConSym ":", ConSym ":|", ConSym ":+"]
+    getExample = selectRandom [ConSym ":<", ConSym ":|", ConSym ":+"]
 
 instance WithExamples VarId where
     getExample = selectRandom [VarId "foo", VarId "a", VarId "x"]
@@ -89,7 +91,7 @@ instance (WithExamples a) => WithExamples (Qualified a) where
     getExample = liftA2 Qualified getExample getExample
 
 instance (WithExamples a) => WithExamples (WithLocation a) where
-    getExample = (`WithLocation` sourceLocation 1 1 1 1) <$> getExample
+    getExample = defaultLocation <$> getExample
 
 instance WithExamples Literal where
     getExample =
@@ -151,6 +153,45 @@ instance WithExamples GTyCon where
             , return GTyConFunction
             ]
 
+instance WithExamples Pat where
+    getExample =
+        selectFromRandom
+            [ liftE1 PatSimple
+            , makeInfix
+            , do l <- makeInfix
+                 op <- getExample
+                 r <- getExample
+                 return $ PatInfix (defaultLocation l) op (wrapLPat r)
+            ]
+      where
+        wrapLPat :: WithLocation LPat -> WithLocation Pat
+        wrapLPat lPat = WithLocation (PatSimple lPat) (getLocation lPat)
+        makeInfix :: RandomSelector Pat
+        makeInfix = do
+            l <- getExample
+            op <- getExample
+            r <- getExample
+            return $ PatInfix (wrapLPat l) op (wrapLPat r)
+
+instance WithExamples LPat where
+    getExample =
+        selectFromRandom
+            [liftE1 LPatSimple, liftE1 LPatNegated, liftE2 LPatConstructor]
+
+instance WithExamples APat where
+    getExample =
+        selectFromRandomRecursive
+            [return APatWildcard, liftE1 APatConstructor, liftE1 APatLiteral]
+            [ liftE2 APatVariable
+            , liftE2 APatLabelled
+            , liftE1 APatParens
+            , liftE3 APatTuple
+            , liftE1 APatList
+            ]
+
+instance WithExamples FPat where
+    getExample = liftE2 FPat
+
 instance WithExamples GCon where
     getExample =
         selectFromRandom
@@ -191,3 +232,6 @@ liftE4 ::
     => (a -> b -> c -> d -> e)
     -> RandomSelector e
 liftE4 f = liftM4 f getExample getExample getExample getExample
+
+defaultLocation :: a -> WithLocation a
+defaultLocation = (`WithLocation` sourceLocation 1 1 1 1)

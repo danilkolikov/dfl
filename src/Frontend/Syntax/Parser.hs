@@ -17,7 +17,7 @@ module Frontend.Syntax.Parser
 
 import Control.Applicative (liftA2)
 import Control.Monad (guard, when)
-import Control.Monad.Combinators (sepEndBy)
+import Control.Monad.Combinators (many, sepEndBy)
 import Control.Monad.Combinators.NonEmpty (sepEndBy1, some)
 import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Trans.State as ST (State, get, put, runState)
@@ -253,6 +253,68 @@ instance Parseable GTyCon where
                   ]
             , inBrackets $ return GTyConList
             ]
+
+instance Parseable Pat where
+    parser = do
+        lPat <- parser
+        opPats <- many parseOpPat
+        let pat = wrapLPat lPat
+        return . getValue $ foldl combinePats pat opPats
+      where
+        wrapLPat :: WithLocation LPat -> WithLocation Pat
+        wrapLPat lPat = WithLocation (PatSimple lPat) (getLocation lPat)
+        parseOpPat :: Parser (WithLocation QConOp, WithLocation Pat)
+        parseOpPat = liftP2 (\op lPat -> (op, wrapLPat lPat))
+        combinePats ::
+               WithLocation Pat
+            -> (WithLocation QConOp, WithLocation Pat)
+            -> WithLocation Pat
+        combinePats l (op, r) =
+            WithLocation
+                (PatInfix l op r)
+                (SourceLocation
+                     (getLocationStart $ getLocation l)
+                     (getLocationEnd $ getLocation r))
+
+instance Parseable LPat where
+    parser =
+        safeChoice
+            [ minus *> liftP1 LPatNegated
+            , liftA2 LPatConstructor parser (some parser)
+            , liftP1 LPatSimple
+            ]
+
+instance Parseable APat where
+    parser =
+        safeChoice
+            [ liftA2
+                  APatVariable
+                  parser
+                  (safeOptional (expect OperatorAt *> parser))
+            , liftA2
+                  APatLabelled
+                  parser
+                  (inCurly $ parser `sepByP` SpecialComma)
+            , liftP1 APatConstructor
+            , liftP1 APatLiteral
+            , APatWildcard <$ expect KeywordUnderscore
+            , inParens $ do
+                  f <- parser
+                  safeChoice
+                      [ do _ <- expect SpecialComma
+                           (s NE.:| rest) <- parser `sepBy1P` SpecialComma
+                           return $ APatTuple f s rest
+                      , return $ APatParens f
+                      ]
+            , inBrackets (APatList <$> parser `sepBy1P` SpecialComma)
+            ]
+
+instance Parseable FPat where
+    parser = do
+        var <- parser
+        _ <- expect OperatorEq
+        pat <- parser
+        return $ FPat var pat
 
 instance Parseable GCon where
     parser =
