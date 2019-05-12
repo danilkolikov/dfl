@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Grammar.Utils.ParserTest
-Description :  Test for parser
+Module      :  Frontend.Syntax.ParserTest
+Description :  Tests for parser
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Test suite for the parser of DFL.
 -}
-module Frontend.Grammar.ParserTest where
+module Frontend.Syntax.ParserTest where
 
 import Data.Proxy
 import Data.Void
@@ -15,14 +15,14 @@ import Test.Hspec
 
 import Text.Megaparsec (ParseErrorBundle)
 
-import Frontend.Grammar.Ast
-import Frontend.Grammar.Parser
-import Frontend.Grammar.Position (WithLocation(..), sourceLocation)
-import Frontend.Grammar.Stream (TokenStream)
-import Frontend.Grammar.Token
-import Frontend.Grammar.Utils.AstExamples
-import Frontend.Grammar.Utils.RandomSelector
-import Frontend.Grammar.Utils.Tokenisable
+import Frontend.Syntax.Ast
+import Frontend.Syntax.Parser
+import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
+import Frontend.Syntax.Stream (TokenStream)
+import Frontend.Syntax.Token
+import Frontend.Syntax.Utils.AstExamples
+import Frontend.Syntax.Utils.RandomSelector
+import Frontend.Syntax.Utils.Tokenisable
 
 testSuite :: IO ()
 testSuite =

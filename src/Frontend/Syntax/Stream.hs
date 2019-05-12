@@ -1,5 +1,5 @@
 {- |
-Module      :  Frontend.Grammar.Stream
+Module      :  Frontend.Syntax.Stream
 Description :  Stream of tokens
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
@@ -8,14 +8,14 @@ Stream of tokens for parsing.
 -}
 {-# LANGUAGE TypeFamilies #-}
 
-module Frontend.Grammar.Stream
+module Frontend.Syntax.Stream
     ( TokenStream(..)
     ) where
 
 import Text.Megaparsec (Stream(..))
 
-import Frontend.Grammar.Position (WithLocation(..))
-import qualified Frontend.Grammar.Token as T (Token(..))
+import Frontend.Syntax.Position (WithLocation(..))
+import qualified Frontend.Syntax.Token as T (Token(..))
 
 -- | Stream of tokens, returned by a lexer
 newtype TokenStream = TokenStream

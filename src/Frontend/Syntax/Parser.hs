@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Grammar.Parser
+Module      :  Frontend.Syntax.Parser
 Description :  Parser for DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Parser for DFL.
 -}
-module Frontend.Grammar.Parser
+module Frontend.Syntax.Parser
     ( Parser
     , ParserState
     , Parseable(..)
@@ -36,14 +36,14 @@ import Text.Megaparsec
     , try
     )
 
-import Frontend.Grammar.Ast
-import Frontend.Grammar.Position
+import Frontend.Syntax.Ast
+import Frontend.Syntax.Position
     ( SourceLocation(..)
     , WithLocation(..)
     , dummyLocation
     )
-import Frontend.Grammar.Stream (TokenStream(..))
-import Frontend.Grammar.Token
+import Frontend.Syntax.Stream (TokenStream(..))
+import Frontend.Syntax.Token
 
 -- | State of the parser. State contains location of the last parsed token
 type ParserState = Maybe SourceLocation

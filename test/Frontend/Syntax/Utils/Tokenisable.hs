@@ -1,16 +1,16 @@
 {- |
-Module      :  Frontend.Grammar.Utils.Tokenisable
+Module      :  Frontend.Syntax.Utils.Tokenisable
 Description :  Conversion of AST to tokens
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Module converts abstract syntax trees to tokens.
 -}
-module Frontend.Grammar.Utils.Tokenisable where
+module Frontend.Syntax.Utils.Tokenisable where
 
-import Frontend.Grammar.Ast
-import Frontend.Grammar.Position (WithLocation(..))
-import Frontend.Grammar.Token
+import Frontend.Syntax.Ast
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Syntax.Token
 
 -- | Class for types which can be converted to tokens.
 class Tokenisable a where

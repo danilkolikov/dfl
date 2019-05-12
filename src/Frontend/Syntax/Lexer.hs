@@ -1,5 +1,5 @@
 {- |
-Module      :  Frontend.Grammar.Lexer
+Module      :  Frontend.Syntax.Lexer
 Description :  Lexer of DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
@@ -7,7 +7,7 @@ License     :  MIT
 Lexer of DFL. Definitions of tokens follow ones from
 <https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
 -}
-module Frontend.Grammar.Lexer
+module Frontend.Syntax.Lexer
     ( Lexer
     , Lexable(..)
     , sourceLexer
@@ -45,14 +45,14 @@ import Text.Megaparsec.Char
     )
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import Frontend.Grammar.Layout(LayoutError, restoreMissingTokens)
-import Frontend.Grammar.Position
+import Frontend.Syntax.Layout(LayoutError, restoreMissingTokens)
+import Frontend.Syntax.Position
     ( SourceLocation(..)
     , WithLocation(..)
     , getSourcePosition
     , getValue
     )
-import Frontend.Grammar.Token
+import Frontend.Syntax.Token
 
 -- | Type of a lexer.
 --   Lexer is a parser which consumes strings and produces array of tokens

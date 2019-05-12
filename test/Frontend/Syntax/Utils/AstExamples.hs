@@ -1,20 +1,20 @@
 {- |
-Module      :  Frontend.Grammar.Utils.AstExamples
+Module      :  Frontend.Syntax.Utils.AstExamples
 Description :  Generator of random examples for AST
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Module generates random abstract syntax trees.
 -}
-module Frontend.Grammar.Utils.AstExamples where
+module Frontend.Syntax.Utils.AstExamples where
 
 import Control.Applicative (liftA2)
 import Control.Monad (replicateM)
 import qualified Data.HashMap.Lazy as HM (elems)
 
-import Frontend.Grammar.Ast
-import Frontend.Grammar.Token
-import Frontend.Grammar.Utils.RandomSelector (RandomSelector, selectRandom)
+import Frontend.Syntax.Ast
+import Frontend.Syntax.Token
+import Frontend.Syntax.Utils.RandomSelector (RandomSelector, selectRandom)
 
 -- | Class of types which have examples for testing
 class WithExamples a where

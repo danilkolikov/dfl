@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Grammar.Position
+Module      :  Frontend.Syntax.Position
 Description :  Position tracking
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Code for tracking of locations in source files.
 -}
-module Frontend.Grammar.Position
+module Frontend.Syntax.Position
     ( SourcePosition(..)
     , SourceLocation(..)
     , WithLocation(..)

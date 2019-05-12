@@ -26,13 +26,13 @@ library:
   - transformers >= 0.5.6.2
   - unordered-containers >= 0.2.10.0
   exposed-modules:
-  - Frontend.Grammar.Ast
-  - Frontend.Grammar.Layout
-  - Frontend.Grammar.Lexer
-  - Frontend.Grammar.Parser
-  - Frontend.Grammar.Position
-  - Frontend.Grammar.Stream
-  - Frontend.Grammar.Token
+  - Frontend.Syntax.Ast
+  - Frontend.Syntax.Layout
+  - Frontend.Syntax.Lexer
+  - Frontend.Syntax.Parser
+  - Frontend.Syntax.Position
+  - Frontend.Syntax.Stream
+  - Frontend.Syntax.Token
 
 tests:
   dfl-test:

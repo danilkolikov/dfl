@@ -1,14 +1,15 @@
 {- |
-Module      :  Frontend.Grammar.Stream
+Module      :  Frontend.Syntax.Ast
 Description :  Abstract Syntax Tree
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Abstract Syntax Tree of DFL
+Abstract Syntax Tree of DFL. Follows the specification of
+<https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
 -}
-module Frontend.Grammar.Ast where
+module Frontend.Syntax.Ast where
 
-import Frontend.Grammar.Token (ConId, ConSym, ModId, VarId, VarSym)
+import Frontend.Syntax.Token (ConId, ConSym, ModId, VarId, VarSym)
 
 -- | Qualified name - a name, possibly prepended by the name of a module
 data Qualified a =

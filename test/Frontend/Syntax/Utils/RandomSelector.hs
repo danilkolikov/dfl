@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Grammar.Utils.RandomSelector
+Module      :  Frontend.Syntax.Utils.RandomSelector
 Description :  Selector of random values
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Module defines functions for selection of a random value from a list.
 -}
-module Frontend.Grammar.Utils.RandomSelector
+module Frontend.Syntax.Utils.RandomSelector
     ( RandomSelector
     , evalRandomSelector
     , selectRandom

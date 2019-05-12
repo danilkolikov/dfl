@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Grammar.Token
+Module      :  Frontend.Syntax.Token
 Description :  Tokens of DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Definition of tokens of DFL with supporting code.
 -}
-module Frontend.Grammar.Token where
+module Frontend.Syntax.Token where
 
 import qualified Data.HashMap.Lazy as HM
 
