@@ -13,6 +13,7 @@ Functions from this module implement algorithms defined in the specification of
 module Frontend.Syntax.Layout
     ( Layout(..)
     , LayoutError(..)
+    , IndentTracker
     , restoreMissingTokens
     , withIndents
     , withExpectedIndent

@@ -218,17 +218,26 @@ instance Parseable ImpSpec where
 instance Parseable Import where
     parser = safeChoice [liftP1 ImportFunction, liftP2 ImportDataOrClass]
 
-instance Parseable GCon where
+instance Parseable Type where
+    parser = Type <$> parser `sepBy1P` OperatorRArrow
+
+instance Parseable BType where
+    parser = BType <$> some parser
+
+instance Parseable AType where
     parser =
         safeChoice
-            [ inParens $ do
-                  commas <- safeOptional $ some (try $ expect SpecialComma)
-                  return $
-                      case commas of
-                          Just cmms -> GConTuple $ NE.length cmms + 1
-                          Nothing -> GConUnit
-            , inBrackets $ return GConList
-            , liftP1 GConNamed
+            [ liftP1 ATypeConstructor
+            , liftP1 ATypeVar
+            , inParens $ do
+                  f <- parser
+                  safeChoice
+                      [ do _ <- expect SpecialComma
+                           (s NE.:| rest) <- parser `sepBy1P` SpecialComma
+                           return $ ATypeTuple f s rest
+                      , return $ ATypeParens f
+                      ]
+            , ATypeList <$> inBrackets parser
             ]
 
 instance Parseable GTyCon where
@@ -243,6 +252,19 @@ instance Parseable GTyCon where
                   , return GTyConUnit
                   ]
             , inBrackets $ return GTyConList
+            ]
+
+instance Parseable GCon where
+    parser =
+        safeChoice
+            [ inParens $ do
+                  commas <- safeOptional $ some (try $ expect SpecialComma)
+                  return $
+                      case commas of
+                          Just cmms -> GConTuple $ NE.length cmms + 1
+                          Nothing -> GConUnit
+            , inBrackets $ return GConList
+            , liftP1 GConNamed
             ]
 
 instance (Parseable a, Parseable b) => Parseable (FuncLabel a b) where

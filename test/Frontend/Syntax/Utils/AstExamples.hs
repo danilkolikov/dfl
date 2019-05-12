@@ -19,6 +19,7 @@ import Frontend.Syntax.Token
 import Frontend.Syntax.Utils.RandomSelector
     ( RandomSelector
     , selectFromRandom
+    , selectFromRandomRecursive
     , selectRandom
     )
 
@@ -128,14 +129,17 @@ instance WithExamples Import where
     getExample =
         selectFromRandom [liftE1 ImportFunction, liftE2 ImportDataOrClass]
 
-instance WithExamples GCon where
+instance WithExamples Type where
+    getExample = liftE1 Type
+
+instance WithExamples BType where
+    getExample = liftE1 BType
+
+instance WithExamples AType where
     getExample =
-        selectFromRandom
-            [ liftE1 GConNamed
-            , return GConUnit
-            , return GConList
-            , selectRandom [GConTuple 2, GConTuple 3]
-            ]
+        selectFromRandomRecursive
+            [liftE1 ATypeConstructor, liftE1 ATypeVar]
+            [liftE3 ATypeTuple, liftE1 ATypeList, liftE1 ATypeParens]
 
 instance WithExamples GTyCon where
     getExample =
@@ -145,6 +149,15 @@ instance WithExamples GTyCon where
             , return GTyConList
             , selectRandom [GTyConTuple 2, GTyConTuple 3]
             , return GTyConFunction
+            ]
+
+instance WithExamples GCon where
+    getExample =
+        selectFromRandom
+            [ liftE1 GConNamed
+            , return GConUnit
+            , return GConList
+            , selectRandom [GConTuple 2, GConTuple 3]
             ]
 
 instance (WithExamples a, WithExamples b) => WithExamples (FuncLabel a b) where

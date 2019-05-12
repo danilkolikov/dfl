@@ -77,8 +77,11 @@ testSuite =
                 shouldParseAllExamples (Proxy :: Proxy ImpSpec)
             it "parses Import" $ shouldParseAllExamples (Proxy :: Proxy Import)
             it "parses CName" $ shouldParseAllExamples (Proxy :: Proxy CName)
-            it "parses GCon" $ shouldParseAllExamples (Proxy :: Proxy GCon)
+            it "parses Type" $ shouldParseAllExamples (Proxy :: Proxy Type)
+            it "parses BType" $ shouldParseAllExamples (Proxy :: Proxy BType)
+            it "parses AType" $ shouldParseAllExamples (Proxy :: Proxy AType)
             it "parses GTyCon" $ shouldParseAllExamples (Proxy :: Proxy GTyCon)
+            it "parses GCon" $ shouldParseAllExamples (Proxy :: Proxy GCon)
             it "parses Var" $ shouldParseAllExamples (Proxy :: Proxy Var)
             it "parses QVar" $ shouldParseAllExamples (Proxy :: Proxy QVar)
             it "parses Con" $ shouldParseAllExamples (Proxy :: Proxy Con)
@@ -186,6 +189,6 @@ testSuite =
         -> Proxy a
         -> Expectation
     shouldParseAllExamples' n pxy =
-        mapM_ (shouldParseExamples pxy) $ evalRandomSelector (getExamples n) 42
+        mapM_ (shouldParseExamples pxy) $ evalRandomSelector (getExamples n) 42 5
     defaultLocation :: a -> WithLocation a
     defaultLocation x = WithLocation x (sourceLocation 1 1 1 1) -- Fake location

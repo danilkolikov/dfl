@@ -128,6 +128,29 @@ instance Tokenisable Import where
     toTokens (ImportFunction name) = toTokens name
     toTokens (ImportDataOrClass name lst) = toTokens name ++ toTokens lst
 
+instance Tokenisable Type where
+    toTokens (Type args) =
+        toTokens $ SepBy (TokenOperator OperatorRArrow) (NE.toList args)
+
+instance Tokenisable BType where
+    toTokens (BType args) = toTokens (NotSep $ NE.toList args)
+
+instance Tokenisable AType where
+    toTokens (ATypeConstructor name) = toTokens name
+    toTokens (ATypeVar name) = toTokens name
+    toTokens (ATypeTuple f s rest) =
+        toTokens (inParens (sepByComma $ f : s : rest))
+    toTokens (ATypeList arg) = toTokens (inBrackets arg)
+    toTokens (ATypeParens arg) = toTokens (inParens arg)
+
+instance Tokenisable GTyCon where
+    toTokens (GTyConNamed name) = toTokens name
+    toTokens GTyConUnit = toTokens (inParens (Tokens []))
+    toTokens GTyConList = toTokens (inBrackets (Tokens []))
+    toTokens GTyConFunction = toTokens (inParens (TokenOperator OperatorRArrow))
+    toTokens (GTyConTuple n) =
+        toTokens (inParens (Tokens $ replicate (n - 1) (TokenSpecial SpecialComma)))
+
 instance Tokenisable GCon where
     toTokens GConUnit = toTokens (inParens (Nothing :: Maybe Token))
     toTokens GConList = toTokens (inBrackets (Nothing :: Maybe Token))
@@ -135,14 +158,6 @@ instance Tokenisable GCon where
         toTokens
             (inParens (Tokens $ replicate (n - 1) (TokenSpecial SpecialComma)))
     toTokens (GConNamed wl) = toTokens wl
-
-instance Tokenisable GTyCon where
-    toTokens (GTyConNamed name) = toTokens name
-    toTokens GTyConUnit = toTokens (inParens (Nothing :: Maybe Token))
-    toTokens GTyConList = toTokens (inBrackets (Nothing :: Maybe Token))
-    toTokens GTyConFunction = toTokens (inParens (TokenOperator OperatorRArrow))
-    toTokens (GTyConTuple n) =
-        toTokens (inParens (Tokens $ replicate (n - 1) (TokenSpecial SpecialComma)))
 
 instance (Tokenisable a, Tokenisable b) => Tokenisable (FuncLabel a b) where
     toTokens (FuncLabelId name) = toTokens name
@@ -212,3 +227,10 @@ sepByComma = SepBy (TokenSpecial SpecialComma)
 -- | Separate objects by semicolon
 sepBySemicolon :: [a] -> SepBy a
 sepBySemicolon = SepBy (TokenSpecial SpecialSemicolon)
+
+-- | Not separated list of tokens
+newtype NotSep a =
+    NotSep [a]
+
+instance (Tokenisable a) => Tokenisable (NotSep a) where
+    toTokens (NotSep xs) = concatMap toTokens xs

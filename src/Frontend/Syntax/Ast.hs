@@ -91,8 +91,8 @@ data ImpExpList
 -- | Export declaration
 data Export
     = ExportFunction (WithLocation QVar) -- ^ Export function
-    | ExportDataOrClass (WithLocation QTyCon) -- ^ Export data or class
-                        (WithLocation ImpExpList)
+    | ExportDataOrClass (WithLocation QTyCon)
+                        (WithLocation ImpExpList) -- ^ Export data or class
     | ExportModule (WithLocation QModId) -- ^ Export module
     deriving (Show, Eq)
 
@@ -122,12 +122,25 @@ data Import
 -- | Name of imported or exported member of class or type
 type CName = Either Var Con
 
--- | Constructors
-data GCon
-    = GConNamed (WithLocation QCon) -- ^ Named constructor
-    | GConUnit -- ^ Unit - ()
-    | GConList -- ^ Empty list - []
-    | GConTuple Int -- ^ N-element tuple constructor - (,,)
+-- | Function type: a1 -> a2 -> ... -> an
+newtype Type =
+    Type (NonEmpty (WithLocation BType))
+    deriving (Show, Eq)
+
+-- | Type application: a1 a2 ... an
+newtype BType =
+    BType (NonEmpty (WithLocation AType))
+    deriving (Show, Eq)
+
+-- | Atomic type
+data AType
+    = ATypeConstructor (WithLocation GTyCon) -- ^ Type constructor
+    | ATypeVar (WithLocation TyVar) -- ^ Type variable
+    | ATypeTuple (WithLocation Type)
+                 (WithLocation Type)
+                 [WithLocation Type] -- ^ Type of tuples : (a1, a2, ..., an)
+    | ATypeList (WithLocation Type) -- ^ List type: [a]
+    | ATypeParens (WithLocation Type) -- ^ Type in parenthesis: (a1 -> a2)
     deriving (Show, Eq)
 
 -- | Type constructors
@@ -137,6 +150,14 @@ data GTyCon
     | GTyConList -- ^ List type constructor - []
     | GTyConTuple Int -- ^ Tuple type constructor - (,,)
     | GTyConFunction -- ^ Function type construtor - (->)
+    deriving (Show, Eq)
+
+-- | Constructors
+data GCon
+    = GConNamed (WithLocation QCon) -- ^ Named constructor
+    | GConUnit -- ^ Unit - ()
+    | GConList -- ^ Empty list - []
+    | GConTuple Int -- ^ N-element tuple constructor - (,,)
     deriving (Show, Eq)
 
 -- | Name of a function
