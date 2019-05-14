@@ -11,10 +11,15 @@ module Frontend.Syntax.Utils.RandomSelector
     , evalRandomSelector
     , selectRandom
     , selectFromRandom
+    , selectFromRandomWeighted
     , selectFromRandomRecursive
+    , selectFromRandomRecursiveWeighted
+    , withDecreasedDepth
     ) where
 
 import qualified Control.Monad.Trans.State as ST (State, evalState, get, modify)
+import Data.List (findIndex, inits)
+import Data.Maybe (fromJust)
 import System.Random (StdGen, mkStdGen, randomR)
 
 data RandomSelectorState = RandomSelectorState
@@ -37,43 +42,91 @@ evalRandomSelector r seed depth =
         (RandomSelectorState
              {getRandomGen = mkStdGen seed, getCurrentDepth = depth})
 
+-- | Generate random number from [0, n)
+randomNumber :: Int -> RandomSelector Int
+randomNumber n = do
+    randomGen <- getRandomGen <$> ST.get
+    let (res, nextGen) = randomR (0, n - 1) randomGen
+    ST.modify $ \st -> st {getRandomGen = nextGen}
+    return res
+
+-- | Get a random number from the specified distribution.
+randomNumberWeighted ::
+       [Int] -- ^ Inverse probability of i-th value
+    -> RandomSelector Int
+randomNumberWeighted weights = do
+    randomSum <- randomNumber (sum weights)
+    return $ fromJust $ findIndex (> randomSum) (map sum (tail $ inits weights))
+
 -- | Select random value from the provided list
 selectRandom :: [a] -> RandomSelector a
 selectRandom = selectFromRandom . map return
 
 -- | Select a random value from the provided list of random selectors
-selectFromRandom :: [RandomSelector a] -> RandomSelector a
-selectFromRandom rs = do
-    state <- ST.get
-    let (pos, nextGen) = randomR (0, length rs - 1) (getRandomGen state)
-        selected = rs !! pos
-    ST.modify $ \st -> st {getRandomGen = nextGen}
-    selected
+selectFromRandom' ::
+       (b -> RandomSelector a) -- ^ Getter of a random selector
+    -> ([b] -> RandomSelector Int) -- ^ Getter of a random position
+    -> [b] -- ^ List of selectors
+    -> RandomSelector a
+selectFromRandom' getRandom getPos rs = getPos rs >>= getRandom . (rs !!)
 
+-- | Select a random value from the provided list of random selectors
+selectFromRandom :: [RandomSelector a] -> RandomSelector a
+selectFromRandom = selectFromRandom' id (randomNumber . length)
+
+-- | Select a random value from the provided list of random selectors
+--   with specified weights. Selector with a higher weight will have a higher
+--   probability to be selected
+selectFromRandomWeighted :: [(RandomSelector a, Int)] -> RandomSelector a
+selectFromRandomWeighted =
+    selectFromRandom' fst (randomNumberWeighted . map snd)
+
+-- | Get a random value with a decreased depth
+withDecreasedDepth :: RandomSelector a -> RandomSelector a
+withDecreasedDepth r = do
+    currentDepth <- getCurrentDepth <$> ST.get
+    ST.modify $ \st -> st {getCurrentDepth = currentDepth - 1}
+    result <- r
+    ST.modify $ \st -> st {getCurrentDepth = currentDepth}
+    return result
+
+-- | Select a random value from the provided list of random selectors, keeping
+--   track of the depth of recursion
+selectFromRandomRecursive' ::
+       (b -> RandomSelector a) -- ^ Getter of a selector
+    -> ([b] -> RandomSelector Int) -- ^ Getter of a random position
+    -> [b] -- ^ Non-recursive alternatives
+    -> [b] -- ^ Recursive alternatives
+    -> RandomSelector a
+selectFromRandomRecursive' getRandom getPos nonRec rec = do
+    currentDepth <- getCurrentDepth <$> ST.get
+    let alts =
+            if currentDepth <= 0
+                then nonRec
+                else nonRec ++ rec
+    pos <- getPos alts
+    let selected = getRandom $ alts !! pos
+    -- If we selected non-recursive alternative, don't modify depth
+    -- Otherwise, decrease depth, select 1 alternative and set the depth back
+    if pos < length nonRec
+        then selected
+        else withDecreasedDepth selected
+
+-- | Select a random value from the provided list of random selectors, keeping
+--   track of the depth of recursion
 selectFromRandomRecursive ::
        [RandomSelector a] -- ^ Non-recursive alternatives
     -> [RandomSelector a] -- ^ Recursive alternatives
     -> RandomSelector a
-selectFromRandomRecursive nonRec rec = do
-    state <- ST.get
-    let currentDepth = getCurrentDepth state
-        reachedMinDepth = currentDepth <= 0
-        alts =
-            if reachedMinDepth
-                then nonRec
-                else nonRec ++ rec
-        (pos, nextGen) = randomR (0, length alts - 1) (getRandomGen state)
-        selected = alts !! pos
-    -- If we selected non-recursive alternative, don't modify depth
-    -- Otherwise, decrease depth, select 1 alternative and set the depth back
-    if pos < length nonRec
-        then do
-            ST.modify $ \st -> st {getRandomGen = nextGen}
-            selected
-        else do
-            ST.modify $ \st ->
-                st {getRandomGen = nextGen, getCurrentDepth = currentDepth - 1}
-            res <- selected
-          -- After we got result from a chosen selector, we should reset depth back
-            ST.modify $ \st -> st {getCurrentDepth = currentDepth}
-            return res
+selectFromRandomRecursive =
+    selectFromRandomRecursive' id (randomNumber . length)
+
+-- | Select a random value from the provided list of random selectors, where
+--   each selector have custom probability of being selected. Keeps
+--   track of the depth of recursion
+selectFromRandomRecursiveWeighted ::
+       [(RandomSelector a, Int)] -- ^ Non-recursive alternatives
+    -> [(RandomSelector a, Int)] -- ^ Recursive alternatives
+    -> RandomSelector a
+selectFromRandomRecursiveWeighted =
+    selectFromRandomRecursive' fst (randomNumberWeighted . map snd)

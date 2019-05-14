@@ -152,6 +152,71 @@ data GTyCon
     | GTyConFunction -- ^ Function type construtor - (->)
     deriving (Show, Eq)
 
+-- | Class in a type context
+data Class
+    = ClassSimple (WithLocation QTyCls)
+                  (WithLocation TyVar) -- ^ Application "SomeClass a b c"
+    | ClassApplied (WithLocation QTyCls)
+                   (WithLocation TyVar)
+                   (NonEmpty (WithLocation AType)) -- ^ Application "SomeClass (a Foo Bar)"
+    deriving (Show, Eq)
+
+-- | Expression
+data Exp
+    = ExpTyped (WithLocation InfixExp)
+               [WithLocation Class]
+               (WithLocation Type) -- ^ Expression with an explicit type declaration
+    | ExpSimple (WithLocation InfixExp) -- ^ Simple expression
+    deriving (Show, Eq)
+
+-- | Infix expression
+data InfixExp
+    = InfixExpApplication (WithLocation InfixExp)
+                          (WithLocation QOp)
+                          (WithLocation InfixExp) -- ^ Binary expression
+    | InfixExpNegated (WithLocation InfixExp) -- ^ Negation
+    | InfixExpLExp (WithLocation LExp) -- ^ Atomic expression
+    deriving (Show, Eq)
+
+-- | Lambda-expression
+data LExp
+    = LExpAbstraction (NonEmpty (WithLocation APat))
+                      (WithLocation Exp) -- ^ Lambda-abstraction
+    | LExpIf (WithLocation Exp)
+             (WithLocation Exp)
+             (WithLocation Exp) -- ^ If expression
+    | LExpApplication (NonEmpty (WithLocation AExp)) -- ^ Application
+    deriving (Show, Eq)
+
+-- | Atomic expression
+data AExp
+    = AExpVariable (WithLocation QVar) -- ^ Variable
+    | AExpConstructor (WithLocation GCon) -- ^ Constructor
+    | AExpLiteral (WithLocation Literal) -- ^ Literal
+    | AExpParens (WithLocation Exp) -- ^ Expression in parenthesis
+    | AExpTuple (WithLocation Exp)
+                (WithLocation Exp)
+                [WithLocation Exp] -- ^ Tuple: (a, b, c)
+    | AExpList (NonEmpty (WithLocation Exp)) -- ^ List: [a, b, c]
+    | AExpSequence (WithLocation Exp)
+                   (Maybe (WithLocation Exp))
+                   (Maybe (WithLocation Exp)) -- ^ Sequence: [1, 2 .. 4]
+    | AExpLeftSection (WithLocation InfixExp)
+                      (WithLocation QOp) -- ^ Left section: (e -)
+    | AExpRightSection (WithLocation QOp)
+                       (WithLocation InfixExp) -- ^ Right section: (+ e)
+    | AExpRecordConstr (WithLocation QCon)
+                       [WithLocation FBind] -- ^ Record constructor
+    | AExpRecordUpdate (WithLocation AExp)
+                       (NonEmpty (WithLocation FBind)) -- ^ Record update
+    deriving (Show, Eq)
+
+-- | Record field binding
+data FBind =
+    FBind (WithLocation QVar)
+          (WithLocation Exp)
+    deriving (Show, Eq)
+
 -- | Pattern
 data Pat
     = PatInfix (WithLocation Pat)
@@ -173,8 +238,8 @@ data APat
     = APatVariable (WithLocation Var)
                    (Maybe (WithLocation APat)) -- ^ Named pattern
     | APatConstructor (WithLocation GCon) -- ^ Constructor
-    | APatLabelled (WithLocation QCon)
-                   [WithLocation FPat] -- ^ Record construction
+    | APatRecord (WithLocation QCon)
+                 [WithLocation FPat] -- ^ Record construction
     | APatLiteral (WithLocation Literal) -- ^ Literal
     | APatWildcard -- ^ Wildcard
     | APatParens (WithLocation Pat) -- ^ Pattern in parenthesis

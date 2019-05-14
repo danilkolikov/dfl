@@ -16,7 +16,7 @@ module Frontend.Syntax.Parser
     ) where
 
 import Control.Applicative (liftA2)
-import Control.Monad (guard, when)
+import Control.Monad (guard, void, when)
 import Control.Monad.Combinators (many, sepEndBy)
 import Control.Monad.Combinators.NonEmpty (sepEndBy1, some)
 import Control.Monad.Trans.Class (lift)
@@ -127,23 +127,7 @@ instance (Parseable a, Parseable b) => Parseable (Either a b) where
     parser = safeChoice [Left <$> parser, Right <$> parser]
 
 instance (Parseable a) => Parseable (WithLocation a) where
-    parser = do
-        nextTokenLocation <- getNextTokenLocation -- Get location of the next token
-        let (SourceLocation start _) = fromMaybe dummyLocation nextTokenLocation
-        -- Run parser
-        value <- parser
-        -- Get location of the last parsed token from state
-        state <- lift ST.get
-        let (SourceLocation _ end) = fromMaybe dummyLocation state
-        return $ WithLocation value (SourceLocation start end)
-      where
-        getNextTokenLocation :: Parser (Maybe SourceLocation)
-        getNextTokenLocation =
-            getParserState >>=
-            (\(State input _ _) ->
-                 return $
-                 -- Find the first non-implicit token and return its location
-                 find (/= dummyLocation) (map getLocation $ getTokens input))
+    parser = parseWithLocation parser
 
 instance Parseable Literal where
     parser =
@@ -157,11 +141,11 @@ instance Parseable Literal where
 instance Parseable Module where
     parser =
         safeChoice
-            [ do _ <- expect KeywordModule
+            [ do expect_ KeywordModule
                  modId <- parser
                  exports <-
                      safeOptional $ inParens $ parser `sepByP` SpecialComma
-                 _ <- expect KeywordWhere
+                 expect_ KeywordWhere
                  body <- parser
                  return $ ModuleExplicit modId exports body
             , liftP1 ModuleImplicit
@@ -202,7 +186,7 @@ instance Parseable Body where
 
 instance Parseable ImpDecl where
     parser = do
-        _ <- expect KeywordImport
+        expect_ KeywordImport
         qual <- safeOptional $ expect (VarId "qualified")
         name <- parser
         asModId <- safeOptional $ expect (VarId "as") *> parser
@@ -232,7 +216,7 @@ instance Parseable AType where
             , inParens $ do
                   f <- parser
                   safeChoice
-                      [ do _ <- expect SpecialComma
+                      [ do expect_ SpecialComma
                            (s NE.:| rest) <- parser `sepBy1P` SpecialComma
                            return $ ATypeTuple f s rest
                       , return $ ATypeParens f
@@ -254,27 +238,128 @@ instance Parseable GTyCon where
             , inBrackets $ return GTyConList
             ]
 
-instance Parseable Pat where
+instance Parseable Class where
     parser = do
-        lPat <- parser
-        opPats <- many parseOpPat
-        let pat = wrapLPat lPat
-        return . getValue $ foldl combinePats pat opPats
+        name <- parser
+        safeChoice
+            [ liftP1 (ClassSimple name)
+            , inParens $ do
+                  var <- parser
+                  types <- some parser
+                  return $ ClassApplied name var types
+            ]
+
+instance Parseable Exp where
+    parser = do
+        e <- parser
+        safeChoice
+            [ expect OperatorQDot *> liftA2 (ExpTyped e) parseContext parser
+            , return $ ExpSimple e
+            ]
+
+instance Parseable InfixExp where
+    parser = parseInfix parseSingle InfixExpApplication
       where
-        wrapLPat :: WithLocation LPat -> WithLocation Pat
-        wrapLPat lPat = WithLocation (PatSimple lPat) (getLocation lPat)
-        parseOpPat :: Parser (WithLocation QConOp, WithLocation Pat)
-        parseOpPat = liftP2 (\op lPat -> (op, wrapLPat lPat))
-        combinePats ::
-               WithLocation Pat
-            -> (WithLocation QConOp, WithLocation Pat)
-            -> WithLocation Pat
-        combinePats l (op, r) =
+        parseSingle :: Parser InfixExp
+        parseSingle =
+            safeChoice [minus *> liftP1 InfixExpNegated, liftP1 InfixExpLExp]
+
+instance Parseable LExp where
+    parser =
+        safeChoice
+            [ do expect_ OperatorBackslash
+                 args <- some parser
+                 expect_ OperatorRArrow
+                 e <- parser
+                 return $ LExpAbstraction args e
+            , do expect_ KeywordIf
+                 cond <- parser
+                 _ <- safeOptional $ expect SpecialSemicolon
+                 expect_ KeywordThen
+                 true <- parser
+                 _ <- safeOptional $ expect SpecialSemicolon
+                 expect_ KeywordElse
+                 false <- parser
+                 return $ LExpIf cond true false
+            , LExpApplication <$> some parser
+            ]
+
+instance Parseable AExp where
+    parser = do
+        aexp <- parseWithLocation parseAExp
+        fbinds <- many (try parseFBind)
+        let recordUpdate = foldl createRecordUpdate aexp fbinds
+        return $ getValue recordUpdate
+      where
+        parseAExp :: Parser AExp
+        parseAExp =
+            safeChoice
+                [ liftP1 AExpVariable
+                , liftP1 AExpLiteral
+                , do con <- parser
+                     fbinds <- inCurly $ parser `sepByP` SpecialComma
+                     return $ AExpRecordConstr con fbinds
+                , liftP1 AExpConstructor
+                , inParens $
+                  safeChoice
+                      [ do f <- parser
+                           expect_ SpecialComma
+                           (s NE.:| rest) <- parser `sepBy1P` SpecialComma
+                           return $ AExpTuple f s rest
+                      , do op <- parser
+                           guard $
+                               getValue op /=
+                               Left (OpLabelSym (Qualified [] $ VarSym "-"))
+                           e <- parser
+                           return $ AExpRightSection op e
+                      , liftP2 AExpLeftSection
+                      , liftP1 AExpParens
+                      ]
+                , inBrackets $ do
+                      first <- parser
+                      safeChoice
+                          [ do expect_ SpecialComma
+                               second <- parser
+                               safeChoice
+                                   [ do expect_ OperatorDDot
+                                        end <- safeOptional parser
+                                        return $
+                                            AExpSequence first (Just second) end
+                                   , do expect_ SpecialComma
+                                        rest <- parser `sepByP` SpecialComma
+                                        return $
+                                            AExpList
+                                                (first NE.:| (second : rest))
+                                   , return $ AExpList (first NE.:| [second])
+                                   ]
+                          , do expect_ OperatorDDot
+                               end <- safeOptional parser
+                               return $ AExpSequence first Nothing end
+                          , return $ AExpList (first NE.:| [])
+                          ]
+                ]
+        parseFBind :: Parser (NE.NonEmpty (WithLocation FBind))
+        parseFBind = inCurly $ parser `sepBy1P` SpecialComma
+        createRecordUpdate ::
+               WithLocation AExp
+            -> NE.NonEmpty (WithLocation FBind)
+            -> WithLocation AExp
+        createRecordUpdate aExp fbinds =
             WithLocation
-                (PatInfix l op r)
+                (AExpRecordUpdate aExp fbinds)
                 (SourceLocation
-                     (getLocationStart $ getLocation l)
-                     (getLocationEnd $ getLocation r))
+                     (getLocationStart $ getLocation aExp)
+                     (getLocationEnd $ getLocation (NE.last fbinds)))
+
+instance Parseable FBind where
+    parser = do
+        var <- parser
+        expect_ OperatorEq
+        e <- parser
+        return $ FBind var e
+
+instance Parseable Pat where
+    parser = parseInfix (liftP1 PatSimple) PatInfix
 
 instance Parseable LPat where
     parser =
@@ -291,17 +376,14 @@ instance Parseable APat where
                   APatVariable
                   parser
                   (safeOptional (expect OperatorAt *> parser))
-            , liftA2
-                  APatLabelled
-                  parser
-                  (inCurly $ parser `sepByP` SpecialComma)
+            , liftA2 APatRecord parser (inCurly $ parser `sepByP` SpecialComma)
             , liftP1 APatConstructor
             , liftP1 APatLiteral
             , APatWildcard <$ expect KeywordUnderscore
             , inParens $ do
                   f <- parser
                   safeChoice
-                      [ do _ <- expect SpecialComma
+                      [ do expect_ SpecialComma
                            (s NE.:| rest) <- parser `sepBy1P` SpecialComma
                            return $ APatTuple f s rest
                       , return $ APatParens f
@@ -312,7 +394,7 @@ instance Parseable APat where
 instance Parseable FPat where
     parser = do
         var <- parser
-        _ <- expect OperatorEq
+        expect_ OperatorEq
         pat <- parser
         return $ FPat var pat
 
@@ -408,3 +490,56 @@ expect x =
              then return y
              else empty) <?>
     show x
+
+-- | Expect an object and ignore result
+expect_ :: (Parseable a, Eq a, Show a) => a -> Parser ()
+expect_ x = void $ expect x
+
+-- | Run parser and save locations of parsed tokens
+parseWithLocation :: Parser a -> Parser (WithLocation a)
+parseWithLocation parser' = do
+    nextTokenLocation <- getNextTokenLocation -- Get location of the next token
+    let (SourceLocation start _) = fromMaybe dummyLocation nextTokenLocation
+    -- Run parser
+    value <- parser'
+    -- Get location of the last parsed token from state
+    state <- lift ST.get
+    let (SourceLocation _ end) = fromMaybe dummyLocation state
+    return $ WithLocation value (SourceLocation start end)
+  where
+    getNextTokenLocation :: Parser (Maybe SourceLocation)
+    getNextTokenLocation =
+        getParserState >>=
+        (\(State input _ _) ->
+             return $
+             -- Find the first non-implicit token and return its location
+             find (/= dummyLocation) (map getLocation $ getTokens input))
+
+-- | Parse type context
+parseContext :: (Parseable a) => Parser [a]
+parseContext =
+    fromMaybe [] <$>
+    safeOptional
+        (safeChoice [return <$> parser, inParens $ parser `sepByP` SpecialComma] <*
+         expect OperatorBoldRArrow)
+
+-- | Parse infix expression. All operators as treated as left-associative
+--   with the same priority
+parseInfix ::
+       (Parseable b)
+    => Parser a
+    -> (WithLocation a -> WithLocation b -> WithLocation a -> a)
+    -> Parser a
+parseInfix parseSingle makeInfix = do
+    left <- parseSingle'
+    operands <- many (try parseOperand)
+    return . getValue $ foldl createInfix left operands
+  where
+    parseSingle' = parseWithLocation parseSingle
+    parseOperand = liftA2 (\op right -> (op, right)) parser parseSingle'
+    createInfix left (op, right) =
+        WithLocation
+            (makeInfix left op right)
+            (SourceLocation
+                 (getLocationStart $ getLocation left)
+                 (getLocationEnd $ getLocation right))

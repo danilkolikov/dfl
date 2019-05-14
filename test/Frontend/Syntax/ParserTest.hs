@@ -81,6 +81,17 @@ testSuite =
             it "parses BType" $ shouldParseAllExamples (Proxy :: Proxy BType)
             it "parses AType" $ shouldParseAllExamples (Proxy :: Proxy AType)
             it "parses GTyCon" $ shouldParseAllExamples (Proxy :: Proxy GTyCon)
+            it "parses Class" $ shouldParseAllExamples (Proxy :: Proxy Class)
+            it "parses Exp" $ shouldParseAllExamples (Proxy :: Proxy Exp)
+            it "parses InfixExp" $
+                shouldParseAllExamples (Proxy :: Proxy InfixExp)
+            it "parses LExp" $ shouldParseAllExamples (Proxy :: Proxy LExp)
+            it "parses AExp" $ shouldParseAllExamples (Proxy :: Proxy AExp)
+            it "parses FBind" $ shouldParseAllExamples (Proxy :: Proxy FBind)
+            it "parses Pat" $ shouldParseAllExamples (Proxy :: Proxy Pat)
+            it "parses LPat" $ shouldParseAllExamples (Proxy :: Proxy LPat)
+            it "parses APat" $ shouldParseAllExamples (Proxy :: Proxy APat)
+            it "parses FPat" $ shouldParseAllExamples (Proxy :: Proxy FPat)
             it "parses GCon" $ shouldParseAllExamples (Proxy :: Proxy GCon)
             it "parses Var" $ shouldParseAllExamples (Proxy :: Proxy Var)
             it "parses QVar" $ shouldParseAllExamples (Proxy :: Proxy QVar)
@@ -92,10 +103,6 @@ testSuite =
             it "parses QConOp" $ shouldParseAllExamples (Proxy :: Proxy QConOp)
             it "parses Op" $ shouldParseAllExamples (Proxy :: Proxy Op)
             it "parses QOp" $ shouldParseAllExamples (Proxy :: Proxy QOp)
-            it "parses Pat" $ shouldParseAllExamples (Proxy :: Proxy Pat)
-            it "parses LPat" $ shouldParseAllExamples (Proxy :: Proxy LPat)
-            it "parses APat" $ shouldParseAllExamples (Proxy :: Proxy APat)
-            it "parses FPat" $ shouldParseAllExamples (Proxy :: Proxy FPat)
             it "parses GConSym" $
                 shouldParseAllExamples (Proxy :: Proxy GConSym)
         describe "Location tracking" $

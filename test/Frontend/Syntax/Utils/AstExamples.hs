@@ -22,6 +22,8 @@ import Frontend.Syntax.Utils.RandomSelector
     ( RandomSelector
     , selectFromRandom
     , selectFromRandomRecursive
+    , selectFromRandomRecursiveWeighted
+    , selectFromRandomWeighted
     , selectRandom
     )
 
@@ -35,18 +37,29 @@ class WithExamples a where
     getExamples n = replicateM n getExample
 
 instance (WithExamples a) => WithExamples (Maybe a) where
-    getExample = selectFromRandom [return Nothing, liftE1 Just]
+    getExample =
+        selectFromRandomWeighted
+            [ (return Nothing, 3) -- Return Nothing twice more frequent than Just
+            , (liftE1 Just, 1)
+            ]
 
 instance (WithExamples a, WithExamples b) => WithExamples (Either a b) where
     getExample = selectFromRandom [liftE1 Left, liftE1 Right]
 
 instance (WithExamples a) => WithExamples [a] where
     getExample =
-        selectFromRandom [return [], liftE1 return, liftE2 (\x y -> [x, y])]
+        selectFromRandomWeighted
+            [ (return [], 4) -- Return [] 2 times more frequent than 1 element list
+            , (liftE1 return, 2) -- Return 1 element list 2 times more frequent than 2 element list
+            , (liftE2 (\x y -> [x, y]), 1)
+            ]
 
 instance (WithExamples a) => WithExamples (NE.NonEmpty a) where
     getExample =
-        selectFromRandom [liftE1 (NE.:| []), liftE2 (\x y -> x NE.:| [y])]
+        selectFromRandomWeighted
+            [ (liftE1 (NE.:| []), 2) -- Return 1 element list 2 times more frequent than 2 element list
+            , (liftE2 (\x y -> x NE.:| [y]), 1)
+            ]
 
 instance WithExamples Bool where
     getExample = selectRandom [False, True]
@@ -153,25 +166,77 @@ instance WithExamples GTyCon where
             , return GTyConFunction
             ]
 
-instance WithExamples Pat where
+instance WithExamples Class where
+    getExample = selectFromRandom [liftE2 ClassSimple, liftE3 ClassApplied]
+
+instance WithExamples Exp where
     getExample =
-        selectFromRandom
-            [ liftE1 PatSimple
-            , makeInfix
-            , do l <- makeInfix
-                 op <- getExample
-                 r <- getExample
-                 return $ PatInfix (defaultLocation l) op (wrapLPat r)
+        selectFromRandom [liftE1 ExpSimple, inParens <$> liftE3 ExpTyped]
+      where
+        inParens :: Exp -> Exp
+        inParens exp' =
+            let aExp = AExpParens $ defaultLocation exp'
+                lExp = LExpApplication $ defaultLocation aExp NE.:| []
+                infixExp = InfixExpLExp $ defaultLocation lExp
+             in ExpSimple $ defaultLocation infixExp
+
+instance WithExamples InfixExp where
+    getExample =
+        selectFromRandomRecursive
+            [getInfixExample (liftE1 InfixExpLExp) InfixExpApplication]
+            [liftE1 InfixExpNegated]
+
+instance WithExamples LExp where
+    getExample =
+        selectFromRandomRecursive
+            [liftE1 LExpApplication]
+            [inParens <$> liftE2 LExpAbstraction, inParens <$> liftE3 LExpIf]
+      where
+        inParens :: LExp -> LExp
+        inParens lExp =
+            let infixExp = InfixExpLExp $ defaultLocation lExp
+                exp' = ExpSimple $ defaultLocation infixExp
+                aExp = AExpParens $ defaultLocation exp'
+             in LExpApplication $ defaultLocation aExp NE.:| []
+
+instance WithExamples AExp where
+    getExample =
+        selectFromRandomRecursive
+            [liftE1 AExpVariable, liftE1 AExpConstructor, liftE1 AExpLiteral]
+            [ liftE1 AExpParens
+            , liftE3 AExpTuple
+            , liftE1 AExpList
+            , liftE3 AExpSequence
+            , liftE2 AExpLeftSection
+            , replaceMinusInRightSection <$> liftE2 AExpRightSection
+            , liftE2 AExpRecordConstr
+            , replaceQConInRecordUpdate <$> liftE2 AExpRecordUpdate
             ]
       where
-        wrapLPat :: WithLocation LPat -> WithLocation Pat
-        wrapLPat lPat = WithLocation (PatSimple lPat) (getLocation lPat)
-        makeInfix :: RandomSelector Pat
-        makeInfix = do
-            l <- getExample
-            op <- getExample
-            r <- getExample
-            return $ PatInfix (wrapLPat l) op (wrapLPat r)
+        replaceMinusInRightSection :: AExp -> AExp
+        replaceMinusInRightSection (AExpRightSection (WithLocation op loc) e)
+            | (Left (OpLabelSym (Qualified [] (VarSym "-")))) <- op =
+                AExpRightSection
+                    (WithLocation
+                         (Left (OpLabelSym (Qualified [] $ VarSym "+")))
+                         loc)
+                    e
+        replaceMinusInRightSection aExp = aExp
+        replaceQConInRecordUpdate :: AExp -> AExp
+        replaceQConInRecordUpdate (AExpRecordUpdate (WithLocation e loc) binds)
+            | (AExpConstructor (WithLocation (GConNamed _) loc')) <- e =
+                AExpRecordUpdate
+                    (WithLocation
+                         (AExpConstructor (WithLocation GConList loc'))
+                         loc)
+                    binds
+        replaceQConInRecordUpdate aExp = aExp
+
+instance WithExamples FBind where
+    getExample = liftE2 FBind
+
+instance WithExamples Pat where
+    getExample = getInfixExample (liftE1 PatSimple) PatInfix
 
 instance WithExamples LPat where
     getExample =
@@ -183,7 +248,7 @@ instance WithExamples APat where
         selectFromRandomRecursive
             [return APatWildcard, liftE1 APatConstructor, liftE1 APatLiteral]
             [ liftE2 APatVariable
-            , liftE2 APatLabelled
+            , liftE2 APatRecord
             , liftE1 APatParens
             , liftE3 APatTuple
             , liftE1 APatList
@@ -233,5 +298,29 @@ liftE4 ::
     -> RandomSelector e
 liftE4 f = liftM4 f getExample getExample getExample getExample
 
+-- | Add default location to the object
 defaultLocation :: a -> WithLocation a
 defaultLocation = (`WithLocation` sourceLocation 1 1 1 1)
+
+-- | Get example of an infix expression
+getInfixExample ::
+       (WithExamples b)
+    => RandomSelector a
+    -> (WithLocation a -> WithLocation b -> WithLocation a -> a)
+    -> RandomSelector a
+getInfixExample getSingle createInfix =
+    selectFromRandomRecursiveWeighted
+        [ (makeInfix (1 :: Int), 4)] -- Return 1 element expression more frequntly than others
+        [ (makeInfix (2 :: Int), 2)
+        , (makeInfix (3 :: Int), 1)
+        ]
+  where
+    makeInfix n
+        | n == 1 = getSingle
+        | n > 1 = do
+            left <- makeInfix (n - 1)
+            op <- getExample
+            right <- getSingle
+            return $
+                createInfix (defaultLocation left) op (defaultLocation right)
+        | otherwise = undefined

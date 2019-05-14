@@ -95,9 +95,7 @@ instance Tokenisable Body where
         toTokens
             (inCurly $
              Tokens $
-             intercalate
-                 [TokenSpecial SpecialSemicolon]
-                 (map toTokens imps))
+             intercalate [TokenSpecial SpecialSemicolon] (map toTokens imps))
 
 instance Tokenisable ImpExpList where
     toTokens ImpExpAll = toTokens (inParens $ TokenOperator OperatorDDot)
@@ -149,7 +147,75 @@ instance Tokenisable GTyCon where
     toTokens GTyConList = toTokens (inBrackets (Tokens []))
     toTokens GTyConFunction = toTokens (inParens (TokenOperator OperatorRArrow))
     toTokens (GTyConTuple n) =
-        toTokens (inParens (Tokens $ replicate (n - 1) (TokenSpecial SpecialComma)))
+        toTokens
+            (inParens (Tokens $ replicate (n - 1) (TokenSpecial SpecialComma)))
+
+instance Tokenisable Class where
+    toTokens (ClassSimple name var) = toTokens name ++ toTokens var
+    toTokens (ClassApplied name var args) =
+        toTokens name ++
+        toTokens
+            (inParens $
+             Tokens $ toTokens var ++ toTokens (NotSep (NE.toList args)))
+
+instance Tokenisable Exp where
+    toTokens (ExpTyped e context type') =
+        toTokens e ++
+        [TokenOperator OperatorQDot] ++
+        toTokens (InContext context) ++ toTokens type'
+    toTokens (ExpSimple e) = toTokens e
+
+instance Tokenisable InfixExp where
+    toTokens (InfixExpApplication l op r) =
+        toTokens l ++ toTokens op ++ toTokens r
+    toTokens (InfixExpNegated e) =
+        TokenName [] (NameVarSym (VarSym "-")) : toTokens e
+    toTokens (InfixExpLExp e) = toTokens e
+
+instance Tokenisable LExp where
+    toTokens (LExpAbstraction pats e) =
+        TokenOperator OperatorBackslash :
+        toTokens (NotSep $ NE.toList pats) ++
+        [TokenOperator OperatorRArrow] ++ toTokens e
+    toTokens (LExpIf cond then' else') =
+        TokenKeyword KeywordIf :
+        toTokens cond ++
+        [TokenSpecial SpecialSemicolon, TokenKeyword KeywordThen] ++
+        toTokens then' ++
+        [TokenSpecial SpecialSemicolon, TokenKeyword KeywordElse] ++
+        toTokens else'
+    toTokens (LExpApplication args) = toTokens $ NotSep $ NE.toList args
+
+instance Tokenisable AExp where
+    toTokens (AExpVariable name) = toTokens name
+    toTokens (AExpConstructor name) = toTokens name
+    toTokens (AExpLiteral lit) = toTokens lit
+    toTokens (AExpParens e) = toTokens $ inParens e
+    toTokens (AExpTuple f s rest) =
+        toTokens $ inParens $ sepByComma $ f : s : rest
+    toTokens (AExpList args) =
+        toTokens $ inBrackets $ sepByComma $ NE.toList args
+    toTokens (AExpSequence f s e) =
+        toTokens $
+        inBrackets $
+        Tokens $
+        toTokens f ++
+        (case toTokens s of
+             [] -> []
+             ts -> TokenSpecial SpecialComma : ts) ++
+        [TokenOperator OperatorDDot] ++ toTokens e
+    toTokens (AExpLeftSection e op) =
+        toTokens $ inParens $ Tokens $ toTokens e ++ toTokens op
+    toTokens (AExpRightSection op e) =
+        toTokens $ inParens $ Tokens $ toTokens op ++ toTokens e
+    toTokens (AExpRecordConstr name binds) =
+        toTokens name ++ toTokens (inCurly $ sepByComma binds)
+    toTokens (AExpRecordUpdate e binds) =
+        toTokens e ++ toTokens (inCurly $ sepByComma $ NE.toList binds)
+
+instance Tokenisable FBind where
+    toTokens (FBind var e) =
+        toTokens var ++ [TokenOperator OperatorEq] ++ toTokens e
 
 instance Tokenisable Pat where
     toTokens (PatInfix l op r) = toTokens l ++ toTokens op ++ toTokens r
@@ -169,7 +235,7 @@ instance Tokenisable APat where
              [] -> []
              ts -> TokenOperator OperatorAt : ts)
     toTokens (APatConstructor name) = toTokens name
-    toTokens (APatLabelled name pats) =
+    toTokens (APatRecord name pats) =
         toTokens name ++ toTokens (inCurly $ sepByComma pats)
     toTokens (APatLiteral l) = toTokens l
     toTokens APatWildcard = [TokenKeyword KeywordUnderscore]
@@ -203,9 +269,7 @@ instance Tokenisable GConSym where
     toTokens GConSymColon = [TokenName [] (NameConSym $ ConSym ":")]
     toTokens (GConSymOp sym) = toTokens sym
 
-
 -- Helper functions
-
 -- | Converts parts of tokens to tokens
 tokenContainsToTokens :: (TokenContains a) => a -> [Token]
 tokenContainsToTokens x = [toToken x]
@@ -266,3 +330,14 @@ newtype NotSep a =
 
 instance (Tokenisable a) => Tokenisable (NotSep a) where
     toTokens (NotSep xs) = concatMap toTokens xs
+
+-- | Object in a type context
+newtype InContext a =
+    InContext [a]
+
+instance (Tokenisable a) => Tokenisable (InContext a) where
+    toTokens (InContext []) = []
+    toTokens (InContext [x]) = toTokens x ++ [TokenOperator OperatorBoldRArrow]
+    toTokens (InContext xs) =
+        toTokens (inParens (sepByComma xs)) ++
+        [TokenOperator OperatorBoldRArrow]
