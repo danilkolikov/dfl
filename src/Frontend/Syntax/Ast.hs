@@ -79,6 +79,7 @@ data Module
 -- | Body of a module
 data Body =
     Body [WithLocation ImpDecl]
+         [WithLocation TopDecl]
     deriving (Show, Eq)
 
 -- | List of imported or exported functions
@@ -122,11 +123,47 @@ data Import
 -- | Name of imported or exported member of class or type
 type CName = Either Var Con
 
+-- | Top-level declaration
+data TopDecl
+    = TopDeclType (WithLocation SimpleType)
+                  (WithLocation Type) -- ^ Declaration of type
+    | TopDeclData [WithLocation Class]
+                  (WithLocation SimpleType)
+                  [WithLocation Constr]
+                  [WithLocation DClass] -- ^ Declaration of a data class
+    | TopDeclNewType [WithLocation Class]
+                     (WithLocation SimpleType)
+                     (WithLocation NewConstr)
+                     [WithLocation DClass] -- ^ Declaration of a new type
+    | TopDeclClass [WithLocation SimpleClass]
+                   (WithLocation TyCls)
+                   (WithLocation TyVar)
+                   [WithLocation CDecl] -- ^ Declaration of a type class
+    | TopDeclInstance [WithLocation SimpleClass]
+                      (WithLocation QTyCls)
+                      (WithLocation Inst)
+                      [WithLocation IDecl] -- ^ Declaration of an instance
+    | TopDeclDecl (WithLocation Decl) -- ^ Simple declaration
+    deriving (Show, Eq)
+
 -- | Simple declaration
 data Decl
     = DeclGenDecl (WithLocation GenDecl) -- ^ General declaration
     | DeclFunction (WithLocation (Either FunLHS Pat))
                    (WithLocation RHS) -- ^ Function declaration
+    deriving (Show, Eq)
+
+-- | Declaration in type class
+data CDecl
+    = CDeclGenDecl (WithLocation GenDecl) -- ^ General declaration
+    | CDeclFunction (WithLocation (Either FunLHS Var))
+                    (WithLocation RHS) -- ^ Default implementation
+    deriving (Show, Eq)
+
+-- | Declaration in instance
+data IDecl =
+    IDeclFunction (WithLocation (Either FunLHS Var))
+                  (WithLocation RHS) -- ^ Implementation
     deriving (Show, Eq)
 
 -- | General declaration
@@ -189,6 +226,64 @@ data Class
     | ClassApplied (WithLocation QTyCls)
                    (WithLocation TyVar)
                    (NonEmpty (WithLocation AType)) -- ^ Application "SomeClass (a Foo Bar)"
+    deriving (Show, Eq)
+
+-- | Class in definition of a type class
+data SimpleClass =
+    SimpleClass (WithLocation QTyCls)
+                (WithLocation TyVar)
+    deriving (Show, Eq)
+
+-- | Type in definition of a type class
+data SimpleType =
+    SimpleType (WithLocation TyCon)
+               [WithLocation TyVar]
+    deriving (Show, Eq)
+
+-- | Non-empty list of constructors
+type Constrs = NonEmpty (WithLocation Constr)
+
+-- | Definition of a constructor
+data Constr
+    = ConstrSimple (WithLocation Con)
+                   [WithLocation AType] -- ^ Simple constructor
+    | ConstrInfix (WithLocation BType)
+                  (WithLocation ConOp)
+                  (WithLocation BType) -- ^ Infix constructor
+    | ConstrRecord (WithLocation Con)
+                   [WithLocation FieldDecl] -- ^ Record
+    deriving (Show, Eq)
+
+-- | Definition of a new type
+data NewConstr
+    = NewConstrSimple (WithLocation Con)
+                      (WithLocation AType) -- ^ Simple
+    | NewConstrNamed (WithLocation Con)
+                     (WithLocation Var)
+                     (WithLocation Type) -- ^ With getters
+    deriving (Show, Eq)
+
+-- | Definition of fields in a record
+data FieldDecl =
+    FieldDecl Vars
+              (WithLocation Type)
+    deriving (Show, Eq)
+
+-- | Class in deriving
+newtype DClass =
+    DClass (WithLocation QTyCls)
+    deriving (Show, Eq)
+
+-- | Instance definition
+data Inst
+    = InstNamed (WithLocation GTyCon)
+                [WithLocation TyVar] -- ^ Named instance
+    | InstTuple (WithLocation TyVar)
+                (WithLocation TyVar)
+                [WithLocation TyVar] -- ^ Tuple
+    | InstList (WithLocation TyVar) -- ^ List
+    | InstFunction (WithLocation TyVar)
+                   (WithLocation TyVar) -- ^ Function
     deriving (Show, Eq)
 
 -- | Left hand side of a function

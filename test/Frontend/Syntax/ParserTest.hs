@@ -77,7 +77,11 @@ testSuite =
                 shouldParseAllExamples (Proxy :: Proxy ImpSpec)
             it "parses Import" $ shouldParseAllExamples (Proxy :: Proxy Import)
             it "parses CName" $ shouldParseAllExamples (Proxy :: Proxy CName)
+            it "parses TopDecl" $
+                 shouldParseAllExamples (Proxy :: Proxy TopDecl)
             it "parses Decl" $ shouldParseAllExamples (Proxy :: Proxy Decl)
+            it "parses CDecl" $ shouldParseAllExamples (Proxy :: Proxy CDecl)
+            it "parses IDecl" $ shouldParseAllExamples (Proxy :: Proxy IDecl)
             it "parses GenDecl" $
                 shouldParseAllExamples (Proxy :: Proxy GenDecl)
             it "parses Fixity" $ shouldParseAllExamples (Proxy :: Proxy Fixity)
@@ -86,6 +90,17 @@ testSuite =
             it "parses AType" $ shouldParseAllExamples (Proxy :: Proxy AType)
             it "parses GTyCon" $ shouldParseAllExamples (Proxy :: Proxy GTyCon)
             it "parses Class" $ shouldParseAllExamples (Proxy :: Proxy Class)
+            it "parses SimpleClass" $
+                shouldParseAllExamples (Proxy :: Proxy SimpleClass)
+            it "parses SimpleType" $
+                shouldParseAllExamples (Proxy :: Proxy SimpleType)
+            it "parses Constr" $ shouldParseAllExamples (Proxy :: Proxy Constr)
+            it "parses NewConstr" $
+                shouldParseAllExamples (Proxy :: Proxy NewConstr)
+            it "parses FieldDecl" $
+                shouldParseAllExamples (Proxy :: Proxy FieldDecl)
+            it "parses DClass" $ shouldParseAllExamples (Proxy :: Proxy DClass)
+            it "parses Inst" $ shouldParseAllExamples (Proxy :: Proxy Inst)
             it "parses FunLHS" $ shouldParseAllExamples (Proxy :: Proxy FunLHS)
             it "parses RHS" $ shouldParseAllExamples (Proxy :: Proxy RHS)
             it "parses GdRHS" $ shouldParseAllExamples (Proxy :: Proxy GdRHS)

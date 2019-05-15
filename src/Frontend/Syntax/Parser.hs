@@ -18,7 +18,7 @@ module Frontend.Syntax.Parser
 import Control.Applicative (liftA2, liftA3)
 import Control.Monad (guard, void, when)
 import Control.Monad.Combinators (many, sepEndBy)
-import Control.Monad.Combinators.NonEmpty (sepEndBy1, some)
+import Control.Monad.Combinators.NonEmpty (sepBy1, sepEndBy1, some)
 import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Trans.State as ST (State, get, put, runState)
 import Data.List (find)
@@ -175,14 +175,18 @@ instance Parseable Body where
         inCurly $
         safeChoice
             [ do impDecls <- parseImpDecls
-                 return $ Body impDecls
-            , return $ Body []
+                 topDecls <- fromMaybe [] <$> safeOptional parseTopDecls
+                 return $ Body impDecls topDecls
+            , Body [] <$> parseTopDecls
             ]
       where
         parseImpDecls :: Parser [WithLocation ImpDecl]
         parseImpDecls =
             NE.toList <$>
             try parser `sepEndBy1` try (some $ expect SpecialSemicolon)
+        parseTopDecls :: Parser [WithLocation TopDecl]
+        parseTopDecls =
+            try parser `sepEndBy` try (some $ expect SpecialSemicolon)
 
 instance Parseable ImpDecl where
     parser = do
@@ -202,8 +206,54 @@ instance Parseable ImpSpec where
 instance Parseable Import where
     parser = safeChoice [liftP1 ImportFunction, liftP2 ImportDataOrClass]
 
+instance Parseable TopDecl where
+    parser =
+        safeChoice
+            [ do expect_ KeywordType
+                 stype <- parser
+                 expect_ OperatorEq
+                 type' <- parser
+                 return $ TopDeclType stype type'
+            , do expect_ KeywordData
+                 context <- parseContext
+                 stype <- parser
+                 constrs <-
+                     fromMaybe [] . fmap NE.toList <$>
+                     safeOptional
+                         (expect OperatorEq *>
+                          parser `sepBy1` try (expect OperatorBar))
+                 deriving' <- parseDeriving
+                 return $ TopDeclData context stype constrs deriving'
+            , do expect_ KeywordNewType
+                 context <- parseContext
+                 stype <- parser
+                 expect_ OperatorEq
+                 newConstr <- parser
+                 deriving' <- parseDeriving
+                 return $ TopDeclNewType context stype newConstr deriving'
+            , do expect_ KeywordClass
+                 context <- parseContext
+                 name <- parser
+                 var <- parser
+                 decls <- parseWhere
+                 return $ TopDeclClass context name var decls
+            , do expect_ KeywordInstance
+                 context <- parseContext
+                 name <- parser
+                 inst <- parser
+                 decls <- parseWhere
+                 return $ TopDeclInstance context name inst decls
+            , liftP1 TopDeclDecl
+            ]
+
 instance Parseable Decl where
     parser = safeChoice [liftP1 DeclGenDecl, liftP2 DeclFunction]
+
+instance Parseable CDecl where
+    parser = safeChoice [liftP1 CDeclGenDecl, liftP2 CDeclFunction]
+
+instance Parseable IDecl where
+    parser = liftP2 IDeclFunction
 
 instance Parseable GenDecl where
     parser =
@@ -278,6 +328,62 @@ instance Parseable Class where
                   var <- parser
                   types <- some parser
                   return $ ClassApplied name var types
+            ]
+
+instance Parseable SimpleClass where
+    parser = liftP2 SimpleClass
+
+instance Parseable SimpleType where
+    parser = liftA2 SimpleType parser (many parser)
+
+instance Parseable Constr where
+    parser =
+        safeChoice
+            [ do con <- parser
+                 decls <- inCurly $ parser `sepByP` SpecialComma
+                 return $ ConstrRecord con decls
+            , liftA2 ConstrSimple parser (many parser)
+            , liftP3 ConstrInfix
+            ]
+
+instance Parseable NewConstr where
+    parser = do
+        con <- parser
+        safeChoice
+            [ liftP1 (NewConstrSimple con)
+            , inCurly $ do
+                  var <- parser
+                  expect_ OperatorQDot
+                  type' <- parser
+                  return $ NewConstrNamed con var type'
+            ]
+
+instance Parseable FieldDecl where
+    parser = do
+        vars <- parseVars
+        expect_ OperatorQDot
+        type' <- parser
+        return $ FieldDecl vars type'
+
+instance Parseable DClass where
+    parser = liftP1 DClass
+
+instance Parseable Inst where
+    parser =
+        safeChoice
+            [ liftP1 (`InstNamed` [])
+            , inParens $ liftA2 InstNamed parser (many parser)
+            , inParens $ do
+                  f <- parser
+                  expect_ SpecialComma
+                  (s NE.:| rest) <- parser `sepBy1P` SpecialComma
+                  return $ InstTuple f s rest
+            , InstList <$> inBrackets parser
+            , inParens $ do
+                  from <- parser
+                  expect_ OperatorRArrow
+                  to <- parser
+                  return $ InstFunction from to
             ]
 
 instance Parseable FunLHS where
@@ -663,6 +769,16 @@ parseWhere = do
 -- | Parse list of declarations in curly brackets
 parseDecls :: (Parseable a) => Parser [a]
 parseDecls = inCurly $ parser `sepByP` SpecialSemicolon
+
+-- | Parse deriving block
+parseDeriving :: Parser [WithLocation DClass]
+parseDeriving = do
+    hasDeriving <- safeOptional (expect KeywordDeriving)
+    case hasDeriving of
+        Just _ ->
+            safeChoice
+                [return <$> parser, inParens $ parser `sepByP` SpecialComma]
+        Nothing -> return []
 
 -- | Parse infix expression. All operators as treated as left-associative
 --   with the same priority

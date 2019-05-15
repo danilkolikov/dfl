@@ -91,11 +91,13 @@ instance Tokenisable Module where
     toTokens (ModuleImplicit body) = toTokens body
 
 instance Tokenisable Body where
-    toTokens (Body imps) =
+    toTokens (Body imps tops) =
         toTokens
             (inCurly $
              Tokens $
-             intercalate [TokenSpecial SpecialSemicolon] (map toTokens imps))
+             intercalate
+                 [TokenSpecial SpecialSemicolon]
+                 (map toTokens imps ++ map toTokens tops))
 
 instance Tokenisable ImpExpList where
     toTokens ImpExpAll = toTokens (inParens $ TokenOperator OperatorDDot)
@@ -126,9 +128,46 @@ instance Tokenisable Import where
     toTokens (ImportFunction name) = toTokens name
     toTokens (ImportDataOrClass name lst) = toTokens name ++ toTokens lst
 
+instance Tokenisable TopDecl where
+    toTokens (TopDeclType name type') =
+        TokenKeyword KeywordType :
+        toTokens name ++ [TokenOperator OperatorEq] ++ toTokens type'
+    toTokens (TopDeclData context name constrs deriving') =
+        TokenKeyword KeywordData :
+        toTokens (InContext context) ++
+        toTokens name ++
+        (case constrs of
+             [] -> []
+             xs ->
+                 TokenOperator OperatorEq :
+                 toTokens (SepBy (TokenOperator OperatorBar) xs)) ++
+        toTokens (InDeriving deriving')
+    toTokens (TopDeclNewType context name constr deriving') =
+        TokenKeyword KeywordNewType :
+        toTokens (InContext context) ++
+        toTokens name ++
+        [TokenOperator OperatorEq] ++
+        toTokens constr ++ toTokens (InDeriving deriving')
+    toTokens (TopDeclClass context name param where') =
+        TokenKeyword KeywordClass :
+        toTokens (InContext context) ++
+        toTokens name ++ toTokens param ++ toTokens (InWhere where')
+    toTokens (TopDeclInstance context name inst where') =
+        TokenKeyword KeywordInstance :
+        toTokens (InContext context) ++
+        toTokens name ++ toTokens inst ++ toTokens (InWhere where')
+    toTokens (TopDeclDecl decl) = toTokens decl
+
 instance Tokenisable Decl where
     toTokens (DeclGenDecl decl) = toTokens decl
     toTokens (DeclFunction lhs rhs) = toTokens lhs ++ toTokens rhs
+
+instance Tokenisable CDecl where
+    toTokens (CDeclGenDecl decl) = toTokens decl
+    toTokens (CDeclFunction lhs rhs) = toTokens lhs ++ toTokens rhs
+
+instance Tokenisable IDecl where
+    toTokens (IDeclFunction lhs rhs) = toTokens lhs ++ toTokens rhs
 
 instance Tokenisable GenDecl where
     toTokens (GenDeclTypeSig vars context type') =
@@ -175,6 +214,45 @@ instance Tokenisable Class where
         toTokens
             (inParens $
              Tokens $ toTokens var ++ toTokens (NotSep (NE.toList args)))
+
+instance Tokenisable SimpleClass where
+   toTokens (SimpleClass name var) = toTokens name ++ toTokens var
+
+instance Tokenisable SimpleType where
+   toTokens (SimpleType name vars) = toTokens name ++ toTokens (NotSep vars)
+
+instance Tokenisable Constr where
+   toTokens (ConstrSimple name args) = toTokens name ++ toTokens (NotSep args)
+   toTokens (ConstrInfix l op r) = toTokens l ++ toTokens op ++ toTokens r
+   toTokens (ConstrRecord name fields) =
+       toTokens name ++ toTokens (inCurly $ sepByComma fields)
+
+instance Tokenisable NewConstr where
+   toTokens (NewConstrSimple name type') = toTokens name ++ toTokens type'
+   toTokens (NewConstrNamed name getter type') =
+       toTokens name ++
+       toTokens
+           (inCurly $
+            Tokens $
+            toTokens getter ++ [TokenOperator OperatorQDot] ++ toTokens type')
+
+instance Tokenisable FieldDecl where
+   toTokens (FieldDecl vars type') =
+       toTokens (sepByComma (NE.toList vars)) ++
+       [TokenOperator OperatorQDot] ++ toTokens type'
+
+instance Tokenisable DClass where
+   toTokens (DClass name) = toTokens name
+
+instance Tokenisable Inst where
+   toTokens (InstNamed name []) = toTokens name
+   toTokens (InstNamed name args) =
+       toTokens $ inParens $ Tokens $ toTokens name ++ toTokens (NotSep args)
+   toTokens (InstTuple f s rest) =
+       toTokens $ inParens $ sepByComma $ f : s : rest
+   toTokens (InstList arg) = toTokens $ inBrackets arg
+   toTokens (InstFunction fr to) =
+       toTokens $ inParens $ SepBy (TokenOperator OperatorRArrow) [fr, to]
 
 instance Tokenisable FunLHS where
     toTokens (FunLHSSimple name pats) =
@@ -441,3 +519,13 @@ instance (Tokenisable a) => Tokenisable (InWhere a) where
     toTokens (InWhere []) = []
     toTokens (InWhere xs) =
         TokenKeyword KeywordWhere : toTokens (inCurly (sepBySemicolon xs))
+
+-- | Expression in a deriving block
+newtype InDeriving a =
+    InDeriving [a]
+
+instance (Tokenisable a) => Tokenisable (InDeriving a) where
+    toTokens (InDeriving []) = []
+    toTokens (InDeriving [x]) = TokenKeyword KeywordDeriving : toTokens x
+    toTokens (InDeriving xs) =
+        TokenKeyword KeywordDeriving : toTokens (inParens (sepByComma xs))

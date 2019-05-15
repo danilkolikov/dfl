@@ -119,7 +119,7 @@ instance WithExamples Module where
     getExample = selectFromRandom [liftE3 ModuleExplicit, liftE1 ModuleImplicit]
 
 instance WithExamples Body where
-    getExample = liftE1 Body
+    getExample = liftE2 Body
 
 instance WithExamples ImpExpList where
     getExample =
@@ -144,8 +144,25 @@ instance WithExamples Import where
     getExample =
         selectFromRandom [liftE1 ImportFunction, liftE2 ImportDataOrClass]
 
+instance WithExamples TopDecl where
+    getExample =
+        selectFromRandom
+            [ liftE2 TopDeclType
+            , liftE4 TopDeclData
+            , liftE4 TopDeclNewType
+            , liftE4 TopDeclClass
+            , liftE4 TopDeclInstance
+            , liftE1 TopDeclDecl
+            ]
+
 instance WithExamples Decl where
     getExample = selectFromRandom [liftE1 DeclGenDecl, liftE2 DeclFunction]
+
+instance WithExamples CDecl where
+    getExample = selectFromRandom [liftE1 CDeclGenDecl, liftE2 CDeclFunction]
+
+instance WithExamples IDecl where
+    getExample = selectFromRandom [liftE2 IDeclFunction]
 
 instance WithExamples GenDecl where
     getExample = selectFromRandom [liftE3 GenDeclTypeSig, liftE3 GenDeclFixity]
@@ -177,6 +194,36 @@ instance WithExamples GTyCon where
 
 instance WithExamples Class where
     getExample = selectFromRandom [liftE2 ClassSimple, liftE3 ClassApplied]
+
+instance WithExamples SimpleClass where
+    getExample = liftE2 SimpleClass
+
+instance WithExamples SimpleType where
+    getExample = liftE2 SimpleType
+
+instance WithExamples Constr where
+    getExample =
+        selectFromRandom
+            [liftE2 ConstrSimple, liftE3 ConstrInfix, liftE2 ConstrRecord]
+
+instance WithExamples NewConstr where
+    getExample =
+        selectFromRandom [liftE2 NewConstrSimple, liftE3 NewConstrNamed]
+
+instance WithExamples FieldDecl where
+    getExample = liftE2 FieldDecl
+
+instance WithExamples DClass where
+    getExample = liftE1 DClass
+
+instance WithExamples Inst where
+    getExample =
+        selectFromRandom
+            [ liftE2 InstNamed
+            , liftE3 InstTuple
+            , liftE1 InstList
+            , liftE2 InstFunction
+            ]
 
 instance WithExamples FunLHS where
     getExample =
