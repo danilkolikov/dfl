@@ -126,6 +126,24 @@ instance Tokenisable Import where
     toTokens (ImportFunction name) = toTokens name
     toTokens (ImportDataOrClass name lst) = toTokens name ++ toTokens lst
 
+instance Tokenisable Decl where
+    toTokens (DeclGenDecl decl) = toTokens decl
+    toTokens (DeclFunction lhs rhs) = toTokens lhs ++ toTokens rhs
+
+instance Tokenisable GenDecl where
+    toTokens (GenDeclTypeSig vars context type') =
+        toTokens (sepByComma (NE.toList vars)) ++
+        [TokenOperator OperatorQDot] ++
+        toTokens (InContext context) ++ toTokens type'
+    toTokens (GenDeclFixity fixity prec ops) =
+        toTokens fixity ++
+        toTokens prec ++ toTokens (sepByComma (NE.toList ops))
+
+instance Tokenisable Fixity where
+    toTokens InfixL = [TokenKeyword KeywordInfixL]
+    toTokens InfixR = [TokenKeyword KeywordInfixR]
+    toTokens Infix = [TokenKeyword KeywordInfix]
+
 instance Tokenisable Type where
     toTokens (Type args) =
         toTokens $ SepBy (TokenOperator OperatorRArrow) (NE.toList args)
@@ -158,6 +176,32 @@ instance Tokenisable Class where
             (inParens $
              Tokens $ toTokens var ++ toTokens (NotSep (NE.toList args)))
 
+instance Tokenisable FunLHS where
+    toTokens (FunLHSSimple name pats) =
+        toTokens name ++ toTokens (NotSep $ NE.toList pats)
+    toTokens (FunLHSInfix l name r) = toTokens l ++ toTokens name ++ toTokens r
+    toTokens (FunLHSNested f pats) =
+        toTokens (inParens f) ++ toTokens (NotSep $ NE.toList pats)
+
+instance Tokenisable RHS where
+    toTokens (RHSSimple e where') =
+        TokenOperator OperatorEq : toTokens e ++ toTokens (InWhere where')
+    toTokens (RHSGuarded gdrhs where') =
+        toTokens (NotSep $ NE.toList gdrhs) ++ toTokens (InWhere where')
+
+instance Tokenisable GdRHS where
+    toTokens (GdRHS guards e) =
+        TokenOperator OperatorBar :
+        toTokens (sepByComma $ NE.toList guards) ++
+        [TokenOperator OperatorEq] ++ toTokens e
+
+instance Tokenisable Guard where
+    toTokens (GuardPattern pat e) =
+        toTokens pat ++ [TokenOperator OperatorLArrow] ++ toTokens e
+    toTokens (GuardLet decls) =
+        TokenKeyword KeywordLet : toTokens (inCurly $ sepBySemicolon decls)
+    toTokens (GuardExpr e) = toTokens e
+
 instance Tokenisable Exp where
     toTokens (ExpTyped e context type') =
         toTokens e ++
@@ -177,6 +221,10 @@ instance Tokenisable LExp where
         TokenOperator OperatorBackslash :
         toTokens (NotSep $ NE.toList pats) ++
         [TokenOperator OperatorRArrow] ++ toTokens e
+    toTokens (LExpLet decls e) =
+        TokenKeyword KeywordLet :
+        toTokens (inCurly $ sepBySemicolon decls) ++
+        [TokenKeyword KeywordIn] ++ toTokens e
     toTokens (LExpIf cond then' else') =
         TokenKeyword KeywordIf :
         toTokens cond ++
@@ -184,6 +232,14 @@ instance Tokenisable LExp where
         toTokens then' ++
         [TokenSpecial SpecialSemicolon, TokenKeyword KeywordElse] ++
         toTokens else'
+    toTokens (LExpCase e alts) =
+        TokenKeyword KeywordCase :
+        toTokens e ++
+        [TokenKeyword KeywordOf] ++
+        toTokens (inCurly $ sepBySemicolon $ NE.toList alts)
+    toTokens (LExpDo stmts) =
+        TokenKeyword KeywordDo :
+        toTokens (inCurly $ sepBySemicolon $ NE.toList stmts)
     toTokens (LExpApplication args) = toTokens $ NotSep $ NE.toList args
 
 instance Tokenisable AExp where
@@ -204,6 +260,12 @@ instance Tokenisable AExp where
              [] -> []
              ts -> TokenSpecial SpecialComma : ts) ++
         [TokenOperator OperatorDDot] ++ toTokens e
+    toTokens (AExpListCompr e quals) =
+        toTokens $
+        inBrackets $
+        Tokens $
+        toTokens e ++
+        [TokenOperator OperatorBar] ++ toTokens (sepByComma $ NE.toList quals)
     toTokens (AExpLeftSection e op) =
         toTokens $ inParens $ Tokens $ toTokens e ++ toTokens op
     toTokens (AExpRightSection op e) =
@@ -212,6 +274,35 @@ instance Tokenisable AExp where
         toTokens name ++ toTokens (inCurly $ sepByComma binds)
     toTokens (AExpRecordUpdate e binds) =
         toTokens e ++ toTokens (inCurly $ sepByComma $ NE.toList binds)
+
+instance Tokenisable Qual where
+    toTokens (QualGenerator pat e) =
+        toTokens pat ++ [TokenOperator OperatorLArrow] ++ toTokens e
+    toTokens (QualLet decls) =
+        TokenKeyword KeywordLet : toTokens (inCurly $ sepBySemicolon decls)
+    toTokens (QualGuard e) = toTokens e
+
+instance Tokenisable Alt where
+    toTokens (AltSimple pat e where') =
+        toTokens pat ++
+        [TokenOperator OperatorRArrow] ++
+        toTokens e ++ toTokens (InWhere where')
+    toTokens (AltGuarded pat gds where') =
+        toTokens pat ++
+        toTokens (NotSep $ NE.toList gds) ++ toTokens (InWhere where')
+
+instance Tokenisable GdPat where
+    toTokens (GdPat guards e) =
+        TokenOperator OperatorBar :
+        toTokens (sepByComma $ NE.toList guards) ++
+        [TokenOperator OperatorRArrow] ++ toTokens e
+
+instance Tokenisable Stmt where
+    toTokens (StmtExp e) = toTokens e
+    toTokens (StmtPat pat e) =
+        toTokens pat ++ [TokenOperator OperatorLArrow] ++ toTokens e
+    toTokens (StmtLet decls) =
+        TokenKeyword KeywordLet : toTokens (inCurly $ sepBySemicolon decls)
 
 instance Tokenisable FBind where
     toTokens (FBind var e) =
@@ -341,3 +432,12 @@ instance (Tokenisable a) => Tokenisable (InContext a) where
     toTokens (InContext xs) =
         toTokens (inParens (sepByComma xs)) ++
         [TokenOperator OperatorBoldRArrow]
+
+-- | Where block
+newtype InWhere a =
+    InWhere [a]
+
+instance (Tokenisable a) => Tokenisable (InWhere a) where
+    toTokens (InWhere []) = []
+    toTokens (InWhere xs) =
+        TokenKeyword KeywordWhere : toTokens (inCurly (sepBySemicolon xs))

@@ -15,7 +15,7 @@ module Frontend.Syntax.Parser
     , colon
     ) where
 
-import Control.Applicative (liftA2)
+import Control.Applicative (liftA2, liftA3)
 import Control.Monad (guard, void, when)
 import Control.Monad.Combinators (many, sepEndBy)
 import Control.Monad.Combinators.NonEmpty (sepEndBy1, some)
@@ -202,6 +202,37 @@ instance Parseable ImpSpec where
 instance Parseable Import where
     parser = safeChoice [liftP1 ImportFunction, liftP2 ImportDataOrClass]
 
+instance Parseable Decl where
+    parser = safeChoice [liftP1 DeclGenDecl, liftP2 DeclFunction]
+
+instance Parseable GenDecl where
+    parser =
+        safeChoice
+            [ do vars <- parseVars
+                 expect_ OperatorQDot
+                 context <- parseContext
+                 type' <- parser
+                 return $ GenDeclTypeSig vars context type'
+            , do fixity <- parser
+                 precedence <- parser
+                 ops <- parseOps
+                 return $ GenDeclFixity fixity precedence ops
+            ]
+
+parseOps :: Parser Ops
+parseOps = parser `sepBy1P` SpecialComma
+
+parseVars :: Parser Vars
+parseVars = parser `sepBy1P` SpecialComma
+
+instance Parseable Fixity where
+    parser =
+        safeChoice
+            [ InfixL <$ expect KeywordInfixL
+            , InfixR <$ expect KeywordInfixR
+            , Infix <$ expect KeywordInfix
+            ]
+
 instance Parseable Type where
     parser = Type <$> parser `sepBy1P` OperatorRArrow
 
@@ -249,6 +280,42 @@ instance Parseable Class where
                   return $ ClassApplied name var types
             ]
 
+instance Parseable FunLHS where
+    parser =
+        safeChoice
+            [ liftA2 FunLHSSimple parser (some parser)
+            , liftP3 FunLHSInfix
+            , liftA2 FunLHSNested (inParens parser) (some parser)
+            ]
+
+instance Parseable RHS where
+    parser =
+        safeChoice
+            [ expect OperatorEq *> liftA2 RHSSimple parser parseWhere
+            , liftA2 RHSGuarded (some parser) parseWhere
+            ]
+
+instance Parseable GdRHS where
+    parser = do
+        guards <- parseGuards
+        expect_ OperatorEq
+        e <- parser
+        return $ GdRHS guards e
+
+parseGuards :: Parser Guards
+parseGuards = expect OperatorBar *> parser `sepBy1P` SpecialComma
+
+instance Parseable Guard where
+    parser =
+        safeChoice
+            [ expect KeywordLet *> (GuardLet <$> parseDecls)
+            , do pat <- parser
+                 expect_ OperatorLArrow
+                 e <- parser
+                 return $ GuardPattern pat e
+            , liftP1 GuardExpr
+            ]
+
 instance Parseable Exp where
     parser = do
         e <- parser
@@ -272,6 +339,11 @@ instance Parseable LExp where
                  expect_ OperatorRArrow
                  e <- parser
                  return $ LExpAbstraction args e
+            , do expect_ KeywordLet
+                 decls <- parseDecls
+                 expect_ KeywordIn
+                 e <- parser
+                 return $ LExpLet decls e
             , do expect_ KeywordIf
                  cond <- parser
                  _ <- safeOptional $ expect SpecialSemicolon
@@ -281,6 +353,13 @@ instance Parseable LExp where
                  expect_ KeywordElse
                  false <- parser
                  return $ LExpIf cond true false
+            , do expect_ KeywordCase
+                 e <- parser
+                 expect_ KeywordOf
+                 alts <- inCurly $ parser `sepBy1P` SpecialSemicolon
+                 return $ LExpCase e alts
+            , expect KeywordDo *>
+              inCurly (LExpDo <$> parser `sepBy1P` SpecialSemicolon)
             , LExpApplication <$> some parser
             ]
 
@@ -332,6 +411,9 @@ instance Parseable AExp where
                                                 (first NE.:| (second : rest))
                                    , return $ AExpList (first NE.:| [second])
                                    ]
+                          , do expect_ OperatorBar
+                               quals <- parser `sepBy1P` SpecialComma
+                               return $ AExpListCompr first quals
                           , do expect_ OperatorDDot
                                end <- safeOptional parser
                                return $ AExpSequence first Nothing end
@@ -350,6 +432,48 @@ instance Parseable AExp where
                 (SourceLocation
                      (getLocationStart $ getLocation aExp)
                      (getLocationEnd $ getLocation (NE.last fbinds)))
+
+instance Parseable Qual where
+    parser =
+        safeChoice
+            [ expect KeywordLet *> (QualLet <$> parseDecls)
+            , do pat <- parser
+                 expect_ OperatorLArrow
+                 e <- parser
+                 return $ QualGenerator pat e
+            , liftP1 QualGuard
+            ]
+
+instance Parseable Alt where
+    parser = do
+        pat <- parser
+        safeChoice
+            [ do expect_ OperatorRArrow
+                 e <- parser
+                 decls <- parseWhere
+                 return $ AltSimple pat e decls
+            , do gdpats <- some parser
+                 decls <- parseWhere
+                 return $ AltGuarded pat gdpats decls
+            ]
+
+instance Parseable GdPat where
+    parser = do
+        guards <- parseGuards
+        expect_ OperatorRArrow
+        e <- parser
+        return $ GdPat guards e
+
+instance Parseable Stmt where
+    parser =
+        safeChoice
+            [ expect KeywordLet *> (StmtLet <$> parseDecls)
+            , do pat <- parser
+                 expect_ OperatorLArrow
+                 e <- parser
+                 return $ StmtPat pat e
+            , liftP1 StmtExp
+            ]
 
 instance Parseable FBind where
     parser = do
@@ -460,6 +584,11 @@ liftP1 f = f <$> parser
 liftP2 :: (Parseable a, Parseable b) => (a -> b -> c) -> Parser c
 liftP2 f = liftA2 f parser parser
 
+-- | Run 3 parsers and pass results as arguments to a function
+liftP3 ::
+       (Parseable a, Parseable b, Parseable c) => (a -> b -> c -> d) -> Parser d
+liftP3 f = liftA3 f parser parser parser
+
 -- | Parser for types from TokenContains type class
 --   This is the most low-level parser. After a token is parsed,
 --   we update location of the last parsed token in the state
@@ -522,6 +651,18 @@ parseContext =
     safeOptional
         (safeChoice [return <$> parser, inParens $ parser `sepByP` SpecialComma] <*
          expect OperatorBoldRArrow)
+
+-- | Parse where block
+parseWhere :: (Parseable a) => Parser [a]
+parseWhere = do
+    hasWhere <- safeOptional (expect KeywordWhere)
+    case hasWhere of
+        Just _ -> parseDecls
+        Nothing -> return []
+
+-- | Parse list of declarations in curly brackets
+parseDecls :: (Parseable a) => Parser [a]
+parseDecls = inCurly $ parser `sepByP` SpecialSemicolon
 
 -- | Parse infix expression. All operators as treated as left-associative
 --   with the same priority

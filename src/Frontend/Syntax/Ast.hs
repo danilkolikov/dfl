@@ -122,6 +122,36 @@ data Import
 -- | Name of imported or exported member of class or type
 type CName = Either Var Con
 
+-- | Simple declaration
+data Decl
+    = DeclGenDecl (WithLocation GenDecl) -- ^ General declaration
+    | DeclFunction (WithLocation (Either FunLHS Pat))
+                   (WithLocation RHS) -- ^ Function declaration
+    deriving (Show, Eq)
+
+-- | General declaration
+data GenDecl
+    = GenDeclTypeSig Vars
+                     [WithLocation Class]
+                     (WithLocation Type) -- ^ Type declaration for a function
+    | GenDeclFixity (WithLocation Fixity)
+                    (WithLocation IntT)
+                    Ops -- ^ Fixity declaration
+    deriving (Show, Eq)
+
+-- | Fixity of an operator
+data Fixity
+    = InfixL -- ^ Left associativity
+    | InfixR -- ^ Right associativity
+    | Infix -- ^ Non-associative
+    deriving (Show, Eq, Ord)
+
+-- | Non-empty list of operators
+type Ops = NonEmpty (WithLocation Op)
+
+-- | Non-empty list of variables
+type Vars = NonEmpty (WithLocation Var)
+
 -- | Function type: a1 -> a2 -> ... -> an
 newtype Type =
     Type (NonEmpty (WithLocation BType))
@@ -161,6 +191,42 @@ data Class
                    (NonEmpty (WithLocation AType)) -- ^ Application "SomeClass (a Foo Bar)"
     deriving (Show, Eq)
 
+-- | Left hand side of a function
+data FunLHS
+    = FunLHSSimple (WithLocation Var)
+                   (NonEmpty (WithLocation APat)) -- ^ Simple
+    | FunLHSInfix (WithLocation Pat)
+                  (WithLocation VarOp)
+                  (WithLocation Pat) -- ^ Infix operator
+    | FunLHSNested (WithLocation FunLHS)
+                   (NonEmpty (WithLocation APat)) -- ^ Nested
+    deriving (Show, Eq)
+
+-- | Right hand side of a function
+data RHS
+    = RHSSimple (WithLocation Exp)
+                [WithLocation Decl] -- ^ Simple
+    | RHSGuarded (NonEmpty (WithLocation GdRHS))
+                 [WithLocation Decl] -- ^ With guards
+    deriving (Show, Eq)
+
+-- | Right hand side of a guard
+data GdRHS =
+    GdRHS Guards
+          (WithLocation Exp)
+    deriving (Show, Eq)
+
+-- | Non-empty list of guards
+type Guards = NonEmpty (WithLocation Guard)
+
+-- | Guard
+data Guard
+    = GuardPattern (WithLocation Pat)
+                   (WithLocation InfixExp) -- ^ Pattern
+    | GuardLet [WithLocation Decl] -- ^ Let-guard
+    | GuardExpr (WithLocation InfixExp) -- ^ Boolean guard
+    deriving (Show, Eq)
+
 -- | Expression
 data Exp
     = ExpTyped (WithLocation InfixExp)
@@ -182,9 +248,14 @@ data InfixExp
 data LExp
     = LExpAbstraction (NonEmpty (WithLocation APat))
                       (WithLocation Exp) -- ^ Lambda-abstraction
+    | LExpLet [WithLocation Decl]
+              (WithLocation Exp) -- ^ Let-abstraction
     | LExpIf (WithLocation Exp)
              (WithLocation Exp)
              (WithLocation Exp) -- ^ If expression
+    | LExpCase (WithLocation Exp)
+               Alts -- ^ Case expression
+    | LExpDo (NonEmpty (WithLocation Stmt)) -- ^ Do expression
     | LExpApplication (NonEmpty (WithLocation AExp)) -- ^ Application
     deriving (Show, Eq)
 
@@ -201,6 +272,8 @@ data AExp
     | AExpSequence (WithLocation Exp)
                    (Maybe (WithLocation Exp))
                    (Maybe (WithLocation Exp)) -- ^ Sequence: [1, 2 .. 4]
+    | AExpListCompr (WithLocation Exp)
+                    (NonEmpty (WithLocation Qual)) -- ^ List comprehension
     | AExpLeftSection (WithLocation InfixExp)
                       (WithLocation QOp) -- ^ Left section: (e -)
     | AExpRightSection (WithLocation QOp)
@@ -209,6 +282,41 @@ data AExp
                        [WithLocation FBind] -- ^ Record constructor
     | AExpRecordUpdate (WithLocation AExp)
                        (NonEmpty (WithLocation FBind)) -- ^ Record update
+    deriving (Show, Eq)
+
+-- | Qualifier in a list comprehension expression
+data Qual
+    = QualGenerator (WithLocation Pat)
+                    (WithLocation Exp) -- ^ Generator of values
+    | QualLet [WithLocation Decl] -- ^ Declaration of values
+    | QualGuard (WithLocation Exp) -- ^ Boolean guard
+    deriving (Show, Eq)
+
+-- | Non-empty list of alternatives
+type Alts = NonEmpty (WithLocation Alt)
+
+-- | Alternatives in the case expression
+data Alt
+    = AltSimple (WithLocation Pat)
+                (WithLocation Exp)
+                [WithLocation Decl] -- ^ Simple
+    | AltGuarded (WithLocation Pat)
+                 (NonEmpty (WithLocation GdPat))
+                 [WithLocation Decl] -- ^ Guarded
+    deriving (Show, Eq)
+
+-- | Guard in a case expression
+data GdPat =
+    GdPat Guards
+          (WithLocation Exp)
+    deriving (Show, Eq)
+
+-- | Statement in do expression
+data Stmt
+    = StmtExp (WithLocation Exp) -- ^ Simple expression
+    | StmtPat (WithLocation Pat)
+              (WithLocation Exp) -- ^ Pattern assignment
+    | StmtLet [WithLocation Decl] -- ^ Let declaration
     deriving (Show, Eq)
 
 -- | Record field binding

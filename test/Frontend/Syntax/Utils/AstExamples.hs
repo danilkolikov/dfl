@@ -144,6 +144,15 @@ instance WithExamples Import where
     getExample =
         selectFromRandom [liftE1 ImportFunction, liftE2 ImportDataOrClass]
 
+instance WithExamples Decl where
+    getExample = selectFromRandom [liftE1 DeclGenDecl, liftE2 DeclFunction]
+
+instance WithExamples GenDecl where
+    getExample = selectFromRandom [liftE3 GenDeclTypeSig, liftE3 GenDeclFixity]
+
+instance WithExamples Fixity where
+    getExample = selectRandom [InfixL, InfixR, Infix]
+
 instance WithExamples Type where
     getExample = liftE1 Type
 
@@ -169,6 +178,23 @@ instance WithExamples GTyCon where
 instance WithExamples Class where
     getExample = selectFromRandom [liftE2 ClassSimple, liftE3 ClassApplied]
 
+instance WithExamples FunLHS where
+    getExample =
+        selectFromRandomRecursive
+            [liftE2 FunLHSSimple, liftE3 FunLHSInfix]
+            [liftE2 FunLHSNested]
+
+instance WithExamples RHS where
+    getExample = selectFromRandom [liftE2 RHSSimple, liftE2 RHSGuarded]
+
+instance WithExamples GdRHS where
+    getExample = liftE2 GdRHS
+
+instance WithExamples Guard where
+    getExample =
+        selectFromRandom
+            [liftE2 GuardPattern, liftE1 GuardLet, liftE1 GuardExpr]
+
 instance WithExamples Exp where
     getExample =
         selectFromRandom [liftE1 ExpSimple, inParens <$> liftE3 ExpTyped]
@@ -188,9 +214,16 @@ instance WithExamples InfixExp where
 
 instance WithExamples LExp where
     getExample =
-        selectFromRandomRecursive
-            [liftE1 LExpApplication]
-            [inParens <$> liftE2 LExpAbstraction, inParens <$> liftE3 LExpIf]
+        selectFromRandomRecursive [liftE1 LExpApplication] $
+        map
+            (inParens <$>)
+            [ liftE2 LExpAbstraction
+            , liftE2 LExpLet
+            , liftE3 LExpIf
+            , liftE2 LExpCase
+            , liftE1 LExpDo
+            , liftE3 LExpIf
+            ]
       where
         inParens :: LExp -> LExp
         inParens lExp =
@@ -207,6 +240,7 @@ instance WithExamples AExp where
             , liftE3 AExpTuple
             , liftE1 AExpList
             , liftE3 AExpSequence
+            , liftE2 AExpListCompr
             , liftE2 AExpLeftSection
             , replaceMinusInRightSection <$> liftE2 AExpRightSection
             , liftE2 AExpRecordConstr
@@ -231,6 +265,21 @@ instance WithExamples AExp where
                          loc)
                     binds
         replaceQConInRecordUpdate aExp = aExp
+
+instance WithExamples Qual where
+    getExample =
+        selectFromRandom
+            [liftE2 QualGenerator, liftE1 QualLet, liftE1 QualGuard]
+
+instance WithExamples Alt where
+    getExample = selectFromRandom [liftE3 AltSimple, liftE3 AltGuarded]
+
+instance WithExamples GdPat where
+    getExample = liftE2 GdPat
+
+instance WithExamples Stmt where
+    getExample =
+        selectFromRandom [liftE1 StmtExp, liftE2 StmtPat, liftE1 StmtLet]
 
 instance WithExamples FBind where
     getExample = liftE2 FBind
@@ -310,10 +359,8 @@ getInfixExample ::
     -> RandomSelector a
 getInfixExample getSingle createInfix =
     selectFromRandomRecursiveWeighted
-        [ (makeInfix (1 :: Int), 4)] -- Return 1 element expression more frequntly than others
-        [ (makeInfix (2 :: Int), 2)
-        , (makeInfix (3 :: Int), 1)
-        ]
+        [(makeInfix (1 :: Int), 4)] -- Return 1 element expression more frequntly than others
+        [(makeInfix (2 :: Int), 2), (makeInfix (3 :: Int), 1)]
   where
     makeInfix n
         | n == 1 = getSingle
