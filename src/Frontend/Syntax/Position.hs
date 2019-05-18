@@ -1,15 +1,16 @@
 {- |
-Module      :  Frontend.Grammar.Position
+Module      :  Frontend.Syntax.Position
 Description :  Position tracking
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Code for tracking of locations in source files.
 -}
-module Frontend.Grammar.Position
+module Frontend.Syntax.Position
     ( SourcePosition(..)
     , SourceLocation(..)
     , WithLocation(..)
+    , castSourcePosition
     , dummyLocation
     , getSourcePosition
     , sourceLocation
@@ -31,13 +32,14 @@ data SourceLocation = SourceLocation
     , getLocationEnd :: SourcePosition -- ^ End of a span
     } deriving (Show, Eq, Ord)
 
+-- | Cast 'SourcePos' to 'SourcePosition'
+castSourcePosition :: SourcePos -> SourcePosition
+castSourcePosition src =
+    SourcePosition (unPos . sourceLine $ src) (unPos . sourceColumn $ src)
+
 -- | Function gets source position during parsing
 getSourcePosition :: MonadParsec e s m => m SourcePosition
-getSourcePosition = castSourcePositions <$> getSourcePos
-  where
-    castSourcePositions :: SourcePos -> SourcePosition
-    castSourcePositions src =
-        SourcePosition (unPos . sourceLine $ src) (unPos . sourceColumn $ src)
+getSourcePosition = castSourcePosition <$> getSourcePos
 
 -- | Function constructs 'SourceLocation' from 4 provided ints
 sourceLocation :: Int -> Int -> Int -> Int -> SourceLocation
@@ -56,3 +58,9 @@ data WithLocation a = WithLocation
 
 instance Functor WithLocation where
     fmap f (WithLocation x loc) = WithLocation (f x) loc
+
+instance Foldable WithLocation where
+    foldMap = (. getValue)
+
+instance Traversable WithLocation where
+    traverse f (WithLocation x loc) = fmap (`WithLocation` loc) (f x)

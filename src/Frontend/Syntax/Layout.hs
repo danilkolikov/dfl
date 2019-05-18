@@ -1,5 +1,5 @@
 {- |
-Module      :  Frontend.Grammar.Layout
+Module      :  Frontend.Syntax.Layout
 Description :  Functions for layout-based parsing
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
@@ -10,17 +10,18 @@ layout of source files.
 Functions from this module implement algorithms defined in the specification of
 <https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
 -}
-module Frontend.Grammar.Layout
+module Frontend.Syntax.Layout
     ( Layout(..)
     , LayoutError(..)
-    , algorithmL
-    , insertIndents
-    , filterConsequentIndents
-    , getFirstIndent
-    , prepareLayout
+    , IndentTracker
     , restoreMissingTokens
-    , withExpectedIndent
     , withIndents
+    , withExpectedIndent
+    , getFirstIndent
+    , filterConsequentIndents
+    , prepareLayout
+    , insertIndents
+    , algorithmL
     ) where
 
 import Control.Applicative (liftA2)
@@ -29,13 +30,13 @@ import Data.Maybe (maybeToList)
 
 import Text.Megaparsec (ShowErrorComponent(..))
 
-import Frontend.Grammar.Position
+import Frontend.Syntax.Position
     ( SourceLocation(..)
     , SourcePosition(..)
     , WithLocation(..)
     , dummyLocation
     )
-import Frontend.Grammar.Token (Keyword(..), Special(..), Token(..))
+import Frontend.Syntax.Token (Keyword(..), Special(..), Token(..))
 
 -- | Type describes information about layout of source files
 data Layout

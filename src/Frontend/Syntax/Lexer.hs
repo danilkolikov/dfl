@@ -1,5 +1,5 @@
 {- |
-Module      :  Frontend.Grammar.Lexer
+Module      :  Frontend.Syntax.Lexer
 Description :  Lexer of DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
@@ -7,11 +7,11 @@ License     :  MIT
 Lexer of DFL. Definitions of tokens follow ones from
 <https://www.haskell.org/onlinereport/haskell2010/haskellch10.html Haskell 2010>.
 -}
-module Frontend.Grammar.Lexer
-    ( Lexable(..)
-    , Lexer
-    , programLexer
+module Frontend.Syntax.Lexer
+    ( Lexer
+    , Lexable(..)
     , sourceLexer
+    , programLexer
     , whitespace
     ) where
 
@@ -45,14 +45,14 @@ import Text.Megaparsec.Char
     )
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import Frontend.Grammar.Layout(LayoutError, restoreMissingTokens)
-import Frontend.Grammar.Position
+import Frontend.Syntax.Layout (LayoutError, restoreMissingTokens)
+import Frontend.Syntax.Position
     ( SourceLocation(..)
     , WithLocation(..)
     , getSourcePosition
     , getValue
     )
-import Frontend.Grammar.Token
+import Frontend.Syntax.Token
 
 -- | Type of a lexer.
 --   Lexer is a parser which consumes strings and produces array of tokens
@@ -225,22 +225,23 @@ whitespace = L.space space1 lineComment blockComment
     lineComment = L.skipLineComment "-- "
     blockComment = L.skipBlockCommentNested "{-" "-}"
 
--- | Lexer for a program
+-- | Lexer for a program. It reads token while EOF is not reached
 programLexer :: Lexer [WithLocation Token]
-programLexer =
-    many
-        (try $ do
-             whitespace
-             token' <- lexer
-             if getValue token' == TokenEOF EOF
-                 then token' <$ empty
-                 else return token') <*
-    whitespace
+programLexer = many (try $ readSingle)
+  where
+    readSingle :: Lexer (WithLocation Token)
+    readSingle = do
+        whitespace
+        token' <- lexer
+        if getValue token' == TokenEOF EOF
+            then empty
+            else return token'
 
 -- | Lexer of source files. It inserts missing tokens, based on code layout
 sourceLexer :: Lexer [WithLocation Token]
 sourceLexer = do
     program <- programLexer
+    eof' <- lexer
     case restoreMissingTokens program of
         Left lexerError -> customFailure lexerError
-        Right result -> return result
+        Right result -> return $ result ++ [eof']

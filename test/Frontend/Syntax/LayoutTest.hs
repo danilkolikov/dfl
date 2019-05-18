@@ -1,9 +1,18 @@
-module Frontend.Grammar.LayoutTest where
+{- |
+Module      :  Frontend.Syntax.LayoutTest
+Description :  Tests for layout-based lexing
+Copyright   :  (c) Danil Kolikov, 2019
+License     :  MIT
+
+Test suite for functions for restoring of missing tokens using
+layout of source files.
+-}
+module Frontend.Syntax.LayoutTest where
 
 import Control.Monad.Trans.State (runState)
 import Test.Hspec
 
-import Frontend.Grammar.Layout
+import Frontend.Syntax.Layout
     ( Layout(..)
     , LayoutError(..)
     , algorithmL
@@ -15,12 +24,12 @@ import Frontend.Grammar.Layout
     , withExpectedIndent
     , withIndents
     )
-import Frontend.Grammar.Position
+import Frontend.Syntax.Position
     ( WithLocation(..)
     , dummyLocation
     , sourceLocation
     )
-import Frontend.Grammar.Token
+import Frontend.Syntax.Token
 
 testSuite :: IO ()
 testSuite =
@@ -100,14 +109,14 @@ testSuite =
                  in runState (withIndents token Nothing) 1 `shouldBe`
                     ([LayoutToken token, LayoutExpectedIndent 0], 1)
         describe "getFirstIndent" $ do
-            it "Doesn't return indent after module or {" $ do
+            it "doesn't return indent after module or {" $ do
                 getFirstIndent
                     [WithLocation (TokenKeyword KeywordModule) dummyLocation] `shouldBe`
                     Nothing
                 getFirstIndent
                     [WithLocation (TokenKeyword KeywordModule) dummyLocation] `shouldBe`
                     Nothing
-            it "Returns indent otherwise" $
+            it "returns indent otherwise" $
                 getFirstIndent
                     [ WithLocation
                           (TokenKeyword KeywordUnderscore)
@@ -115,9 +124,9 @@ testSuite =
                     ] `shouldBe`
                 Just (LayoutExpectedIndent 2)
         describe "insertIndents" $ do
-            it "Doesn't change empty list" $
+            it "doesn't change empty list" $
                 runState (insertIndents []) 0 `shouldBe` ([], 0)
-            it "Surrounds 1 token with indents" $ do
+            it "surrounds a single token with indents" $ do
                 let simpleToken =
                         WithLocation
                             (TokenKeyword KeywordUnderscore)
@@ -134,7 +143,7 @@ testSuite =
                       , LayoutExpectedIndent 0
                       ]
                     , 1)
-            it "Correctly inserts indents" $ do
+            it "correctly inserts indents" $ do
                 let firstSimpleToken =
                         WithLocation
                             (TokenKeyword KeywordUnderscore)
@@ -185,7 +194,7 @@ testSuite =
             it "filters out indents after expected indents" $
                 filterConsequentIndents [LayoutExpectedIndent 2, LayoutIndent 3] `shouldBe`
                 [LayoutExpectedIndent 2]
-            it "Doesn't filter out the rest" $ do
+            it "doesn't filter out the rest" $ do
                 let token =
                         WithLocation
                             (TokenKeyword KeywordUnderscore)
@@ -198,8 +207,8 @@ testSuite =
                 filterConsequentIndents [LayoutToken token, LayoutToken token] `shouldBe`
                     [LayoutToken token, LayoutToken token]
         describe "prepareLayout" $ do
-            it "Doesn't change empty list" $ prepareLayout [] `shouldBe` []
-            it "Correctly prepares single elements" $ do
+            it "doesn't change empty list" $ prepareLayout [] `shouldBe` []
+            it "correctly prepares single elements" $ do
                 let token1 =
                         WithLocation
                             (TokenKeyword KeywordUnderscore)
@@ -221,7 +230,7 @@ testSuite =
                     , LayoutToken token3
                     , LayoutExpectedIndent 0
                     ]
-            it "Correctly prepares multiple elements" $ do
+            it "correctly prepares multiple elements" $ do
                 let token1 =
                         WithLocation
                             (TokenKeyword KeywordWhere)
@@ -266,47 +275,47 @@ testSuite =
                     WithLocation
                         (TokenKeyword KeywordIn)
                         (sourceLocation 1 2 1 4)
-            it "Adds semicolon according to layout" $
+            it "adds semicolon according to layout" $
                 algorithmL [LayoutIndent 2] [2] `shouldBe`
                 Right [semicolon, rCurly]
-            it "Adds implicit } if it's required" $
+            it "adds implicit } if it's required" $
                 algorithmL [LayoutIndent 2] [3] `shouldBe` Right [rCurly]
-            it "Skips indents, if they are not required" $
+            it "skips indents, if they are not required" $
                 algorithmL [LayoutIndent 2, layoutToken 1] [] `shouldBe`
                 Right [token 1]
-            it "Adds implicit { if it's required" $ do
+            it "adds implicit { if it's required" $ do
                 algorithmL [LayoutExpectedIndent 2] [] `shouldBe`
                     Right [lCurly, rCurly]
                 algorithmL [LayoutExpectedIndent 3] [2] `shouldBe`
                     Right [lCurly, rCurly, rCurly]
-            it "Adds implicit {} if it's required" $
+            it "adds implicit {} if it's required" $
                 algorithmL [LayoutExpectedIndent 3] [1] `shouldBe`
                 Right [lCurly, rCurly, rCurly]
-            it "Preserves explicit }" $
+            it "preserves explicit }" $
                 algorithmL [LayoutToken rCurly] [0] `shouldBe` Right [rCurly]
-            it "Fails if explicit } closes implicit scope" $
+            it "fails if explicit } closes implicit scope" $
                 algorithmL [LayoutToken rCurly] [1] `shouldBe`
                 Left (LayoutErrorRedundantClosingBracket dummyLocation)
-            it "Preserves explicit {}" $
+            it "preserves explicit {}" $
                 algorithmL [LayoutToken lCurly, LayoutToken rCurly] [] `shouldBe`
                 Right [lCurly, rCurly]
-            it "Adds implicit } in case of (let ... in)" $
+            it "adds implicit } in case of (let ... in)" $
                 algorithmL [LayoutToken in'] [2] `shouldBe` Right [rCurly, in']
-            it "Preserves simple tokens" $
+            it "preserves simple tokens" $
                 algorithmL [layoutToken 1, layoutToken 2] [] `shouldBe`
                 Right [token 1, token 2]
-            it "Finishes with empty lists" $
+            it "finishes with empty lists" $
                 algorithmL [] [] `shouldBe` Right []
-            it "Adds implicit } in the end of program" $ do
+            it "adds implicit } in the end of program" $ do
                 algorithmL [] [1] `shouldBe` Right [rCurly]
                 algorithmL [] [1, 2] `shouldBe` Right [rCurly, rCurly]
-            it "Fails if misses closing curly" $
+            it "fails if misses closing curly" $
                 algorithmL [] [0] `shouldBe`
                 Left LayoutErrorMissingClosingBracket
         describe "restoreMissingTokens" $ do
-            it "Preserves empty program" $
+            it "preserves empty program" $
                 restoreMissingTokens [] `shouldBe` Right []
-            it "Adds missing tokens in the begin of program" $ do
+            it "adds missing tokens in the begin of program" $ do
                 let makeToken token =
                         WithLocation token (sourceLocation 1 2 1 4)
                 restoreMissingTokens [makeToken (TokenKeyword KeywordModule)] `shouldBe`
@@ -322,7 +331,7 @@ testSuite =
                         , makeToken (TokenKeyword KeywordUnderscore)
                         , rCurly
                         ]
-            it "Adds implicit brackets and semicolons" $
+            it "adds implicit brackets and semicolons" $
                 restoreMissingTokens
                     [ WithLocation
                           (TokenKeyword KeywordDo)
