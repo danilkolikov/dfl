@@ -290,8 +290,8 @@ instance Tokenisable Exp where
 instance Tokenisable InfixExp where
     toTokens (InfixExpApplication l op r) =
         toTokens l ++ toTokens op ++ toTokens r
-    toTokens (InfixExpNegated e) =
-        TokenName [] (NameVarSym (VarSym "-")) : toTokens e
+    toTokens (InfixExpNegated op e) =
+        toTokens op ++ toTokens e
     toTokens (InfixExpLExp e) = toTokens e
 
 instance Tokenisable LExp where

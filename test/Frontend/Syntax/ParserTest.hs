@@ -15,7 +15,7 @@ import Test.Hspec
 
 import Text.Megaparsec (ParseErrorBundle)
 
-import Frontend.Syntax.Ast
+import Frontend.Syntax.Ast hiding (minus)
 import Frontend.Syntax.Parser
 import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
 import Frontend.Syntax.Stream (TokenStream)
@@ -78,7 +78,7 @@ testSuite =
             it "parses Import" $ shouldParseAllExamples (Proxy :: Proxy Import)
             it "parses CName" $ shouldParseAllExamples (Proxy :: Proxy CName)
             it "parses TopDecl" $
-                 shouldParseAllExamples (Proxy :: Proxy TopDecl)
+                shouldParseAllExamples (Proxy :: Proxy TopDecl)
             it "parses Decl" $ shouldParseAllExamples (Proxy :: Proxy Decl)
             it "parses CDecl" $ shouldParseAllExamples (Proxy :: Proxy CDecl)
             it "parses IDecl" $ shouldParseAllExamples (Proxy :: Proxy IDecl)

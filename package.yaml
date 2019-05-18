@@ -27,6 +27,7 @@ library:
   - unordered-containers >= 0.2.9.0
   exposed-modules:
   - Frontend.Syntax.Ast
+  - Frontend.Syntax.FixityResolution
   - Frontend.Syntax.Layout
   - Frontend.Syntax.Lexer
   - Frontend.Syntax.Parser

@@ -21,7 +21,7 @@ import Frontend.Syntax.Token
     , ModId
     , StringT
     , VarId
-    , VarSym
+    , VarSym(..)
     )
 
 -- | Qualified name - a name, possibly prepended by the name of a module
@@ -335,7 +335,8 @@ data InfixExp
     = InfixExpApplication (WithLocation InfixExp)
                           (WithLocation QOp)
                           (WithLocation InfixExp) -- ^ Binary expression
-    | InfixExpNegated (WithLocation InfixExp) -- ^ Negation
+    | InfixExpNegated (WithLocation QOp)
+                      (WithLocation InfixExp) -- ^ Negation
     | InfixExpLExp (WithLocation LExp) -- ^ Atomic expression
     deriving (Show, Eq)
 
@@ -513,3 +514,7 @@ data GConSym
     = GConSymColon -- ^ Colon operator - :
     | GConSymOp QConSym -- ^ Everything else
     deriving (Show, Eq)
+
+-- | Minus is a special case of an operator
+minus :: QOp
+minus = Left (OpLabelSym (Qualified [] (VarSym "-")))

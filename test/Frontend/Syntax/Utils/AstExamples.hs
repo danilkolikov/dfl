@@ -257,7 +257,7 @@ instance WithExamples InfixExp where
     getExample =
         selectFromRandomRecursive
             [getInfixExample (liftE1 InfixExpLExp) InfixExpApplication]
-            [liftE1 InfixExpNegated]
+            [liftE1 (InfixExpNegated $ defaultLocation minus)]
 
 instance WithExamples LExp where
     getExample =

@@ -41,7 +41,7 @@ import Text.Megaparsec
     , try
     )
 
-import Frontend.Syntax.Ast
+import Frontend.Syntax.Ast hiding (minus)
 import Frontend.Syntax.Position
     ( SourceLocation(..)
     , WithLocation(..)
@@ -435,7 +435,14 @@ instance Parseable InfixExp where
       where
         parseSingle :: Parser InfixExp
         parseSingle =
-            safeChoice [minus *> liftP1 InfixExpNegated, liftP1 InfixExpLExp]
+            safeChoice
+                [ liftA2
+                      InfixExpNegated
+                      (parseWithLocation
+                           (Left . OpLabelSym . Qualified [] <$> minus))
+                      parser
+                , liftP1 InfixExpLExp
+                ]
 
 instance Parseable LExp where
     parser =
