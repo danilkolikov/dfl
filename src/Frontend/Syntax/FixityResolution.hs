@@ -12,12 +12,14 @@ module Frontend.Syntax.FixityResolution
     , NamedOperator(..)
     , InfixOperator(..)
     , minusInfixOperator
+    , defaultInfixOperator
     , FixityResolutionError(..)
     , ResolverState
     , resolverStateLookup
     , FixityResolver
     , runFixityResolver
     , FixityResolvable(..)
+    , QualifiedOperator
     , InfixOperation(..)
     , FlatInfix(..)
     , FlatInfixResolved(..)
