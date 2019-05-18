@@ -117,9 +117,12 @@ testSuite =
                 InfixOperator ["-"] InfixL 8
             it "returns default operator if it's not found" $
                 resolverStateLookup
-                    ["-"]
+                    ["*"]
                     [HM.singleton ["+"] (InfixOperator ["+"] InfixL 7)] `shouldBe`
-                InfixOperator ["-"] InfixL 9
+                InfixOperator ["*"] InfixL 9
+            it "returns correct fixity for '-'" $
+                resolverStateLookup ["-"] [HM.empty] `shouldBe`
+                minusInfixOperator
         describe "resolveSingleFlatInfix" $ do
             let x = var "x"
                 plus = Left <$> op "+"
@@ -413,6 +416,39 @@ testSuite =
                                 , (["-"], InfixOperator ["-"] Infix 6)
                                 ]
                           ])
+            it "adds a new scope for each block of declarations" $ do
+                let x = var "x"
+                    y = var "y"
+                    plus = op "+"
+                    -- This expression is invalid if "+" has the same precedence
+                    -- as "-" (6)
+                    testExp =
+                        InfixExpApplication
+                            x
+                            plus
+                            (withDummyLocation (InfixExpNegated minus' y))
+                    -- Initially plus has lower fixity, so this expression
+                    -- Is acceptable
+                    state = [HM.singleton ["+"] (InfixOperator ["+"] Infix 5)]
+                    -- We override this precedence in the block of declarations
+                    -- So resolution should fail
+                    fixityDecl =
+                        DeclGenDecl . withDummyLocation $
+                        GenDeclFixity
+                            (withDummyLocation InfixL)
+                            (withDummyLocation $ IntT 6)
+                            (notQualifiedOp "+" NE.:| [])
+                    exp1 =
+                        LExpLet
+                            [withDummyLocation fixityDecl]
+                            (withDummyLocation . ExpSimple $
+                             withDummyLocation testExp)
+                runFixityResolver (fixityResolver exp1) state `shouldBe`
+                    Left
+                        (FixityResolutionErrorFixityConflict
+                             (InfixOperator ["+"] InfixL 6)
+                             minusInfixOperator
+                             dummyLocation)
             it "fails when operator is already defined" $ do
                 let exp1 =
                         GenDeclFixity

@@ -111,7 +111,10 @@ minusInfixOperator = InfixOperator ["-"] InfixL 6
 -- | By default, we assume that implicitly defined operators have left fixity,
 --   and their precedence is 9
 defaultInfixOperator :: OperatorName -> InfixOperator
-defaultInfixOperator name = InfixOperator name InfixL 9
+defaultInfixOperator name =
+    if name == ["-"]
+        then minusInfixOperator -- Fixity is defined for "-"
+        else InfixOperator name InfixL 9
 
 -- | Errors which can be raised during resolution of fixity
 data FixityResolutionError
@@ -233,15 +236,15 @@ instance FixityResolvable FunLHS where
 
 instance FixityResolvable RHS where
     fixityResolver (RHSSimple exp' where') =
-        liftA2 RHSSimple (fixityResolver exp') (resolveDecls where')
+        resolveDecls where' (apF1 RHSSimple exp')
     fixityResolver (RHSGuarded gdrhs where') =
-        liftA2 RHSGuarded (fixityResolver gdrhs) (resolveDecls where')
+        resolveDecls where' (apF1 RHSGuarded gdrhs)
 
 instance FixityResolvable GdRHS where
     fixityResolver (GdRHS guards exp') = apF2 GdRHS guards exp'
 
 instance FixityResolvable Guard where
-    fixityResolver (GuardLet decls) = GuardLet <$> resolveDecls decls
+    fixityResolver (GuardLet decls) = resolveDecls decls (return GuardLet)
     fixityResolver (GuardPattern pat exp') = apF2 GuardPattern pat exp'
     fixityResolver (GuardExpr exp') = apF1 GuardExpr exp'
 
@@ -256,7 +259,7 @@ instance FixityResolvable InfixExp where
 instance FixityResolvable LExp where
     fixityResolver (LExpAbstraction pats exp') = apF2 LExpAbstraction pats exp'
     fixityResolver (LExpLet decls exp') =
-        liftA2 LExpLet (resolveDecls decls) (fixityResolver exp')
+        resolveDecls decls (apF1 (flip LExpLet) exp')
     fixityResolver (LExpIf cond true false) = apF3 LExpIf cond true false
     fixityResolver (LExpCase exp' alts) = apF2 LExpCase exp' alts
     fixityResolver (LExpDo stmts) = apF1 LExpDo stmts
@@ -279,29 +282,21 @@ instance FixityResolvable AExp where
 
 instance FixityResolvable Qual where
     fixityResolver (QualGenerator pat exp') = apF2 QualGenerator pat exp'
-    fixityResolver (QualLet decls) = QualLet <$> resolveDecls decls
+    fixityResolver (QualLet decls) = resolveDecls decls (return QualLet)
     fixityResolver (QualGuard exp') = apF1 QualGuard exp'
 
 instance FixityResolvable Alt where
     fixityResolver (AltSimple pat exp' decls) =
-        liftA3
-            AltSimple
-            (fixityResolver pat)
-            (fixityResolver exp')
-            (resolveDecls decls)
+        resolveDecls decls (apF2 AltSimple pat exp')
     fixityResolver (AltGuarded pat gdPat decls) =
-        liftA3
-            AltGuarded
-            (fixityResolver pat)
-            (fixityResolver gdPat)
-            (resolveDecls decls)
+        resolveDecls decls (apF2 AltGuarded pat gdPat)
 
 instance FixityResolvable GdPat where
     fixityResolver (GdPat guards exp') = apF2 GdPat guards exp'
 
 instance FixityResolvable Stmt where
     fixityResolver (StmtPat pat exp') = apF2 StmtPat pat exp'
-    fixityResolver (StmtLet decls) = StmtLet <$> resolveDecls decls
+    fixityResolver (StmtLet decls) = resolveDecls decls (return StmtLet)
     fixityResolver (StmtExp exp') = apF1 StmtExp exp'
 
 instance FixityResolvable FBind where
@@ -468,13 +463,18 @@ resolveFixity x = do
             E.throwE $ FixityResolutionErrorCannotResolve (getSourceLocation f)
 
 -- Helper functions
--- | Adds a new scope for the list of declarations
-resolveDecls :: [WithLocation Decl] -> FixityResolver [WithLocation Decl]
-resolveDecls decls = do
+-- | Adds a new scope, resolves declarations, continues resolution on a new scope
+--   and then drops it.
+resolveDecls ::
+       [WithLocation Decl]
+    -> FixityResolver ([WithLocation Decl] -> a)
+    -> FixityResolver a
+resolveDecls decls continue = do
     ST.modify (HM.empty :) -- Add new map of operators
-    res <- fixityResolver decls
+    declsResolved <- fixityResolver decls
+    continueResolved <- continue
     ST.modify tail -- Remove map of operators
-    return res
+    return (continueResolved declsResolved)
 
 -- | Apply function to the result of fixity resolution of arguments
 apF1 :: (FixityResolvable a) => (a -> b) -> a -> FixityResolver b
