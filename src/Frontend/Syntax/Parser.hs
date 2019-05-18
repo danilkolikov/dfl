@@ -11,6 +11,7 @@ module Frontend.Syntax.Parser
     , ParserState
     , Parseable(..)
     , runParser
+    , runParser'
     , minus
     , colon
     ) where
@@ -56,7 +57,7 @@ type ParserState = Maybe SourceLocation
 -- | Parser of DFL
 type Parser = ParsecT Void TokenStream (ST.State ParserState)
 
--- | Function that runs parser
+-- | Run parser and return its state
 runParser ::
        Parser a -- ^ Parser to run
     -> String -- ^ File name
@@ -64,6 +65,14 @@ runParser ::
     -> (Either (ParseErrorBundle TokenStream Void) a, ParserState)
 runParser parser' str tokens =
     ST.runState (runParserT parser' str (TokenStream tokens)) Nothing
+
+-- | Run parser and don't return its state
+runParser' ::
+       Parser a -- ^ Parser to run
+    -> String -- ^ File name
+    -> [WithLocation Token] -- ^ List of tokens, returned by a lexer
+    -> Either (ParseErrorBundle TokenStream Void) a
+runParser' parser' str tokens = fst $ runParser parser' str tokens
 
 -- | Class of types which can be parsed from the list of tokens
 class Parseable a where
@@ -104,14 +113,14 @@ instance Parseable VarSym where
 
 -- | Parser for the operator "-"
 minus :: Parser VarSym
-minus = expect (VarSym "-")
+minus = expectName (VarSym "-")
 
 instance Parseable ConSym where
     parser = parseNotQualified <?> "Constructor operator"
 
 -- | Parser for the operator ":"
 colon :: Parser ConSym
-colon = expect (ConSym ":")
+colon = expectName (ConSym ":")
 
 instance (NameContains a) => Parseable (Qualified a) where
     parser =
@@ -191,15 +200,15 @@ instance Parseable Body where
 instance Parseable ImpDecl where
     parser = do
         expect_ KeywordImport
-        qual <- safeOptional $ expect (VarId "qualified")
+        qual <- safeOptional $ expectName (VarId "qualified")
         name <- parser
-        asModId <- safeOptional $ expect (VarId "as") *> parser
+        asModId <- safeOptional $ expectName (VarId "as") *> parser
         impSpec <- safeOptional parser
         return $ ImpDecl (isJust qual) name asModId impSpec
 
 instance Parseable ImpSpec where
     parser = do
-        hiding <- safeOptional $ expect (VarId "hiding")
+        hiding <- safeOptional $ expectName (VarId "hiding")
         imports <- inParens $ parser `sepByP` SpecialComma
         return $ ImpSpec (isJust hiding) imports
 
@@ -682,11 +691,11 @@ inBrackets = between (expect SpecialLBracket) (expect SpecialRBracket)
 inBackticks :: Parser a -> Parser a
 inBackticks = between (expect SpecialBacktick) (expect SpecialBacktick)
 
-sepByP :: (Parseable b, Eq b, Show b) => Parser a -> b -> Parser [a]
+sepByP :: (TokenContains b, Eq b, Show b) => Parser a -> b -> Parser [a]
 sepByP item sep = try item `sepEndBy` try (expect sep)
 
 sepBy1P ::
-       (Parseable b, Eq b, Show b) => Parser a -> b -> Parser (NE.NonEmpty a)
+       (TokenContains b, Eq b, Show b) => Parser a -> b -> Parser (NE.NonEmpty a)
 sepBy1P item sep = try item `sepEndBy1` try (expect sep)
 
 -- | Run parser and pass result as an argument to a function
@@ -706,8 +715,14 @@ liftP3 f = liftA3 f parser parser parser
 --   This is the most low-level parser. After a token is parsed,
 --   we update location of the last parsed token in the state
 parserForTokenContains :: (TokenContains a) => Parser a
-parserForTokenContains = do
+parserForTokenContains = parserForTokenContainsGuarded (const True)
+
+-- | Guarded version of "parserForTokenContains". It will not update state if
+--   the consumed token doesn't satisfy the predicate
+parserForTokenContainsGuarded :: (TokenContains a) => (a -> Bool) -> Parser a
+parserForTokenContainsGuarded predicate = do
     (WithLocation res loc) <- parserForToken
+    guard (predicate res)
     -- Update state, if parsed token is not an implicit one
     when (loc /= dummyLocation) $ lift . ST.put $ Just loc
     return res
@@ -725,17 +740,16 @@ parseNotQualified =
             Nothing -> empty
 
 -- | Expect the next parsed object to be equal to the provided one
-expect :: (Parseable a, Eq a, Show a) => a -> Parser a
-expect x =
-    (parser >>= \y ->
-         if x == y
-             then return y
-             else empty) <?>
-    show x
+expect :: (TokenContains a, Eq a, Show a) => a -> Parser a
+expect x = (parserForTokenContainsGuarded (== x)) <?> show x
 
 -- | Expect an object and ignore result
-expect_ :: (Parseable a, Eq a, Show a) => a -> Parser ()
+expect_ :: (TokenContains a, Eq a, Show a) => a -> Parser ()
 expect_ x = void $ expect x
+
+-- | Expect the following token to be a 'NameContains'
+expectName :: (NameContains a, Eq a, Show a) => a -> Parser a
+expectName x =  x <$ expect (NameWithPath [] (toName x))
 
 -- | Run parser and save locations of parsed tokens
 parseWithLocation :: Parser a -> Parser (WithLocation a)

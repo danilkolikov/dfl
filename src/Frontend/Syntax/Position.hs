@@ -10,6 +10,7 @@ module Frontend.Syntax.Position
     ( SourcePosition(..)
     , SourceLocation(..)
     , WithLocation(..)
+    , castSourcePosition
     , dummyLocation
     , getSourcePosition
     , sourceLocation
@@ -31,13 +32,14 @@ data SourceLocation = SourceLocation
     , getLocationEnd :: SourcePosition -- ^ End of a span
     } deriving (Show, Eq, Ord)
 
+-- | Cast 'SourcePos' to 'SourcePosition'
+castSourcePosition :: SourcePos -> SourcePosition
+castSourcePosition src =
+    SourcePosition (unPos . sourceLine $ src) (unPos . sourceColumn $ src)
+
 -- | Function gets source position during parsing
 getSourcePosition :: MonadParsec e s m => m SourcePosition
-getSourcePosition = castSourcePositions <$> getSourcePos
-  where
-    castSourcePositions :: SourcePos -> SourcePosition
-    castSourcePositions src =
-        SourcePosition (unPos . sourceLine $ src) (unPos . sourceColumn $ src)
+getSourcePosition = castSourcePosition <$> getSourcePos
 
 -- | Function constructs 'SourceLocation' from 4 provided ints
 sourceLocation :: Int -> Int -> Int -> Int -> SourceLocation

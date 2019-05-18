@@ -201,6 +201,7 @@ class TokenContains a where
 -- | Class of types, which are contained inside the type 'Name'
 class NameContains a where
     getFromName :: Name -> Maybe a
+    toName :: a -> Name
 
 instance TokenContains Special where
     getFromToken (TokenSpecial s) = Just s
@@ -241,6 +242,7 @@ instance TokenContains StringT where
 data NameWithPath =
     NameWithPath [ModId]
                  Name
+    deriving (Show, Eq)
 
 instance TokenContains NameWithPath where
     getFromToken (TokenName path name) = Just $ NameWithPath path name
@@ -255,15 +257,19 @@ instance TokenContains EOF where
 instance NameContains VarId where
     getFromName (NameVarId n) = Just n
     getFromName _ = Nothing
+    toName = NameVarId
 
 instance NameContains ConId where
     getFromName (NameConId n) = Just n
     getFromName _ = Nothing
+    toName = NameConId
 
 instance NameContains VarSym where
     getFromName (NameVarSym n) = Just n
     getFromName _ = Nothing
+    toName = NameVarSym
 
 instance NameContains ConSym where
     getFromName (NameConSym n) = Just n
     getFromName _ = Nothing
+    toName = NameConSym

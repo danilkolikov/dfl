@@ -155,7 +155,10 @@ testSuite =
                 rCurly = WithLocation (TokenSpecial SpecialRCurly) dummyLocation
                 semicolon =
                     WithLocation (TokenSpecial SpecialSemicolon) dummyLocation
-            it "parses empty program" $ sourceLexerShouldBe "" []
+            it "parses empty program" $
+                sourceLexerShouldBe
+                    ""
+                    [WithLocation (TokenEOF EOF) (sourceLocation 1 1 1 1)]
             it "inserts brackets" $ do
                 sourceLexerShouldBe
                     "x = 5\ny = 6.5"
@@ -180,6 +183,7 @@ testSuite =
                           (TokenFloat (FloatT 6.5))
                           (sourceLocation 2 5 2 8)
                     , rCurly
+                    , WithLocation (TokenEOF EOF) (sourceLocation 2 8 2 8)
                     ]
                 sourceLexerShouldBe
                     "do \n  x\n  y"
@@ -197,6 +201,7 @@ testSuite =
                           (sourceLocation 3 3 3 4)
                     , rCurly
                     , rCurly
+                    , WithLocation (TokenEOF EOF) (sourceLocation 3 4 3 4)
                     ]
             it "inserts brackets after keywords" $
                 sourceLexerShouldBe
@@ -223,6 +228,7 @@ testSuite =
                           (TokenName [] (NameVarId (VarId "x")))
                           (sourceLocation 1 14 1 15)
                     , WithLocation (TokenSpecial SpecialRCurly) dummyLocation
+                    , WithLocation (TokenEOF EOF) (sourceLocation 1 15 1 15)
                     ]
             it "fails on wrong bracket sequence" $ do
                 sourceLexerShouldFailOn "{"

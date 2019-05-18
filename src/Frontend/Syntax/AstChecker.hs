@@ -10,7 +10,7 @@ according to the specification of
 -}
 module Frontend.Syntax.AstChecker
     ( AstChecker
-    , AstCheckerError
+    , AstCheckerError(..)
     , AstCheckable(..)
     ) where
 
