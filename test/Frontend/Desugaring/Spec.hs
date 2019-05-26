@@ -11,6 +11,7 @@ module Frontend.Desugaring.Spec
     ) where
 
 import qualified Frontend.Desugaring.ToConstTest as ToConst
+import qualified Frontend.Desugaring.ToConstraintTest as ToConstraint
 import qualified Frontend.Desugaring.ToIdentTest as ToIdent
 import qualified Frontend.Desugaring.ToTypeTest as ToType
 
@@ -19,3 +20,4 @@ testSuite = do
     ToIdent.testSuite
     ToConst.testSuite
     ToType.testSuite
+    ToConstraint.testSuite
