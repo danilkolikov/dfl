@@ -30,6 +30,9 @@ library:
   - Frontend.Desugaring.ToConst
   - Frontend.Desugaring.ToConstraint
   - Frontend.Desugaring.ToIdent
+  - Frontend.Desugaring.ToInst
+  - Frontend.Desugaring.ToSimpleClass
+  - Frontend.Desugaring.ToSimpleType
   - Frontend.Desugaring.ToType
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast

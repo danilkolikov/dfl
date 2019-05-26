@@ -13,6 +13,9 @@ module Frontend.Desugaring.Spec
 import qualified Frontend.Desugaring.ToConstTest as ToConst
 import qualified Frontend.Desugaring.ToConstraintTest as ToConstraint
 import qualified Frontend.Desugaring.ToIdentTest as ToIdent
+import qualified Frontend.Desugaring.ToInstTest as ToInst
+import qualified Frontend.Desugaring.ToSimpleClassTest as ToSimpleClass
+import qualified Frontend.Desugaring.ToSimpleTypeTest as ToSimpleType
 import qualified Frontend.Desugaring.ToTypeTest as ToType
 
 testSuite :: IO ()
@@ -21,3 +24,6 @@ testSuite = do
     ToConst.testSuite
     ToType.testSuite
     ToConstraint.testSuite
+    ToInst.testSuite
+    ToSimpleClass.testSuite
+    ToSimpleType.testSuite
