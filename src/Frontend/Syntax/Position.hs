@@ -12,6 +12,7 @@ module Frontend.Syntax.Position
     , WithLocation(..)
     , castSourcePosition
     , dummyLocation
+    , withDummyLocation
     , getSourcePosition
     , sourceLocation
     ) where
@@ -49,6 +50,10 @@ sourceLocation a b c d =
 -- | Dummy location
 dummyLocation :: SourceLocation
 dummyLocation = sourceLocation 0 0 0 0
+
+-- | Add a dummy location to an object
+withDummyLocation :: a -> WithLocation a
+withDummyLocation = (`WithLocation` dummyLocation)
 
 -- | Type representing an object with a location in a source file
 data WithLocation a = WithLocation

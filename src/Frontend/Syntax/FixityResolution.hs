@@ -8,9 +8,7 @@ Fixity resolution of expressions in DFL. Follows algorithms, defined in
 <https:ororwww.haskell.orgoronlinereportorhaskell2010orhaskellch10.html Haskell 2010>.
 -}
 module Frontend.Syntax.FixityResolution
-    ( OperatorName
-    , NamedOperator(..)
-    , InfixOperator(..)
+    ( InfixOperator(..)
     , minusInfixOperator
     , defaultInfixOperator
     , FixityResolutionError(..)
@@ -51,57 +49,17 @@ import qualified Data.List.NonEmpty as NE (NonEmpty)
 import Data.Maybe (fromMaybe)
 
 import Frontend.Syntax.Ast
+import Frontend.Syntax.NamedEntity (EntityName, NamedEntity(..))
 import Frontend.Syntax.Position
     ( SourceLocation(..)
     , WithLocation(..)
     , dummyLocation
     )
-import Frontend.Syntax.Token
-    ( ConId(..)
-    , ConSym(..)
-    , IntT(..)
-    , TokenT
-    , VarId(..)
-    , VarSym(..)
-    )
-
--- | Name of an operator
-type OperatorName = [TokenT]
-
--- | Class for types which represent named operators
-class NamedOperator a where
-    getOperatorName :: a -> OperatorName -- ^ Get name of an operator
-
-instance NamedOperator ConId where
-    getOperatorName (ConId s) = [s]
-
-instance NamedOperator ConSym where
-    getOperatorName (ConSym s) = [s]
-
-instance NamedOperator VarId where
-    getOperatorName (VarId s) = [s]
-
-instance NamedOperator VarSym where
-    getOperatorName (VarSym s) = [s]
-
-instance (NamedOperator a) => NamedOperator (Qualified a) where
-    getOperatorName (Qualified path s) =
-        concatMap getOperatorName path ++ getOperatorName s
-
-instance NamedOperator GConSym where
-    getOperatorName GConSymColon = [":"]
-    getOperatorName (GConSymOp s) = getOperatorName s
-
-instance (NamedOperator a, NamedOperator b) => NamedOperator (OpLabel a b) where
-    getOperatorName (OpLabelSym s) = getOperatorName s
-    getOperatorName (OpLabelId s) = getOperatorName s
-
-instance (NamedOperator a, NamedOperator b) => NamedOperator (Either a b) where
-    getOperatorName = either getOperatorName getOperatorName
+import Frontend.Syntax.Token (IntT(..))
 
 -- | Representatin of an infix operator
 data InfixOperator =
-    InfixOperator OperatorName
+    InfixOperator EntityName
                   Fixity
                   Int
     deriving (Show, Eq)
@@ -112,7 +70,7 @@ minusInfixOperator = InfixOperator ["-"] InfixL 6
 
 -- | By default, we assume that implicitly defined operators have left fixity,
 --   and their precedence is 9
-defaultInfixOperator :: OperatorName -> InfixOperator
+defaultInfixOperator :: EntityName -> InfixOperator
 defaultInfixOperator name =
     if name == ["-"]
         then minusInfixOperator -- Fixity is defined for "-"
@@ -135,12 +93,12 @@ data FixityResolutionError
     deriving (Show, Eq)
 
 -- | State of a fixity resolver is a stack of scopes of defined operators
-type ResolverState = [HM.HashMap OperatorName InfixOperator]
+type ResolverState = [HM.HashMap EntityName InfixOperator]
 
 -- | Function looks up a specified operator in a stack.
 --   It starts from the top layer, and if this operator is undefined,
 --   a 'defaultInfixOperator' is returned.
-resolverStateLookup :: OperatorName -> ResolverState -> InfixOperator
+resolverStateLookup :: EntityName -> ResolverState -> InfixOperator
 resolverStateLookup opName state =
     fromMaybe
         (defaultInfixOperator opName)
@@ -216,7 +174,7 @@ instance FixityResolvable GenDecl where
         processOp t@(WithLocation op loc) = do
             state <- ST.get
             let (top:rest) = state
-                opName = getOperatorName op
+                opName = getEntityName op
                 infixOp = InfixOperator opName (getValue fixity) prec
             -- Check if this operator was already defined
             case HM.lookup opName top of
@@ -383,7 +341,7 @@ resolveSingleFlatInfix :: ResolverState -> FlatInfix a -> FlatInfixResolved a
 resolveSingleFlatInfix _ (FlatInfixExp e) = FlatInfixResolvedExp e
 resolveSingleFlatInfix st (FlatInfixOp op) =
     FlatInfixResolvedOp op $
-    resolverStateLookup (getOperatorName $ getValue op) st
+    resolverStateLookup (getEntityName $ getValue op) st
 
 -- | Resolve fixity of an expression, represented as a list of flat infix expressions
 resolveFlatInfix ::

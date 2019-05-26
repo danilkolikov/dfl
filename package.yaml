@@ -29,9 +29,11 @@ library:
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
+  - Frontend.Syntax.EntityName
   - Frontend.Syntax.FixityResolution
   - Frontend.Syntax.Layout
   - Frontend.Syntax.Lexer
+  - Frontend.Syntax.NamedEntity
   - Frontend.Syntax.Parser
   - Frontend.Syntax.Position
   - Frontend.Syntax.Stream

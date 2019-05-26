@@ -8,7 +8,6 @@ Syntax analyser of DFL. Does layout-based lexing and parsing.
 -}
 module Frontend.Syntax.Analyser
     ( AnalyserState(..)
-    , OperatorName
     , InfixOperator(..)
     , SyntaxError(..)
     , LayoutError(..)
@@ -44,12 +43,12 @@ import Frontend.Syntax.AstChecker (AstCheckerError(..), checkAst)
 import Frontend.Syntax.FixityResolution
     ( FixityResolutionError(..)
     , InfixOperator(..)
-    , OperatorName
     , fixityResolver
     , runFixityResolver
     )
 import Frontend.Syntax.Layout (LayoutError(..))
 import Frontend.Syntax.Lexer (sourceLexer)
+import Frontend.Syntax.NamedEntity (EntityName)
 import Frontend.Syntax.Parser (Parser, parser, runParser')
 import Frontend.Syntax.Position
     ( SourceLocation(..)
@@ -63,7 +62,7 @@ import Frontend.Syntax.Token (EOF, Token)
 -- | State of the syntax analyser
 data AnalyserState = AnalyserState
     { getFileName :: String -- ^ File name
-    , getInfixOperators :: HM.HashMap OperatorName InfixOperator -- ^ Map of infix operators
+    , getInfixOperators :: HM.HashMap EntityName InfixOperator -- ^ Map of infix operators
     } deriving (Show, Eq)
 
 -- | Errors which can be encountered during syntax analysis
