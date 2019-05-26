@@ -19,6 +19,9 @@ import Frontend.Syntax.Token (CharT(..), FloatT(..), IntT(..), StringT(..))
 class DesugarToConst a where
     desugarToConst :: a -> WithLocation Const -- ^ Desugars object to Const
 
+instance (DesugarToConst a) => DesugarToConst (WithLocation a) where
+    desugarToConst = (getValue . desugarToConst <$>)
+
 instance DesugarToConst IntT where
     desugarToConst (IntT x) = withDummyLocation $ ConstInt x
 
@@ -36,6 +39,3 @@ instance DesugarToConst Literal where
     desugarToConst (LiteralFloat f) = desugarToConst f
     desugarToConst (LiteralChar c) = desugarToConst c
     desugarToConst (LiteralString s) = desugarToConst s
-
-instance (DesugarToConst a) => DesugarToConst (WithLocation a) where
-    desugarToConst = (getValue . desugarToConst <$>)

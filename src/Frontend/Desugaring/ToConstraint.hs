@@ -22,6 +22,9 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 class DesugarToConstraint a where
     desugarToConstraint :: a -> WithLocation Constraint -- ^ Desugar object to constraint
 
+instance (DesugarToConstraint a) => DesugarToConstraint (WithLocation a) where
+    desugarToConstraint = (getValue . desugarToConstraint <$>)
+
 instance DesugarToConstraint Class where
     desugarToConstraint (ClassSimple name var) =
         withDummyLocation $
@@ -32,6 +35,3 @@ instance DesugarToConstraint Class where
             (desugarToIdent name)
             (desugarToIdent var)
             (map desugarToType (NE.toList args))
-
-instance (DesugarToConstraint a) => DesugarToConstraint (WithLocation a) where
-    desugarToConstraint = (getValue . desugarToConstraint <$>)

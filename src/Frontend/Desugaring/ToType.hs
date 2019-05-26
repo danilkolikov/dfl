@@ -22,6 +22,9 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 class DesugarToType a where
     desugarToType :: a -> WithLocation D.Type -- ^ Desugar object to Type
 
+instance (DesugarToType a) => DesugarToType (WithLocation a) where
+    desugarToType = (getValue . desugarToType <$>)
+
 instance DesugarToType Type where
     desugarToType (Type args) =
         let ident = D.IdentNamed fUNCTION_NAME
@@ -62,9 +65,6 @@ instance DesugarToType AType where
          in withDummyLocation $
             D.TypeApplication ident (desugarToType t NE.:| [])
     desugarToType (ATypeParens t) = desugarToType t
-
-instance (DesugarToType a) => DesugarToType (WithLocation a) where
-    desugarToType = (getValue . desugarToType <$>)
 
 -- Helper functions
 wrapIdentToType :: D.Ident -> WithLocation D.Type
