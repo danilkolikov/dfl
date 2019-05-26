@@ -27,6 +27,7 @@ library:
   - unordered-containers >= 0.2.9.0
   exposed-modules:
   - Frontend.Desugaring.Ast
+  - Frontend.Desugaring.ToIdent
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
