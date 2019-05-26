@@ -12,8 +12,10 @@ module Frontend.Desugaring.Spec
 
 import qualified Frontend.Desugaring.ToConstTest as ToConst
 import qualified Frontend.Desugaring.ToIdentTest as ToIdent
+import qualified Frontend.Desugaring.ToTypeTest as ToType
 
 testSuite :: IO ()
 testSuite = do
     ToIdent.testSuite
     ToConst.testSuite
+    ToType.testSuite

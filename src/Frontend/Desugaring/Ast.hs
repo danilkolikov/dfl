@@ -36,6 +36,7 @@ data Module =
            (ImpExpList (WithLocation Export)) -- ^ Exports
            [WithLocation ImpDecl] -- ^ Imports
            [WithLocation TopDecl] -- ^ Top-level declarations
+    deriving (Show, Eq)
 
 -- | Export of a module
 data Export
@@ -43,12 +44,14 @@ data Export
     | ExportDataOrClass (WithLocation Ident)
                         (ImpExpList (WithLocation Ident)) -- ^ Export data or class
     | ExportModule (WithLocation Ident) -- ^ Export module
+    deriving (Show, Eq)
 
 -- | List of exports or imports
 data ImpExpList a
     = ImpExpNothing -- ^ Import or export nothing
     | ImpExpSome (NonEmpty a) -- ^ Import or export some definitions
     | ImpExpAll -- ^ Import or export all definitions
+    deriving (Show, Eq)
 
 -- | Import declaration.
 data ImpDecl =
@@ -57,12 +60,14 @@ data ImpDecl =
             (Maybe (WithLocation Ident)) -- ^ Alternative name
             Bool -- ^ Should we hide following imports?
             (ImpExpList (WithLocation Import)) -- ^ List of imports
+    deriving (Show, Eq)
 
 -- | Single import
 data Import
     = ImportFunction (WithLocation Ident) -- ^ Import function
     | ImportDataOrClass (WithLocation Ident)
                         (ImpExpList (WithLocation Ident)) -- ^ Import data or class
+    deriving (Show, Eq)
 
 -- | Top-level declarations
 data TopDecl
@@ -85,6 +90,7 @@ data TopDecl
                       (WithLocation Inst)
                       [WithLocation InstAssignment] -- ^ Definition of an instance
     | TopDeclAssignment (WithLocation Assignment) -- ^ Assignment
+    deriving (Show, Eq)
 
 -- | Constructor of a data type
 data Constr
@@ -92,16 +98,19 @@ data Constr
                    [WithLocation Type] -- ^ Usual constructor
     | ConstrRecord (WithLocation Ident)
                    [WithLocation FieldDecl] -- ^ Record constructor
+    deriving (Show, Eq)
 
 -- | Definition of a field in a record
 data FieldDecl =
     FieldDecl (WithLocation Ident) -- ^ Name of a field
               (WithLocation Type) -- ^ Type of a field
+    deriving (Show, Eq)
 
 -- | Instance
 data Inst =
     Inst (WithLocation Ident) -- ^ Name of a type
          [WithLocation Ident] -- ^ Arguments of a type
+    deriving (Show, Eq)
 
 -- | Constructor of a `newtype`
 data NewConstr
@@ -110,22 +119,26 @@ data NewConstr
     | NewConstrNamed (WithLocation Ident)
                      (WithLocation Ident)
                      (WithLocation Type) -- ^ Constructor with a getter
+    deriving (Show, Eq)
 
 -- | Constraint on a type
 data Constraint =
     Constraint (WithLocation Ident) -- ^ Name of a class
                (WithLocation Ident) -- ^ Argument
                [WithLocation Type] -- ^ Optional arguments of the argument
+    deriving (Show, Eq)
 
 -- | Simple type
 data SimpleType =
     SimpleType (WithLocation Ident) -- ^ Type name
                [WithLocation Ident] -- ^ Type arguments
+    deriving (Show, Eq)
 
 -- | Simple class
 data SimpleClass =
     SimpleClass (WithLocation Ident) -- ^ Class name
                 (WithLocation Ident) -- ^ Class arguments
+    deriving (Show, Eq)
 
 -- | Type
 data Type
@@ -133,6 +146,7 @@ data Type
                       (NonEmpty (WithLocation Type)) -- ^ Application of a type constructor
     | TypeVar (WithLocation Ident) -- ^ Type variable
     | TypeConstr (WithLocation Ident) -- ^ Type constructor
+    deriving (Show, Eq)
 
 -- | Assignment in top-level, `let` or `where` blocks
 data Assignment
@@ -143,6 +157,7 @@ data Assignment
     | AssignmentType (WithLocation Ident)
                      [WithLocation Constraint]
                      (WithLocation Type) -- ^ Define type of a name
+    deriving (Show, Eq)
 
 -- | Assignment in a class definition
 data ClassAssignment
@@ -151,11 +166,13 @@ data ClassAssignment
     | ClassAssignmentType (WithLocation Ident)
                           [WithLocation Constraint]
                           (WithLocation Type) -- ^ Define type of an expression
+    deriving (Show, Eq)
 
 -- | Assignemnt in an instance definition
 data InstAssignment =
     InstAssignmentName (WithLocation Ident)
                        (WithLocation Exp) -- ^ Assign expression to a name
+    deriving (Show, Eq)
 
 -- | Pattern
 data Pattern
@@ -167,11 +184,13 @@ data Pattern
                  (Maybe (WithLocation Pattern)) -- ^ Variable with possible pattern
     | PatternConst (WithLocation Const) -- ^ Constant
     | PatternWildcard -- ^ Wildcard
+    deriving (Show, Eq)
 
 -- | Record pattern binding
 data PatternBinding =
     PatternBinding (WithLocation Ident) -- ^ Field name
                    (WithLocation Pattern) -- ^ Pattern
+    deriving (Show, Eq)
 
 -- | Expression
 data Exp
@@ -189,13 +208,16 @@ data Exp
                       [WithLocation Binding] -- ^ Construction of a record
     | ExpRecordUpdate (WithLocation Exp)
                       (NonEmpty (WithLocation Binding)) -- ^ Update of a record
+    deriving (Show, Eq)
 
 -- | Record field binding
 data Binding =
     Binding (WithLocation Ident) -- ^ Field name
             (WithLocation Exp) -- ^ Expression
+    deriving (Show, Eq)
 
 -- | Alternative in `case` expressions
 data Alt =
     Alt (WithLocation Pattern) -- ^ Pattern
         (WithLocation Exp) -- ^ Expression
+    deriving (Show, Eq)

@@ -29,6 +29,7 @@ library:
   - Frontend.Desugaring.Ast
   - Frontend.Desugaring.ToConst
   - Frontend.Desugaring.ToIdent
+  - Frontend.Desugaring.ToType
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
