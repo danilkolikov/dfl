@@ -8,8 +8,8 @@ Test suite for the frontend of DFL
 -}
 module Frontend.Spec where
 
-import Frontend.Desugaring.Spec as Desugaring
-import Frontend.Syntax.Spec as Syntax
+import qualified Frontend.Desugaring.Spec as Desugaring
+import qualified Frontend.Syntax.Spec as Syntax
 
 testSuite :: IO ()
 testSuite = do

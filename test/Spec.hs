@@ -6,7 +6,7 @@ License     :  MIT
 
 Test suite for DFL
 -}
-import Frontend.Spec as Frontend
+import qualified Frontend.Spec as Frontend
 
 main :: IO ()
 main = do
