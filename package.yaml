@@ -28,9 +28,11 @@ library:
   exposed-modules:
   - Frontend.Desugaring.Ast
   - Frontend.Desugaring.ToConst
+  - Frontend.Desugaring.ToConstr
   - Frontend.Desugaring.ToConstraint
   - Frontend.Desugaring.ToIdent
   - Frontend.Desugaring.ToInst
+  - Frontend.Desugaring.ToNewConstr
   - Frontend.Desugaring.ToSimpleClass
   - Frontend.Desugaring.ToSimpleType
   - Frontend.Desugaring.ToType
