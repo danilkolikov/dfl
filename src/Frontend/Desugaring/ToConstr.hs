@@ -6,7 +6,9 @@ License     :  MIT
 
 Desugaring of AST nodes to objects, representing Constr-s.
 -}
-module Frontend.Desugaring.ToConstr where
+module Frontend.Desugaring.ToConstr
+    ( DesugarToConstr(..)
+    ) where
 
 import Data.List.NonEmpty (toList)
 

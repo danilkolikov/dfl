@@ -28,16 +28,20 @@ library:
   exposed-modules:
   - Frontend.Desugaring.Ast
   - Frontend.Desugaring.IdentGenerator
+  - Frontend.Desugaring.ToClassAssignment
   - Frontend.Desugaring.ToConst
   - Frontend.Desugaring.ToConstr
   - Frontend.Desugaring.ToConstraint
   - Frontend.Desugaring.ToExp
   - Frontend.Desugaring.ToIdent
   - Frontend.Desugaring.ToInst
+  - Frontend.Desugaring.ToInstAssignment
+  - Frontend.Desugaring.ToModule
   - Frontend.Desugaring.ToNewConstr
   - Frontend.Desugaring.ToPattern
   - Frontend.Desugaring.ToSimpleClass
   - Frontend.Desugaring.ToSimpleType
+  - Frontend.Desugaring.ToTopDecl
   - Frontend.Desugaring.ToType
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast

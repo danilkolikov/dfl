@@ -15,6 +15,7 @@ import Frontend.Syntax.Token (VarId(..))
 -- | Type of generator of identifiers
 type IdentGenerator a = ST.State Int a
 
+-- | Run IdentGenerator
 runIdentGenerator :: IdentGenerator a -> Int -> a
 runIdentGenerator = evalState
 
