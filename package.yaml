@@ -33,6 +33,7 @@ library:
   - Frontend.Desugaring.ToIdent
   - Frontend.Desugaring.ToInst
   - Frontend.Desugaring.ToNewConstr
+  - Frontend.Desugaring.ToPattern
   - Frontend.Desugaring.ToSimpleClass
   - Frontend.Desugaring.ToSimpleType
   - Frontend.Desugaring.ToType
