@@ -10,7 +10,10 @@ module Frontend.Desugaring.ToIdent
     ( DesugarToIdent(..)
     ) where
 
+import Data.List (stripPrefix)
+
 import Frontend.Desugaring.Ast
+import Frontend.Desugaring.IdentGenerator (gENERATED_ID_PREFIX)
 import Frontend.Syntax.Ast
     ( DClass(..)
     , FuncLabel(..)
@@ -79,4 +82,13 @@ instance DesugarToIdent DClass where
 
 -- Helper functions
 desugarNamedIdent :: (NamedEntity a) => a -> WithLocation Ident
-desugarNamedIdent = withDummyLocation . IdentNamed . getEntityName
+desugarNamedIdent x =
+    withDummyLocation $
+    let entityName = getEntityName x
+     in case entityName of
+            [] -> undefined
+            [name] ->
+                case stripPrefix gENERATED_ID_PREFIX name of
+                    Nothing -> IdentNamed entityName
+                    Just s -> IdentGenerated (read s)
+            qualifiedName -> IdentNamed qualifiedName

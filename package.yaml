@@ -27,9 +27,11 @@ library:
   - unordered-containers >= 0.2.9.0
   exposed-modules:
   - Frontend.Desugaring.Ast
+  - Frontend.Desugaring.IdentGenerator
   - Frontend.Desugaring.ToConst
   - Frontend.Desugaring.ToConstr
   - Frontend.Desugaring.ToConstraint
+  - Frontend.Desugaring.ToExp
   - Frontend.Desugaring.ToIdent
   - Frontend.Desugaring.ToInst
   - Frontend.Desugaring.ToNewConstr

@@ -13,6 +13,7 @@ module Frontend.Desugaring.Spec
 import qualified Frontend.Desugaring.ToConstTest as ToConst
 import qualified Frontend.Desugaring.ToConstrTest as ToConstr
 import qualified Frontend.Desugaring.ToConstraintTest as ToConstraint
+import qualified Frontend.Desugaring.ToExpTest as ToExp
 import qualified Frontend.Desugaring.ToIdentTest as ToIdent
 import qualified Frontend.Desugaring.ToInstTest as ToInst
 import qualified Frontend.Desugaring.ToNewConstrTest as ToNewConstr
@@ -33,3 +34,4 @@ testSuite = do
     ToConstr.testSuite
     ToNewConstr.testSuite
     ToPattern.testSuite
+    ToExp.testSuite
