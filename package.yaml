@@ -26,23 +26,23 @@ library:
   - transformers >= 0.5.6.2
   - unordered-containers >= 0.2.9.0
   exposed-modules:
-  - Frontend.Desugaring.Ast
-  - Frontend.Desugaring.IdentGenerator
-  - Frontend.Desugaring.ToClassAssignment
-  - Frontend.Desugaring.ToConst
-  - Frontend.Desugaring.ToConstr
-  - Frontend.Desugaring.ToConstraint
-  - Frontend.Desugaring.ToExp
-  - Frontend.Desugaring.ToIdent
-  - Frontend.Desugaring.ToInst
-  - Frontend.Desugaring.ToInstAssignment
-  - Frontend.Desugaring.ToModule
-  - Frontend.Desugaring.ToNewConstr
-  - Frontend.Desugaring.ToPattern
-  - Frontend.Desugaring.ToSimpleClass
-  - Frontend.Desugaring.ToSimpleType
-  - Frontend.Desugaring.ToTopDecl
-  - Frontend.Desugaring.ToType
+  - Frontend.Desugaring.Initial.Ast
+  - Frontend.Desugaring.Initial.ToClassAssignment
+  - Frontend.Desugaring.Initial.ToConst
+  - Frontend.Desugaring.Initial.ToConstr
+  - Frontend.Desugaring.Initial.ToConstraint
+  - Frontend.Desugaring.Initial.ToExp
+  - Frontend.Desugaring.Initial.ToIdent
+  - Frontend.Desugaring.Initial.ToInst
+  - Frontend.Desugaring.Initial.ToInstAssignment
+  - Frontend.Desugaring.Initial.ToModule
+  - Frontend.Desugaring.Initial.ToNewConstr
+  - Frontend.Desugaring.Initial.ToPattern
+  - Frontend.Desugaring.Initial.ToSimpleClass
+  - Frontend.Desugaring.Initial.ToSimpleType
+  - Frontend.Desugaring.Initial.ToTopDecl
+  - Frontend.Desugaring.Initial.ToType
+  - Frontend.Desugaring.Util.IdentGenerator
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
