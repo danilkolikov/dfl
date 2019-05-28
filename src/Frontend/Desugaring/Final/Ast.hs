@@ -15,16 +15,23 @@ module Frontend.Desugaring.Final.Ast
     , ImpDecl(..)
     , Import(..)
     , TypeSynonym(..)
+    , TypeSynonyms
     , DataType(..)
+    , DataTypes
     , NewType(..)
+    , NewTypes
     , Constructor(..)
     , Class(..)
+    , Classes
     , Instance(..)
+    , Instances
     , Constraint(..)
     , SimpleConstraint(..)
     , TypeSignature(..)
     , Type(..)
     , Expression(..)
+    , Expressions
+    , Exp(..)
     , Alt(..)
     , Pattern(..)
     ) where
@@ -48,11 +55,11 @@ data Module = Module
     { getModuleName :: WithLocation Ident -- ^ Name of a module
     , getModuleExports :: ImpExpList (WithLocation Export) -- ^ Exports
     , getModuleImports :: [WithLocation ImpDecl] -- ^ Imports
-    , getModuleTypeSynonyms :: HashMap Ident TypeSynonym -- ^ Type synonyms
-    , getModuleDataTypes :: HashMap Ident DataType -- ^ Data types
-    , getModuleNewTypes :: HashMap Ident NewType -- ^ New types
-    , getModuleClasses :: HashMap Ident Class -- ^ Classes
-    , getModuleInstances :: HashMap Ident Instance -- ^ Instances
+    , getModuleTypeSynonyms :: TypeSynonyms -- ^ Type synonyms
+    , getModuleDataTypes :: DataTypes -- ^ Data types
+    , getModuleNewTypes :: NewTypes -- ^ New types
+    , getModuleClasses :: Classes -- ^ Classes
+    , getModuleInstances :: Instances -- ^ Instances
     , getModuleExpressions :: Expressions -- ^ Expressions
     } deriving (Show, Eq)
 
@@ -63,6 +70,9 @@ data TypeSynonym = TypeSynonym
     , getTypeSynonymType :: WithLocation Type -- ^ Type
     } deriving (Show, Eq)
 
+-- | Map of type synonyms
+type TypeSynonyms = HashMap Ident TypeSynonym
+
 -- | Definition of a data type
 data DataType = DataType
     { getDataTypeContext :: [WithLocation Constraint] -- ^ Context of a data type
@@ -71,6 +81,9 @@ data DataType = DataType
     , getDataTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
     , getDataTypeConstructors :: [(Ident, Constructor)] -- ^ List of constructors
     } deriving (Show, Eq)
+
+-- | Map of data types
+type DataTypes = HashMap Ident DataType
 
 -- | Constructor of a data type
 data Constructor = Constructor
@@ -87,6 +100,9 @@ data NewType = NewType
     , getNewTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
     , getNewTypeConstructor :: Constructor -- ^ Constructor
     } deriving (Show, Eq)
+
+-- | Map of newtypes
+type NewTypes = HashMap Ident NewType
 
 -- | Type constraint
 data Constraint = Constraint
@@ -109,6 +125,9 @@ data Class = Class
     , getClassMethods :: Expressions -- ^ Methods of a type class
     } deriving (Show, Eq)
 
+-- | Map of classes
+type Classes = HashMap Ident Class
+
 -- | Definition of an instance of a type class
 data Instance = Instance
     { getInstanceContext :: [WithLocation SimpleConstraint] -- ^ Context of an instance
@@ -117,6 +136,9 @@ data Instance = Instance
     , getInstanceTypeArgs :: [WithLocation Ident] -- ^ Arguments of a type
     , getInstanceMethods :: Expressions -- ^ Methods of an instance
     } deriving (Show, Eq)
+
+-- | Map of instances
+type Instances = HashMap Ident Instance
 
 -- | Type signature
 data TypeSignature = TypeSignature
@@ -127,10 +149,11 @@ data TypeSignature = TypeSignature
 -- | Definition of an expression
 data Expression = Expression
     { getExpressionName :: WithLocation Ident -- ^ Name of an expression
-    , getExpressionBody :: [WithLocation Ident] -- ^ Body of an expression
+    , getExpressionBody :: WithLocation Exp -- ^ Body of an expression
     , getExpressionType :: Maybe TypeSignature -- ^ Optional type signature
     } deriving (Show, Eq)
 
+-- | Map of expressions
 type Expressions = HashMap Ident Expression
 
 -- | Expression

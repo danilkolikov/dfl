@@ -27,6 +27,7 @@ library:
   - unordered-containers >= 0.2.9.0
   exposed-modules:
   - Frontend.Desugaring.Final.Ast
+  - Frontend.Desugaring.Final.Processor
   - Frontend.Desugaring.Initial.Ast
   - Frontend.Desugaring.Initial.ToClassAssignment
   - Frontend.Desugaring.Initial.ToConst

@@ -7,9 +7,13 @@ License     :  MIT
 Desugared version of AST of DFL. Contains significantly less kinds of nodes,
 but still has nodes related to records.
 -}
+{-# LANGUAGE DeriveGeneric #-}
+
 module Frontend.Desugaring.Initial.Ast where
 
+import Data.Hashable
 import Data.List.NonEmpty (NonEmpty)
+import GHC.Generics (Generic)
 
 import Frontend.Syntax.EntityName (EntityName)
 import Frontend.Syntax.Position (WithLocation)
@@ -20,7 +24,9 @@ data Ident
     | IdentParametrised EntityName
                         Int -- ^ Name with a parameter. E.G. - tuples with different number of arguments
     | IdentGenerated Int -- ^ Automatically generated name
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+instance Hashable Ident
 
 -- | Constant values
 data Const
