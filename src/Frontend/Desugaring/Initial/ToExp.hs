@@ -11,367 +11,342 @@ Module contains functions for these 2 objects, because they're mutually recursiv
 module Frontend.Desugaring.Initial.ToExp
     ( DesugarToAssignment(..)
     , DesugarToExp(..)
+    , desugarFunLHS
+    , desugarGenDecl
     ) where
 
-import Control.Monad (liftM2)
 import Data.Functor ((<$))
-import qualified Data.List.NonEmpty as NE (NonEmpty(..), toList)
+import qualified Data.List.NonEmpty as NE (NonEmpty(..), init, last, toList)
 
 import qualified Frontend.Desugaring.Initial.Ast as D
-import Frontend.Desugaring.Initial.AstWraps
-import Frontend.Desugaring.Util.IdentGenerator (IdentGenerator, newVarId)
 import Frontend.Desugaring.Initial.ToConst (desugarToConst)
+import Frontend.Desugaring.Initial.ToConstraint (desugarToConstraint)
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.ToPattern (desugarToPattern)
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.ToType (desugarToType)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Class for types which can be desugared to Assignment-s
 class DesugarToAssignment a where
-    desugarToAssignment :: a -> IdentGenerator [WithLocation D.Assignment] -- ^ Desugar object to assignments
+    desugarToAssignment :: a -> [WithLocation D.Assignment] -- ^ Desugar object to assignments
 
 instance (DesugarToAssignment a) => DesugarToAssignment (WithLocation a) where
-    desugarToAssignment x = do
-        res <- desugarToAssignment (getValue x)
-        return [getValue el <$ x | el <- res]
+    desugarToAssignment = sequence . ((getValue <$>) . desugarToAssignment <$>)
 
 instance DesugarToAssignment Decl where
     desugarToAssignment (DeclGenDecl genDecl) = desugarToAssignment genDecl
     desugarToAssignment (DeclFunction lhs rhs) =
-        case getValue lhs of
-            Left fun -> do
-                let (ident, pats) = desugarFunLHS fun
-                    exp' = getValue <$> (rhsToExp <$> rhs)
-                res <- desugarToExp $ LExpAbstraction pats exp'
-                return [withDummyLocation $ D.AssignmentName ident res]
-            Right pat ->
-                return .
-                withDummyLocation .
-                D.AssignmentPattern (desugarToPattern (pat <$ lhs)) <$>
-                desugarToExp rhs
+        [ withDummyLocation $
+          case getValue lhs of
+              Left fun ->
+                  let (ident, pats) = desugarFunLHS fun
+                      desugaredRHS = desugarToExp rhs
+                   in D.AssignmentName ident pats desugaredRHS
+              Right pat ->
+                  let desugaredPat = desugarToPattern pat
+                      desugaredRHS = desugarToExp rhs
+                   in D.AssignmentPattern desugaredPat desugaredRHS
+        ]
 
 instance DesugarToAssignment GenDecl where
-    desugarToAssignment = return . desugarGenDecl D.AssignmentType
+    desugarToAssignment = desugarGenDecl D.AssignmentType
 
 -- | Class for types which can be desugared to Exp
 class DesugarToExp a where
-    desugarToExp :: a -> IdentGenerator (WithLocation D.Exp) -- ^ Desugar object to exp
+    desugarToExp :: a -> WithLocation D.Exp -- ^ Desugar object to exp
 
 instance (DesugarToExp a) => DesugarToExp (WithLocation a) where
-    desugarToExp = sequence . ((getValue <$>) . desugarToExp <$>)
+    desugarToExp = (getValue . desugarToExp <$>)
 
 instance DesugarToExp RHS where
-    desugarToExp = desugarToExp . rhsToExp
+    desugarToExp (RHSSimple exp' decls) =
+        let desugaredExp = desugarToExp exp'
+            desugaredDecls = concatMap desugarToAssignment decls
+         in withDecls desugaredDecls desugaredExp
+    desugarToExp (RHSGuarded gdrhs decls) =
+        let gdRHSToGdPat (GdRHS pat exp') = GdPat pat exp'
+            desugaredGuards = desugarGdPats $ fmap (gdRHSToGdPat <$>) gdrhs
+            desugaredDecls = concatMap desugarToAssignment decls
+         in withDecls desugaredDecls desugaredGuards
 
 instance DesugarToExp Exp where
-    desugarToExp (ExpSimple e) = desugarToExp e
-    desugarToExp (ExpTyped e context type') = do
-        newIdent <- newVarId
-        let newVar = FuncLabelId newIdent
-            varExp = qVarToExp newQVar
-            newQVar = FuncLabelId (Qualified [] newIdent)
-            varPat = varToPat newVar
-            typeSig =
-                GenDeclTypeSig (withDummyLocation newVar NE.:| []) context type'
-            eExp = wrapToExp' e
-            letExp =
-                LExpLet
-                    [ withDummyLocation . DeclGenDecl . withDummyLocation $
-                      typeSig
-                    , withDummyLocation $
-                      DeclFunction
-                          (withDummyLocation . Right $ varPat)
-                          (withSameLocation (`RHSSimple` []) eExp)
-                    ]
-                    (withDummyLocation varExp)
-        desugarToExp letExp
+    desugarToExp (ExpSimple exp') = desugarToExp exp'
+    desugarToExp (ExpTyped exp' context type') =
+        let desugaredE = desugarToExp exp'
+            desugaredContext = map desugarToConstraint context
+            desugaredType = desugarToType type'
+         in withDummyLocation $
+            D.ExpTyped desugaredE desugaredContext desugaredType
 
 instance DesugarToExp InfixExp where
-    desugarToExp (InfixExpLExp e) = desugarToExp e
-    desugarToExp (InfixExpNegated _ e) =
-        desugarToExp $
-        LExpApplication
-            (entityNameToAExp nEGATE_NAME NE.:|
-             [withDummyLocation . wrapToAExp $ ExpSimple e])
+    desugarToExp (InfixExpLExp exp') = desugarToExp exp'
+    desugarToExp (InfixExpNegated _ exp') =
+        let desugaredExp = desugarToExp exp'
+         in withDummyLocation $
+            D.ExpApplication (makeExp nEGATE_NAME) (desugaredExp NE.:| [])
     desugarToExp (InfixExpApplication l op r) =
-        desugarToExp $
-        LExpApplication
-            (qOpToAExp op NE.:|
-             [ withDummyLocation . wrapToAExp $ ExpSimple l
-             , withDummyLocation . wrapToAExp $ ExpSimple r
-             ])
+        let name = desugarToIdent op
+            func = D.ExpVar name <$ name
+            args = fmap desugarToExp (l NE.:| [r])
+         in withDummyLocation $ D.ExpApplication func args
 
 instance DesugarToExp LExp where
     desugarToExp (LExpApplication args) =
         case args of
             (f NE.:| []) -> desugarToExp f
             (f NE.:| (s:rest)) ->
-                withDummyLocation <$>
-                liftM2
-                    D.ExpApplication
+                withDummyLocation $
+                D.ExpApplication
                     (desugarToExp f)
-                    (mapM desugarToExp (s NE.:| rest))
-    desugarToExp (LExpAbstraction pats exp') = do
-        varIds <- mapM (const newVarId) pats
-        let patVars = fmap (withDummyLocation . varToPat . FuncLabelId) varIds
-            expVars =
-                fmap
-                    (withDummyLocation . qVarToExp . FuncLabelId . Qualified [])
-                    varIds
-            idents = fmap desugarToIdent varIds
-            pat = combinePats . NE.toList $ patVars
-            combinedExp = combineExps . NE.toList $ expVars
-            alt = withSameLocation (\x -> AltSimple pat x []) exp'
-            otherwise' =
-                withDummyLocation $ AltSimple wildcardPattern undefinedExp []
-            case' =
-                withSameLocation
-                    (\x -> LExpCase combinedExp (x NE.:| [otherwise']))
-                    alt
-        desugared <- desugarToExp case'
-        return . withDummyLocation $ D.ExpAbstraction idents desugared
+                    (fmap desugarToExp (s NE.:| rest))
+    desugarToExp (LExpAbstraction pats exp') =
+        let desugaredPatterns = fmap desugarToPattern pats
+            desugaredExp = desugarToExp exp'
+         in withDummyLocation $ D.ExpAbstraction desugaredPatterns desugaredExp
     desugarToExp (LExpLet decls exp') =
-        withDummyLocation <$>
-        liftM2
-            D.ExpLet
-            (concat <$> mapM desugarToAssignment decls)
-            (desugarToExp exp')
+        let desugaredDecls = concatMap desugarToAssignment decls
+            desugaredExp = desugarToExp exp'
+         in withDecls desugaredDecls desugaredExp
     desugarToExp (LExpIf cond true false) =
-        desugarToExp $
-        let true' = entityNameToPat tRUE_NAME
-            false' = entityNameToPat fALSE_NAME
-         in LExpCase
-                cond
-                (withDummyLocation (AltSimple true' true []) NE.:|
-                 [withDummyLocation $ AltSimple false' false []])
+        let desugaredCond = desugarToExp cond
+            desugaredTrue = desugarToExp true
+            desugaredFalse = desugarToExp false
+            trueAlt = withDummyLocation $ D.Alt truePattern desugaredTrue
+            falseAlt = withDummyLocation $ D.Alt falsePattern desugaredFalse
+         in withDummyLocation $
+            D.ExpCase desugaredCond (trueAlt NE.:| [falseAlt])
     desugarToExp (LExpCase exp' alts) =
-        withDummyLocation <$>
-        liftM2 D.ExpCase (desugarToExp exp') (mapM desugarToAlt alts)
-    desugarToExp (LExpDo stmts)
-        | stmt NE.:| [] <- stmts =
-            case getValue stmt of
-                StmtExp exp' -> desugarToExp (exp' <$ stmt)
-                _ -> undefined -- Should be filtered earlier
-        | stmt NE.:| (next:rest) <- stmts =
-            let doRest = wrapToExp . wrapToInfixExp $ LExpDo (next NE.:| rest)
-             in case getValue stmt of
-                    StmtExp exp' ->
-                        let aExp = wrapToAExp' exp'
-                            restAExp = withDummyLocation . wrapToAExp $ doRest
-                            function = entityNameToAExp iGNORING_BIND_NAME
-                            application =
-                                LExpApplication
-                                    (function NE.:| [aExp, restAExp])
-                         in desugarToExp application
-                    StmtLet decls ->
-                        desugarToExp $ LExpLet decls (withDummyLocation doRest)
-                    StmtPat pat exp' -> do
-                        varId <- newVarId
-                        let var = withDummyLocation $ FuncLabelId varId
-                            aPat = wrapToAPat' pat
-                            lhs =
-                                withDummyLocation $
-                                FunLHSSimple var (aPat NE.:| [])
-                            rhs =
-                                withDummyLocation $
-                                RHSSimple (withDummyLocation doRest) []
-                            decl =
-                                withDummyLocation $
-                                DeclFunction (Left <$> lhs) rhs
-                            function = entityNameToAExp bIND_NAME
-                            aExp = wrapToAExp' exp'
-                            varAExp = varIdToAExp varId
-                            application =
-                                withDummyLocation . wrapToExp . wrapToInfixExp $
-                                LExpApplication (function NE.:| [aExp, varAExp])
-                            let' = LExpLet [decl] application
-                        desugarToExp let'
+        let desugaredExp = desugarToExp exp'
+            desugaredAlts = fmap desugarToAlt alts
+         in withDummyLocation $ D.ExpCase desugaredExp desugaredAlts
+    desugarToExp (LExpDo stmts) =
+        let desugaredStmts = fmap desugarStmt stmts
+            initialStmts = NE.init desugaredStmts
+            lastStmt = NE.last desugaredStmts
+         in case getValue lastStmt of
+                D.StmtExp exp' -> withDummyLocation $ D.ExpDo initialStmts exp'
+                _ -> undefined -- This case should be filtered earlier
 
 instance DesugarToExp AExp where
     desugarToExp (AExpVariable name) =
-        return . withDummyLocation $ D.ExpVar (desugarToIdent name)
+        withDummyLocation $ D.ExpVar (desugarToIdent name)
     desugarToExp (AExpConstructor name) =
-        return . withDummyLocation $ D.ExpVar (desugarToIdent name)
+        withDummyLocation $ D.ExpConstr (desugarToIdent name)
     desugarToExp (AExpLiteral lit) =
-        return . withDummyLocation $ D.ExpConst (desugarToConst lit)
+        withDummyLocation $ D.ExpConst (desugarToConst lit)
     desugarToExp (AExpParens exp') = desugarToExp exp'
-    desugarToExp (AExpTuple f s rest) = do
-        desugaredF <- desugarToExp f
-        desugaredS <- desugarToExp s
-        desugaredRest <- mapM desugarToExp rest
-        let function =
+    desugarToExp (AExpTuple f s rest) =
+        let args = f NE.:| (s : rest)
+            desugaredArgs = fmap desugarToExp args
+            function =
                 withDummyLocation .
                 D.ExpVar . withDummyLocation . D.IdentParametrised tUPLE_NAME $
                 length rest + 2
-        return . withDummyLocation $
-            D.ExpApplication
-                function
-                (desugaredF NE.:| (desugaredS : desugaredRest))
-    desugarToExp (AExpList (f NE.:| rest)) = do
-        desugaredL <- desugarToExp f
-        desugaredR <-
-            case rest of
-                [] ->
-                    return . withDummyLocation . D.ExpVar . desugarToIdent $
-                    GConList
-                (s:exps) -> desugarToExp (AExpList (s NE.:| exps))
-        let function = entityNameToExp cOLON_NAME
-        return . withDummyLocation $
-            D.ExpApplication function (desugaredL NE.:| [desugaredR])
-    desugarToExp (AExpSequence f s e) = do
-        desugaredF <- desugarToExp f
-        case (s, e) of
-            (Nothing, Nothing) -> do
-                let function = entityNameToExp eNUM_FROM_NAME
-                return . withDummyLocation $
-                    D.ExpApplication function (desugaredF NE.:| [])
-            (Just s', Nothing) -> do
-                desugaredS <- desugarToExp s'
-                let function = entityNameToExp eNUM_FROM_THEN_NAME
-                return . withDummyLocation $
-                    D.ExpApplication function (desugaredF NE.:| [desugaredS])
-            (Nothing, Just e') -> do
-                desugaredE <- desugarToExp e'
-                let function = entityNameToExp eNUM_FROM_TO_NAME
-                return . withDummyLocation $
-                    D.ExpApplication function (desugaredF NE.:| [desugaredE])
-            (Just s', Just e') -> do
-                desugaredS <- desugarToExp s'
-                desugaredE <- desugarToExp e'
-                let function = entityNameToExp eNUM_FROM_THEN_TO_NAME
-                return . withDummyLocation $
-                    D.ExpApplication
-                        function
-                        (desugaredF NE.:| [desugaredS, desugaredE])
-    desugarToExp (AExpListCompr exp' (qual NE.:| rest)) =
-        let restExp =
-                withDummyLocation . wrapToExp . wrapToInfixExp . wrapToLExp $
+         in withDummyLocation $ D.ExpApplication function desugaredArgs
+    desugarToExp (AExpList (f NE.:| rest)) =
+        let desugaredL = desugarToExp f
+            desugaredR =
                 case rest of
-                    [] -> AExpList (exp' NE.:| [])
-                    (s:quals) -> AExpListCompr exp' (s NE.:| quals)
-         in case getValue qual of
-                (QualLet decls) -> desugarToExp $ LExpLet decls restExp
-                (QualGuard cond) ->
-                    desugarToExp $
-                    LExpIf
-                        cond
-                        restExp
-                        (withDummyLocation . gConToExp $ GConUnit)
-                (QualGenerator pat e) -> do
-                    varId <- newVarId
-                    let var = withDummyLocation $ FuncLabelId varId
-                        aPat = wrapToAPat' pat
-                        lhs =
-                            withDummyLocation $ FunLHSSimple var (aPat NE.:| [])
-                        rhs = withDummyLocation $ RHSSimple restExp []
-                        decl =
-                            withDummyLocation $ DeclFunction (Left <$> lhs) rhs
-                        function = entityNameToAExp cONCAT_MAP_NAME
-                        aExp = wrapToAExp' e
-                        varAExp = varIdToAExp varId
-                        application =
-                            withDummyLocation . wrapToExp . wrapToInfixExp $
-                            LExpApplication (function NE.:| [aExp, varAExp])
-                        let' = LExpLet [decl] application
-                    desugarToExp let'
-    desugarToExp (AExpLeftSection l op) = do
-        varId <- newVarId
-        let var = FuncLabelId varId
-            qVar = FuncLabelId (Qualified [] varId)
-            right = withDummyLocation $ AExpVariable (withDummyLocation qVar)
-            pat =
-                withDummyLocation $ APatVariable (withDummyLocation var) Nothing
-            func = qOpToAExp op
-            left = wrapToAExp' . wrapToExp' $ l
-            application =
-                withDummyLocation . wrapToExp . wrapToInfixExp $
-                LExpApplication (func NE.:| [left, right])
-            abstr = LExpAbstraction (pat NE.:| []) application
-        desugarToExp abstr
-    desugarToExp (AExpRightSection op r) = do
-        varId <- newVarId
-        let var = FuncLabelId varId
-            qVar = FuncLabelId (Qualified [] varId)
-            left = withDummyLocation $ AExpVariable (withDummyLocation qVar)
-            pat =
-                withDummyLocation $ APatVariable (withDummyLocation var) Nothing
-            func = qOpToAExp op
-            right = wrapToAExp' . wrapToExp' $ r
-            application =
-                withDummyLocation . wrapToExp . wrapToInfixExp $
-                LExpApplication (func NE.:| [left, right])
-            abstr = LExpAbstraction (pat NE.:| []) application
-        desugarToExp abstr
+                    [] -> makeConstr lIST_NAME
+                    (s:exps) -> desugarToExp (AExpList (s NE.:| exps))
+            function = makeExp cOLON_NAME
+         in withDummyLocation $
+            D.ExpApplication function (desugaredL NE.:| [desugaredR])
+    desugarToExp (AExpSequence f s e) =
+        let desugaredF = desugarToExp f
+            desugaredS = desugarToExp <$> s
+            desugaredE = desugarToExp <$> e
+         in withDummyLocation $
+            case (desugaredS, desugaredE) of
+                (Nothing, Nothing) ->
+                    let function = makeExp eNUM_FROM_NAME
+                     in D.ExpApplication function (desugaredF NE.:| [])
+                (Just s', Nothing) ->
+                    let function = makeExp eNUM_FROM_THEN_NAME
+                     in D.ExpApplication function (desugaredF NE.:| [s'])
+                (Nothing, Just e') ->
+                    let function = makeExp eNUM_FROM_TO_NAME
+                     in D.ExpApplication function (desugaredF NE.:| [e'])
+                (Just s', Just e') ->
+                    let function = makeExp eNUM_FROM_THEN_TO_NAME
+                     in D.ExpApplication function (desugaredF NE.:| [s', e'])
+    desugarToExp (AExpListCompr exp' quals) =
+        let desugaredExp = desugarToExp exp'
+            desugaredQuals = fmap desugarQual quals
+         in withDummyLocation $ D.ExpListCompr desugaredExp desugaredQuals
+    desugarToExp (AExpLeftSection exp' op) =
+        let desugaredExp = desugarToExp exp'
+            desugaredOp = desugarToIdent op
+         in withDummyLocation $ D.ExpLeftSection desugaredExp desugaredOp
+    desugarToExp (AExpRightSection op exp') =
+        let desugaredOp = desugarToIdent op
+            desugaredExp = desugarToExp exp'
+         in withDummyLocation $ D.ExpRightSection desugaredOp desugaredExp
     desugarToExp (AExpRecordConstr name binds) =
-        withDummyLocation . D.ExpRecordConstr (desugarToIdent name) <$>
-        mapM desugarToBinding binds
+        let desugaredName = desugarToIdent name
+            desugaredBinds = map desugarToBinding binds
+         in withDummyLocation $ D.ExpRecordConstr desugaredName desugaredBinds
     desugarToExp (AExpRecordUpdate exp' binds) =
-        withDummyLocation <$>
-        liftM2
-            D.ExpRecordUpdate
-            (desugarToExp exp')
-            (mapM desugarToBinding binds)
-
--- | Class for types which can be desugared to Alt
-class DesugarToAlt a where
-    desugarToAlt :: a -> IdentGenerator (WithLocation D.Alt) -- ^ Desugar object to alt
-
-instance (DesugarToAlt a) => DesugarToAlt (WithLocation a) where
-    desugarToAlt = sequence . ((getValue <$>) . desugarToAlt <$>)
-
-instance DesugarToAlt Alt where
-    desugarToAlt (AltSimple pat exp' decls) = do
-        expr <- desugarToExp $ declsToExp decls exp'
-        return . withDummyLocation $ D.Alt (desugarToPattern pat) expr
-    desugarToAlt (AltGuarded pat gdpats decls) = do
-        expr <- desugarToExp $ declsToExp decls (desugarGdPats gdpats)
-        return . withDummyLocation $ D.Alt (desugarToPattern pat) expr
-
--- | Class for types which can be desugared to Binding
-class DesugarToBinding a where
-    desugarToBinding :: a -> IdentGenerator (WithLocation D.Binding) -- ^ Desugar object to Binding
-
-instance (DesugarToBinding a) => DesugarToBinding (WithLocation a) where
-    desugarToBinding = sequence . ((getValue <$>) . desugarToBinding <$>)
-
-instance DesugarToBinding FBind where
-    desugarToBinding (FBind name exp') =
-        withDummyLocation . D.Binding (desugarToIdent name) <$>
-        desugarToExp exp'
+        let desugaredExp = desugarToExp exp'
+            desugaredBinds = fmap desugarToBinding binds
+         in withDummyLocation $ D.ExpRecordUpdate desugaredExp desugaredBinds
 
 -- Helper functions
-desugarGdPats :: NE.NonEmpty (WithLocation GdPat) -> WithLocation Exp
-desugarGdPats (WithLocation (GdPat guards exp') _ NE.:| rest)
-    | [] <- rest = desugarGuards guards exp' undefinedExp
-    | (next:gds) <- rest =
-        desugarGuards guards exp' (desugarGdPats (next NE.:| gds))
+-- | Desugar expression to Alt
+desugarToAlt :: WithLocation Alt -> WithLocation D.Alt
+desugarToAlt alt =
+    case getValue alt of
+        (AltSimple pat exp' decls) ->
+            let desugaredPat = desugarToPattern pat
+                desugaredExp = desugarToExp exp'
+                desugaredDecls = concatMap desugarToAssignment decls
+                expWithDecls = withDecls desugaredDecls desugaredExp
+             in D.Alt desugaredPat expWithDecls <$ alt
+        (AltGuarded pat gdpats decls) ->
+            let desugaredPat = desugarToPattern pat
+                desugaredDecls = concatMap desugarToAssignment decls
+                rhs = desugarGdPats gdpats
+                expWithDecls = withDecls desugaredDecls rhs
+             in D.Alt desugaredPat expWithDecls <$ alt
 
+-- | Desugar expression to bindings
+desugarToBinding :: WithLocation FBind -> WithLocation D.Binding
+desugarToBinding fbind
+    | (FBind name exp') <- getValue fbind =
+        D.Binding (desugarToIdent name) (desugarToExp exp') <$ fbind
+
+-- | Desugar statements
+desugarStmt :: WithLocation Stmt -> WithLocation D.Stmt
+desugarStmt stmt =
+    case getValue stmt of
+        (StmtPat pat exp') ->
+            let desugaredPat = desugarToPattern pat
+                desugaredExp = desugarToExp exp'
+             in D.StmtPattern desugaredPat desugaredExp <$ stmt
+        (StmtLet decls) ->
+            let desugaredDecls = concatMap desugarToAssignment decls
+             in D.StmtLet desugaredDecls <$ stmt
+        (StmtExp exp') ->
+            let desugaredExp = desugarToExp exp'
+             in D.StmtExp desugaredExp <$ stmt
+
+-- | Desugar qualifiers
+desugarQual :: WithLocation Qual -> WithLocation D.Stmt
+desugarQual stmt =
+    case getValue stmt of
+        (QualGenerator pat exp') ->
+            let desugaredPat = desugarToPattern pat
+                desugaredExp = desugarToExp exp'
+             in D.StmtPattern desugaredPat desugaredExp <$ stmt
+        (QualLet decls) ->
+            let desugaredDecls = concatMap desugarToAssignment decls
+             in D.StmtLet desugaredDecls <$ stmt
+        (QualGuard exp') ->
+            let desugaredExp = desugarToExp exp'
+             in D.StmtExp desugaredExp <$ stmt
+
+-- | Desugar fixty and type declarations
+desugarGenDecl ::
+       (WithLocation D.Ident -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
+    -> GenDecl
+    -> [WithLocation a]
+desugarGenDecl _ GenDeclFixity {} = []
+desugarGenDecl wrap (GenDeclTypeSig vars context type') =
+    let desugaredContext = map desugarToConstraint context
+        desugaredType = desugarToType type'
+     in NE.toList $
+        fmap
+            (\var ->
+                 withDummyLocation $
+                 wrap (desugarToIdent var) desugaredContext desugaredType)
+            vars
+
+-- | Desugar left hand side of a function
+desugarFunLHS ::
+       FunLHS -> (WithLocation D.Ident, NE.NonEmpty (WithLocation D.Pattern))
+desugarFunLHS (FunLHSSimple var pats) = (desugarToIdent var, fmap desugarToPattern pats)
+desugarFunLHS (FunLHSInfix l op r) =
+    (desugarToIdent op, fmap desugarToPattern (l NE.:| [r]))
+desugarFunLHS (FunLHSNested lhs pats) =
+    let (ident, f NE.:| rest) = desugarFunLHS (getValue lhs)
+     in (ident, f NE.:| (rest ++ NE.toList (fmap desugarToPattern pats)))
+
+-- | Desugar guarded patterns
+desugarGdPats :: NE.NonEmpty (WithLocation GdPat) -> WithLocation D.Exp
+desugarGdPats (first NE.:| rest) =
+    let desugaredRest =
+            case rest of
+                [] -> undefinedExp
+                (s:others) -> desugarGdPats (s NE.:| others)
+        (GdPat guards exp') = getValue first
+        desugaredExp = desugarToExp exp'
+     in desugarGuards guards desugaredExp desugaredRest
+
+-- | Desugar guards
 desugarGuards ::
        NE.NonEmpty (WithLocation Guard)
-    -> WithLocation Exp
-    -> WithLocation Exp
-    -> WithLocation Exp
-desugarGuards (guard NE.:| rest) res otherwise' =
-    let exp' =
+    -> WithLocation D.Exp
+    -> WithLocation D.Exp
+    -> WithLocation D.Exp
+desugarGuards (first NE.:| rest) success failure =
+    let desugaredRest =
             case rest of
-                [] -> res
-                (next:guards) ->
-                    desugarGuards (next NE.:| guards) res otherwise'
-     in case getValue guard of
-            GuardLet decls ->
-                (wrapToExp . wrapToInfixExp $ LExpLet decls exp') <$ guard
-            GuardExpr cond ->
-                (wrapToExp . wrapToInfixExp $
-                 LExpIf (wrapToExp' cond) exp' otherwise') <$
-                guard
-            GuardPattern pat expr ->
-                (wrapToExp . wrapToInfixExp $
-                 LExpCase
-                     (wrapToExp' expr)
-                     (withDummyLocation (AltSimple pat exp' []) NE.:|
-                      [ withDummyLocation
-                            (AltSimple wildcardPattern otherwise' [])
-                      ])) <$
-                guard
+                [] -> success
+                (s:others) -> desugarGuards (s NE.:| others) success failure
+     in case getValue first of
+            (GuardPattern pat exp') ->
+                let desugaredPat = desugarToPattern pat
+                    desugaredExp = desugarToExp exp'
+                    alt = D.Alt desugaredPat desugaredRest <$ first
+                    altFailure =
+                        withDummyLocation $ D.Alt wildcardPattern failure
+                 in withDummyLocation $
+                    D.ExpCase desugaredExp (alt NE.:| [altFailure])
+            (GuardLet decls) ->
+                let desugaredDecls = concatMap desugarToAssignment decls
+                 in withDecls desugaredDecls desugaredRest
+            (GuardExpr exp') ->
+                let desugaredExp = desugarToExp exp'
+                    altSuccess =
+                        withDummyLocation $ D.Alt truePattern desugaredRest
+                    altFailure = withDummyLocation $ D.Alt falsePattern failure
+                 in withDummyLocation $
+                    D.ExpCase desugaredExp (altSuccess NE.:| [altFailure])
+
+-- | Wildcard pattern
+wildcardPattern :: WithLocation D.Pattern
+wildcardPattern = withDummyLocation D.PatternWildcard
+
+-- | Make custom pattern constructor
+makePattern :: EntityName -> WithLocation D.Pattern
+makePattern =
+    withDummyLocation .
+    (`D.PatternConstr` []) . withDummyLocation . D.IdentNamed
+
+-- | Pattern that matches True
+truePattern :: WithLocation D.Pattern
+truePattern = makePattern tRUE_NAME
+
+-- | Pattern that matches False
+falsePattern :: WithLocation D.Pattern
+falsePattern = makePattern fALSE_NAME
+
+-- | Make arbitrary expression
+makeExp :: EntityName -> WithLocation D.Exp
+makeExp = withDummyLocation . D.ExpVar . withDummyLocation . D.IdentNamed
+
+-- | undefined
+undefinedExp :: WithLocation D.Exp
+undefinedExp = makeExp uNDEFINED_NAME
+
+-- | Make constructors
+makeConstr :: EntityName -> WithLocation D.Exp
+makeConstr = withDummyLocation . D.ExpConstr . withDummyLocation . D.IdentNamed
+
+-- | Make let block
+withDecls ::
+       [WithLocation D.Assignment] -> WithLocation D.Exp -> WithLocation D.Exp
+withDecls [] = id
+withDecls decls = withDummyLocation . D.ExpLet decls

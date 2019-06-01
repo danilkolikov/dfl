@@ -16,26 +16,25 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.ToTopDecl (desugarToTopDecl)
-import Frontend.Desugaring.Util.IdentGenerator (IdentGenerator)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Class for types which can be desugared to Module
 class DesugarToModule a where
-    desugarToModule :: a -> IdentGenerator (WithLocation D.Module) -- ^ Desugar object to a Module
+    desugarToModule :: a -> WithLocation D.Module -- ^ Desugar object to a Module
 
 instance (DesugarToModule a) => DesugarToModule (WithLocation a) where
-    desugarToModule = sequence . ((getValue <$>) . desugarToModule <$>)
+    desugarToModule = (getValue . desugarToModule <$>)
 
 instance DesugarToModule Module where
     desugarToModule (ModuleExplicit name exports body) =
-        withDummyLocation <$>
+        withDummyLocation $
         bodyToDecls
             (D.Module (desugarToIdent name) (desugarExports exports))
             (getValue body)
     desugarToModule (ModuleImplicit body) =
-        withDummyLocation <$>
+        withDummyLocation $
         bodyToDecls
             (D.Module
                  (withDummyLocation $ D.IdentNamed dEFAULT_MODULE_NAME)
@@ -44,12 +43,9 @@ instance DesugarToModule Module where
 
 -- Helper functions
 bodyToDecls ::
-       ([WithLocation D.ImpDecl] -> [WithLocation D.TopDecl] -> a)
-    -> Body
-    -> IdentGenerator a
+       ([WithLocation D.ImpDecl] -> [WithLocation D.TopDecl] -> a) -> Body -> a
 bodyToDecls wrap (Body impDecls topDecls) =
-    wrap (map desugarImpDecl impDecls) . concat <$>
-    mapM desugarToTopDecl topDecls
+    wrap (map desugarImpDecl impDecls) (concatMap desugarToTopDecl topDecls)
 
 desugarExport :: WithLocation Export -> WithLocation D.Export
 desugarExport export =

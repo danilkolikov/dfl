@@ -10,33 +10,33 @@ module Frontend.Desugaring.Initial.ToInstAssignment
     ( DesugarToInstAssignment(..)
     ) where
 
+import Data.List.NonEmpty (toList)
+
 import qualified Frontend.Desugaring.Initial.Ast as D
-import Frontend.Desugaring.Initial.ToExp (desugarToExp)
+import Frontend.Desugaring.Initial.ToExp (desugarFunLHS, desugarToExp)
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
-import Frontend.Desugaring.Initial.Util (desugarFunLHS, rhsToExp)
-import Frontend.Desugaring.Util.IdentGenerator (IdentGenerator)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Class for types which can be desugared to InstAssignment
 class DesugarToInstAssignment a where
     desugarToInstAssignment ::
-           a -> IdentGenerator (WithLocation D.InstAssignment) -- Desugar object to InstAssignment
+           a
+        -> WithLocation D.InstAssignment
 
 instance (DesugarToInstAssignment a) =>
          DesugarToInstAssignment (WithLocation a) where
-    desugarToInstAssignment =
-        sequence . ((getValue <$>) . desugarToInstAssignment <$>)
+    desugarToInstAssignment = (getValue . desugarToInstAssignment <$>)
 
 instance DesugarToInstAssignment IDecl where
     desugarToInstAssignment (IDeclFunction lhs rhs) =
-        case getValue lhs of
-            Left fun -> do
-                let (ident, pats) = desugarFunLHS fun
-                    exp' = getValue <$> (rhsToExp <$> rhs)
-                res <- desugarToExp $ LExpAbstraction pats exp'
-                return . withDummyLocation $ D.InstAssignmentName ident res
-            Right var ->
-                withDummyLocation .
-                D.InstAssignmentName (desugarToIdent (var <$ lhs)) <$>
-                desugarToExp rhs
+        withDummyLocation $
+          case getValue lhs of
+              Left fun ->
+                  let (ident, pats) = desugarFunLHS fun
+                      desugaredRHS = desugarToExp rhs
+                   in D.InstAssignmentName ident (toList pats) desugaredRHS
+              Right name ->
+                  let desugaredName = desugarToIdent name
+                      desugaredRHS = desugarToExp rhs
+                   in D.InstAssignmentName desugaredName [] desugaredRHS

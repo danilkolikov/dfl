@@ -10,14 +10,18 @@ module Frontend.Desugaring.Initial.ToPattern
     ( DesugarToPattern(..)
     ) where
 
-import qualified Data.List.NonEmpty as NE (toList)
+import qualified Data.List.NonEmpty as NE (NonEmpty(..), toList)
 
 import Frontend.Desugaring.Initial.Ast
 import Frontend.Desugaring.Initial.ToConst (desugarToConst)
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Syntax.Ast (APat(..), FPat(..), LPat(..), Pat(..))
 import Frontend.Syntax.EntityName
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position
+    ( SourceLocation(..)
+    , WithLocation(..)
+    , withDummyLocation
+    )
 
 -- | Class for types which can be desugared to Pattern
 class DesugarToPattern a where
@@ -78,16 +82,25 @@ instance DesugarToPattern APat where
             PatternConstr
                 (withDummyLocation ident)
                 (map desugarToPattern (f : s : rest))
-    desugarToPattern (APatList args) =
+    desugarToPattern (APatList (f NE.:| rest)) =
         let constr = withDummyLocation $ IdentNamed cOLON_NAME
-            list = withDummyLocation $ IdentNamed lIST_NAME
-            emptyList = withDummyLocation $ PatternConstr list []
-         in foldr
-                (\f s ->
-                     withDummyLocation
-                         (PatternConstr constr [desugarToPattern f, s]))
-                emptyList
-                args
+            firstDesugared = desugarToPattern f
+            patsDesugared =
+                case rest of
+                    [] ->
+                        let list = withDummyLocation $ IdentNamed lIST_NAME
+                         in withDummyLocation $ PatternConstr list []
+                    (second:pats) ->
+                        let location =
+                                SourceLocation
+                                    (getLocationStart . getLocation . head $
+                                     rest)
+                                    (getLocationEnd . getLocation . last $ rest)
+                            listPat = APatList (second NE.:| pats)
+                            list = WithLocation listPat location
+                         in desugarToPattern list
+         in withDummyLocation $
+            PatternConstr constr [firstDesugared, patsDesugared]
 
 -- Helper functions
 desugarToPatternBinding :: WithLocation FPat -> WithLocation PatternBinding

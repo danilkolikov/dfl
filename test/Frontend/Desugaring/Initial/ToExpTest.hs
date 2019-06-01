@@ -19,7 +19,6 @@ import qualified Frontend.Desugaring.Initial.Ast as D
     , Exp(..)
     , Ident(..)
     )
-import Frontend.Desugaring.Util.IdentGenerator (runIdentGenerator)
 import Frontend.Desugaring.Initial.ToExp (desugarToExp)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (withDummyLocation)
@@ -43,7 +42,7 @@ testSuite =
                 aExp1 = withDummyLocation $ AExpVariable qVar1
                 aExp1Expected = withDummyLocation $ D.ExpVar qVar1Expected
                 aExp2 = withDummyLocation $ AExpConstructor gCon1
-                aExp2Expected = withDummyLocation $ D.ExpVar gCon1Expected
+                aExp2Expected = withDummyLocation $ D.ExpConstr gCon1Expected
                 aExp3 = withDummyLocation $ AExpLiteral lit1
                 aExp3Expected = withDummyLocation $ D.ExpConst lit1Expected
                 aExp4 = withDummyLocation $ AExpParens exp1
@@ -64,7 +63,7 @@ testSuite =
                               [":"])
                              (exp1Expected NE.:|
                               [ withDummyLocation .
-                                D.ExpVar . withDummyLocation . D.IdentNamed $
+                                D.ExpConstr . withDummyLocation . D.IdentNamed $
                                 ["[]"]
                               ]))
                 aExp7 =
@@ -93,13 +92,11 @@ testSuite =
                     withDummyLocation . (\x -> LExpApplication (x NE.:| [])) $
                     aExp3
                 exp2Expected = aExp3Expected
-            desugarToExp' aExp1 `shouldBe` aExp1Expected
-            desugarToExp' aExp2 `shouldBe` aExp2Expected
-            desugarToExp' aExp3 `shouldBe` aExp3Expected
-            desugarToExp' aExp4 `shouldBe` aExp4Expected
-            desugarToExp' aExp5 `shouldBe` aExp5Expected
-            desugarToExp' aExp6 `shouldBe` aExp6Expected
-            desugarToExp' aExp7 `shouldBe` aExp7Expected
+            desugarToExp aExp1 `shouldBe` aExp1Expected
+            desugarToExp aExp2 `shouldBe` aExp2Expected
+            desugarToExp aExp3 `shouldBe` aExp3Expected
+            desugarToExp aExp4 `shouldBe` aExp4Expected
+            desugarToExp aExp5 `shouldBe` aExp5Expected
+            desugarToExp aExp6 `shouldBe` aExp6Expected
+            desugarToExp aExp7 `shouldBe` aExp7Expected
             -- TODO: add more tests
-  where
-    desugarToExp' x = runIdentGenerator (desugarToExp x) 0

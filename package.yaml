@@ -44,7 +44,6 @@ library:
   - Frontend.Desugaring.Initial.ToSimpleType
   - Frontend.Desugaring.Initial.ToTopDecl
   - Frontend.Desugaring.Initial.ToType
-  - Frontend.Desugaring.Util.IdentGenerator
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker

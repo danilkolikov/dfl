@@ -122,9 +122,9 @@ data Inst =
 data NewConstr
     = NewConstrSimple (WithLocation Ident)
                       (WithLocation Type) -- ^ Simple constructor
-    | NewConstrNamed (WithLocation Ident)
-                     (WithLocation Ident)
-                     (WithLocation Type) -- ^ Constructor with a getter
+    | NewConstrRecord (WithLocation Ident)
+                      (WithLocation Ident)
+                      (WithLocation Type) -- ^ Record-style constructor
     deriving (Show, Eq)
 
 -- | Constraint on a type
@@ -157,6 +157,7 @@ data Type
 -- | Assignment in top-level, `let` or `where` blocks
 data Assignment
     = AssignmentName (WithLocation Ident)
+                     (NonEmpty (WithLocation Pattern))
                      (WithLocation Exp) -- ^ Assign some expression to a name
     | AssignmentPattern (WithLocation Pattern)
                         (WithLocation Exp) -- ^ Assign some expression to a pattern
@@ -168,6 +169,7 @@ data Assignment
 -- | Assignment in a class definition
 data ClassAssignment
     = ClassAssignmentName (WithLocation Ident)
+                          [WithLocation Pattern]
                           (WithLocation Exp) -- ^ Assign expression to a name
     | ClassAssignmentType (WithLocation Ident)
                           [WithLocation Constraint]
@@ -177,6 +179,7 @@ data ClassAssignment
 -- | Assignemnt in an instance definition
 data InstAssignment =
     InstAssignmentName (WithLocation Ident)
+                       [WithLocation Pattern]
                        (WithLocation Exp) -- ^ Assign expression to a name
     deriving (Show, Eq)
 
@@ -200,20 +203,40 @@ data PatternBinding =
 
 -- | Expression
 data Exp
-    = ExpAbstraction (NonEmpty (WithLocation Ident))
+    = ExpTyped (WithLocation Exp)
+               [WithLocation Constraint]
+               (WithLocation Type) -- ^ Expression with an explicitly specified type
+    | ExpAbstraction (NonEmpty (WithLocation Pattern))
                      (WithLocation Exp) -- ^ Lambda-abstraction
     | ExpLet [WithLocation Assignment]
              (WithLocation Exp) -- ^ Let-abstraction
     | ExpCase (WithLocation Exp)
               (NonEmpty (WithLocation Alt)) -- ^ Case expression
+    | ExpDo [WithLocation Stmt]
+            (WithLocation Exp) -- ^ Do statement
     | ExpApplication (WithLocation Exp)
                      (NonEmpty (WithLocation Exp)) -- ^ Application of expressions
     | ExpVar (WithLocation Ident) -- ^ Variable
+    | ExpConstr (WithLocation Ident) -- ^ Constructor
     | ExpConst (WithLocation Const) -- ^ Constant
+    | ExpListCompr (WithLocation Exp)
+                   (NonEmpty (WithLocation Stmt)) -- ^ List comprehension
+    | ExpLeftSection (WithLocation Exp)
+                     (WithLocation Ident) -- ^ Left section
+    | ExpRightSection (WithLocation Ident)
+                      (WithLocation Exp) -- ^ Right section
     | ExpRecordConstr (WithLocation Ident)
                       [WithLocation Binding] -- ^ Construction of a record
     | ExpRecordUpdate (WithLocation Exp)
                       (NonEmpty (WithLocation Binding)) -- ^ Update of a record
+    deriving (Show, Eq)
+
+-- | Statements in `do` blocks or in list comprehension
+data Stmt
+    = StmtPattern (WithLocation Pattern)
+                  (WithLocation Exp)
+    | StmtLet [WithLocation Assignment]
+    | StmtExp (WithLocation Exp)
     deriving (Show, Eq)
 
 -- | Record field binding

@@ -51,7 +51,7 @@ testSuite =
                      (withDummyLocation (FuncLabelId (VarId "foo")))
                      type') `shouldBe`
                 withDummyLocation
-                    ((D.NewConstrNamed
+                    ((D.NewConstrRecord
                           (withDummyLocation (D.IdentNamed ["Class"]))
                           (withDummyLocation (D.IdentNamed ["foo"]))
                           (withDummyLocation

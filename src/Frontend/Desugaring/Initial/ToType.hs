@@ -10,13 +10,17 @@ module Frontend.Desugaring.Initial.ToType
     ( DesugarToType(..)
     ) where
 
-import qualified Data.List.NonEmpty as NE (NonEmpty(..), init, last)
+import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position
+    ( SourceLocation(..)
+    , WithLocation(..)
+    , withDummyLocation
+    )
 
 -- | Class of types which can be desugared to Type
 class DesugarToType a where
@@ -26,26 +30,33 @@ instance (DesugarToType a) => DesugarToType (WithLocation a) where
     desugarToType = (getValue . desugarToType <$>)
 
 instance DesugarToType Type where
-    desugarToType (Type args) =
+    desugarToType (Type (f NE.:| rest)) =
         let ident = D.IdentNamed fUNCTION_NAME
             func = withDummyLocation (D.TypeConstr (withDummyLocation ident))
-         in foldr
-                (\f s ->
-                     withDummyLocation
-                         (D.TypeApplication func (desugarToType f NE.:| [s])))
-                (desugarToType $ NE.last args)
-                (NE.init args)
+            desugaredFirst = desugarToType f
+         in case rest of
+                [] -> desugaredFirst
+                (t:ts) ->
+                    let startLocation = getLocationStart . getLocation $ t
+                        endLocation =
+                            getLocationEnd . getLocation . last $ rest
+                        restType = Type (t NE.:| ts)
+                        restLocation = SourceLocation startLocation endLocation
+                        desugaredRest =
+                            desugarToType (WithLocation restType restLocation)
+                     in withDummyLocation
+                            (D.TypeApplication
+                                 func
+                                 (desugaredFirst NE.:| [desugaredRest]))
 
 instance DesugarToType BType where
     desugarToType (BType (f NE.:| rest)) =
         let func = desugarToType f
-         in case rest of
+            desugared = map desugarToType rest
+         in case desugared of
                 [] -> func
                 (t:ts) ->
-                    withDummyLocation $
-                    D.TypeApplication
-                        func
-                        (desugarToType t NE.:| map desugarToType ts)
+                    withDummyLocation $ D.TypeApplication func (t NE.:| ts)
 
 instance DesugarToType AType where
     desugarToType (ATypeConstructor name) =
@@ -56,14 +67,14 @@ instance DesugarToType AType where
         let ident =
                 wrapIdentToType $
                 D.IdentParametrised tUPLE_NAME (length rest + 2)
-         in withDummyLocation $
-            D.TypeApplication
-                ident
-                (desugarToType f NE.:| map desugarToType (s : rest))
+            args = f NE.:| (s : rest)
+            desugaredArgs = fmap desugarToType args
+         in withDummyLocation $ D.TypeApplication ident desugaredArgs
     desugarToType (ATypeList t) =
         let ident = wrapIdentToType $ D.IdentNamed lIST_NAME
-         in withDummyLocation $
-            D.TypeApplication ident (desugarToType t NE.:| [])
+            args = t NE.:| []
+            desugaredArgs = fmap desugarToType args
+         in withDummyLocation $ D.TypeApplication ident desugaredArgs
     desugarToType (ATypeParens t) = desugarToType t
 
 -- Helper functions

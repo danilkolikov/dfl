@@ -27,7 +27,7 @@ instance DesugarToNewConstr NewConstr where
         D.NewConstrSimple (desugarToIdent name) (desugarToType type')
     desugarToNewConstr (NewConstrNamed name fName type') =
         withDummyLocation $
-        D.NewConstrNamed
+        D.NewConstrRecord
             (desugarToIdent name)
             (desugarToIdent fName)
             (desugarToType type')
