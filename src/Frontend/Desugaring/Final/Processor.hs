@@ -14,12 +14,13 @@ import qualified Control.Monad.Trans.State as S (StateT, get, modify, runStateT)
 import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast
-import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Errors which may happen during desugaring
 data DesugaringError =
     DesugaringErrorNameConflict (WithLocation Ident)
                                 (WithLocation Ident) -- ^ Collision between two defined names
+    deriving (Show, Eq)
 
 -- | Type for a context of defined names
 type DefinedNames = HM.HashMap Ident (WithLocation Ident)
@@ -32,18 +33,18 @@ data DesugaringState = DesugaringState
     , getDataTypeFields :: HM.HashMap Ident DataType -- ^ Map from the name of a field to a corresponding data type
     , getNewTypeFields :: HM.HashMap Ident NewType -- ^ Map from the name of a field to a corresponding new type
     , getCurrentIdentCounter :: Int -- ^ Counter of generated names
-    }
+    } deriving (Show, Eq)
 
--- | Create an empty state, based on a provided counter of generated names
-createEmptyDesugaringState :: Int -> DesugaringState
-createEmptyDesugaringState pos =
+-- | Empty state of desugaring processor
+emptyDesugaringState :: DesugaringState
+emptyDesugaringState =
     DesugaringState
         { getDefinedTypeNames = HM.empty
         , getDefinedClassNames = HM.empty
         , getDefinedFunctionNames = HM.empty
         , getDataTypeFields = HM.empty
         , getNewTypeFields = HM.empty
-        , getCurrentIdentCounter = pos
+        , getCurrentIdentCounter = 0
         }
 
 -- | Type for objects which do desugaring
@@ -119,4 +120,22 @@ generateNewIdent = do
     state <- S.get
     let counter = getCurrentIdentCounter state
     S.modify $ \s -> s {getCurrentIdentCounter = counter + 1}
-    return . IdentGenerated $ counter + 1
+    return . IdentGenerated $ counter
+
+-- | Generate new identifier with dummy location
+generateNewIdent' :: DesugaringProcessor (WithLocation Ident)
+generateNewIdent' = withDummyLocation <$> generateNewIdent
+
+-- | Collect a hash map of objects, returned by processors
+collectHashMap ::
+       (a -> DesugaringProcessor (Maybe (Ident, b)))
+    -> [WithLocation a]
+    -> DesugaringProcessor (HM.HashMap Ident b)
+collectHashMap _ [] = return HM.empty
+collectHashMap get (f:rest) = do
+    cur <- get . getValue $ f
+    hashMap <- collectHashMap get rest
+    return $
+        case cur of
+            Just (key, val) -> HM.insert key val hashMap
+            Nothing -> hashMap
