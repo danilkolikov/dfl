@@ -11,7 +11,9 @@ module Frontend.Desugaring.Final.Spec
     ) where
 
 import qualified Frontend.Desugaring.Final.ProcessorTest as Processor
+import qualified Frontend.Desugaring.Final.TypeSynonymDesugaringTest as TypeSynonym
 
 testSuite :: IO ()
 testSuite = do
     Processor.testSuite
+    TypeSynonym.testSuite
