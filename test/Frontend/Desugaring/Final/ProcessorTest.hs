@@ -15,7 +15,7 @@ import Test.Hspec
 import Control.Monad (replicateM)
 import qualified Data.HashMap.Lazy as HM
 
-import Frontend.Desugaring.Final.Ast
+import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
 import Frontend.Desugaring.Final.Processor
 import Frontend.Syntax.Position
     ( WithLocation(..)
@@ -101,6 +101,7 @@ testSuite =
                         []
                         []
                         []
+                        False
             it "defines a data type field and a function" $
                 runDesugaringProcessor
                     (defineDataTypeField fieldName' dataType)
@@ -112,28 +113,26 @@ testSuite =
                                 HM.singleton fieldName fieldName'
                           , getDataTypeFields = HM.singleton fieldName dataType
                           })
-        describe "defineNewTypeField" $ do
-            let fieldName = IdentNamed ["field"]
-                fieldName' = withDummyLocation fieldName
-                newTypeName = IdentNamed ["NewType"]
-                newTypeName' = withDummyLocation newTypeName
-                newType =
-                    NewType
+        describe "defineDataTypeConstructor" $ do
+            let constructorName = IdentNamed ["Constructor"]
+                constructorName' = withDummyLocation constructorName
+                dataType =
+                    DataType
                         []
-                        newTypeName'
+                        (withDummyLocation $ IdentNamed ["Type"])
                         []
                         []
-                        (newTypeName, Constructor newTypeName' [] HM.empty)
-            it "defines a newtype field and a function" $
+                        []
+                        False
+            it "defines a constructor" $
                 runDesugaringProcessor
-                    (defineNewTypeField fieldName' newType)
+                    (defineDataTypeConstructor constructorName' dataType)
                     emptyDesugaringState `shouldBe`
                 Right
                     ( ()
                     , emptyDesugaringState
-                          { getDefinedFunctionNames =
-                                HM.singleton fieldName fieldName'
-                          , getNewTypeFields = HM.singleton fieldName newType
+                          { getDataTypeConstructors =
+                                HM.singleton constructorName dataType
                           })
         describe "generateNewIdent" $
             it "generates new idents" $

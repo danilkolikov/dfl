@@ -28,7 +28,6 @@ library:
   exposed-modules:
   - Frontend.Desugaring.Final.Ast
   - Frontend.Desugaring.Final.DataTypeDesugaring
-  - Frontend.Desugaring.Final.NewTypeDesugaring
   - Frontend.Desugaring.Final.Processor
   - Frontend.Desugaring.Final.TypeSynonymDesugaring
   - Frontend.Desugaring.Initial.Ast

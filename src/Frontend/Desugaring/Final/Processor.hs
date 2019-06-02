@@ -13,7 +13,7 @@ import qualified Control.Monad.Trans.Except as E (Except, runExcept, throwE)
 import qualified Control.Monad.Trans.State as S (StateT, get, modify, runStateT)
 import qualified Data.HashMap.Lazy as HM
 
-import Frontend.Desugaring.Final.Ast
+import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Errors which may happen during desugaring
@@ -31,7 +31,7 @@ data DesugaringState = DesugaringState
     , getDefinedClassNames :: DefinedNames -- ^ Defined class names
     , getDefinedFunctionNames :: DefinedNames -- ^ Defined functions
     , getDataTypeFields :: HM.HashMap Ident DataType -- ^ Map from the name of a field to a corresponding data type
-    , getNewTypeFields :: HM.HashMap Ident NewType -- ^ Map from the name of a field to a corresponding new type
+    , getDataTypeConstructors :: HM.HashMap Ident DataType -- ^ Map from the name of a constructor to a corresponding data type
     , getCurrentIdentCounter :: Int -- ^ Counter of generated names
     } deriving (Show, Eq)
 
@@ -43,7 +43,7 @@ emptyDesugaringState =
         , getDefinedClassNames = HM.empty
         , getDefinedFunctionNames = HM.empty
         , getDataTypeFields = HM.empty
-        , getNewTypeFields = HM.empty
+        , getDataTypeConstructors = HM.empty
         , getCurrentIdentCounter = 0
         }
 
@@ -91,28 +91,23 @@ defineFunctionName =
         getDefinedFunctionNames
         (\names s -> s {getDefinedFunctionNames = names})
 
--- | Define a field
-defineField ::
-       (DesugaringState -> HM.HashMap Ident a) -- ^ Getter of a field context
-    -> (HM.HashMap Ident a -> DesugaringState -> DesugaringState) -- ^ Setter of a field context
-    -> WithLocation Ident -- ^ Name of a field
-    -> a -- ^ Corresponding constructor
-    -> DesugaringProcessor ()
-defineField getFields setFields name field = do
+-- | Define a field of a data type
+defineDataTypeField :: WithLocation Ident -> DataType -> DesugaringProcessor ()
+defineDataTypeField name dataType = do
     defineFunctionName name
     state <- S.get
-    let fields = getFields state
-    S.modify . setFields $ HM.insert (getValue name) field fields
+    let fields = getDataTypeFields state
+        newFields = HM.insert (getValue name) dataType fields
+    S.modify $ \s -> s {getDataTypeFields = newFields}
 
--- | Set field of a data type
-defineDataTypeField :: WithLocation Ident -> DataType -> DesugaringProcessor ()
-defineDataTypeField =
-    defineField getDataTypeFields (\fields s -> s {getDataTypeFields = fields})
-
--- | Set field of a new type
-defineNewTypeField :: WithLocation Ident -> NewType -> DesugaringProcessor ()
-defineNewTypeField =
-    defineField getNewTypeFields (\fields s -> s {getNewTypeFields = fields})
+-- | Define a constructor of a data type
+defineDataTypeConstructor ::
+       WithLocation Ident -> DataType -> DesugaringProcessor ()
+defineDataTypeConstructor name dataType = do
+    state <- S.get
+    let constructors = getDataTypeConstructors state
+        newConstructors = HM.insert (getValue name) dataType constructors
+    S.modify $ \s -> s {getDataTypeConstructors = newConstructors}
 
 -- | Generate new identifier
 generateNewIdent :: DesugaringProcessor Ident

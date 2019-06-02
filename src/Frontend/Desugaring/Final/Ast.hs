@@ -18,8 +18,6 @@ module Frontend.Desugaring.Final.Ast
     , TypeSynonyms
     , DataType(..)
     , DataTypes
-    , NewType(..)
-    , NewTypes
     , Constructor(..)
     , Class(..)
     , Classes
@@ -57,7 +55,6 @@ data Module = Module
     , getModuleImports :: [WithLocation ImpDecl] -- ^ Imports
     , getModuleTypeSynonyms :: TypeSynonyms -- ^ Type synonyms
     , getModuleDataTypes :: DataTypes -- ^ Data types
-    , getModuleNewTypes :: NewTypes -- ^ New types
     , getModuleClasses :: Classes -- ^ Classes
     , getModuleInstances :: Instances -- ^ Instances
     , getModuleExpressions :: Expressions -- ^ Expressions
@@ -80,6 +77,7 @@ data DataType = DataType
     , getDataTypeParams :: [WithLocation Ident] -- ^ Parameters of a data type
     , getDataTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
     , getDataTypeConstructors :: [(Ident, Constructor)] -- ^ List of constructors
+    , isNewType:: Bool -- ^ Is this type a newtype?
     } deriving (Show, Eq)
 
 -- | Map of data types
@@ -91,18 +89,6 @@ data Constructor = Constructor
     , getConstructorArgs :: [WithLocation Type] -- ^ Arguments of a constructor
     , getConstructorFields :: HashMap Ident Int -- ^ Map of fields of a constructor.
     } deriving (Show, Eq)
-
--- | Definition of a new type
-data NewType = NewType
-    { getNewTypeContext :: [WithLocation Constraint] -- ^ Context of a new type
-    , getNewTypeName :: WithLocation Ident -- ^ Name of a new type
-    , getNewTypeParams :: [WithLocation Ident] -- ^ Parameters of a new type
-    , getNewTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
-    , getNewTypeConstructor :: (Ident, Constructor) -- ^ Constructor
-    } deriving (Show, Eq)
-
--- | Map of newtypes
-type NewTypes = HashMap Ident NewType
 
 -- | Type constraint
 data Constraint = Constraint

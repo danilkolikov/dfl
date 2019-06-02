@@ -50,8 +50,48 @@ desugarDataType (I.TopDeclData context simpleType constrs deriving') =
                     map ((\(I.FieldDecl name' _) -> name') . getValue) fields'
                 _ -> []
         fields = concatMap getFields constrs
-        dataType = DataType constraints name args deriving' constructors
-     in do defineTypeName name
-           mapM_ (`defineDataTypeField` dataType) fields
-           return $ Just (getValue name, dataType)
+        getConstructorName' c =
+            case getValue c of
+                (I.ConstrSimple name' _) -> name'
+                (I.ConstrRecord name' _) -> name'
+        constructorNames = map getConstructorName' constrs
+        dataType = DataType constraints name args deriving' constructors False
+     in defineDataType name dataType constructorNames fields
+desugarDataType (I.TopDeclNewType context simpleType constr deriving') =
+    let (I.SimpleType name args) = getValue simpleType
+        constraints = map desugarConstraint context
+        constructors =
+            [ case getValue constr of
+                  I.NewConstrSimple name' type' ->
+                      (getValue name', Constructor name' [type'] HM.empty)
+                  I.NewConstrRecord name' getter type' ->
+                      ( getValue name'
+                      , Constructor
+                            name'
+                            [type']
+                            (HM.singleton (getValue getter) 0))
+            ]
+        fields =
+            case getValue constr of
+                I.NewConstrRecord _ name' _ -> [name']
+                _ -> []
+        constructorNames =
+            [ case getValue constr of
+                  I.NewConstrSimple name' _ -> name'
+                  I.NewConstrRecord name' _ _ -> name'
+            ]
+        dataType = DataType constraints name args deriving' constructors True
+     in defineDataType name dataType constructorNames fields
 desugarDataType _ = return Nothing
+
+defineDataType ::
+       WithLocation Ident
+    -> DataType
+    -> [WithLocation Ident]
+    -> [WithLocation Ident]
+    -> DesugaringProcessor (Maybe (Ident, DataType))
+defineDataType name dataType constructors fields = do
+    defineTypeName name
+    mapM_ (`defineDataTypeConstructor` dataType) constructors
+    mapM_ (`defineDataTypeField` dataType) fields
+    return $ Just (getValue name, dataType)
