@@ -115,14 +115,15 @@ testSuite =
         describe "defineNewTypeField" $ do
             let fieldName = IdentNamed ["field"]
                 fieldName' = withDummyLocation fieldName
-                newTypeName = withDummyLocation $ IdentNamed ["NewType"]
+                newTypeName = IdentNamed ["NewType"]
+                newTypeName' = withDummyLocation newTypeName
                 newType =
                     NewType
                         []
-                        newTypeName
+                        newTypeName'
                         []
                         []
-                        (Constructor newTypeName [] HM.empty)
+                        (newTypeName, Constructor newTypeName' [] HM.empty)
             it "defines a newtype field and a function" $
                 runDesugaringProcessor
                     (defineNewTypeField fieldName' newType)

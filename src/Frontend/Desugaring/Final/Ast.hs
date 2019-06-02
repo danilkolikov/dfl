@@ -98,7 +98,7 @@ data NewType = NewType
     , getNewTypeName :: WithLocation Ident -- ^ Name of a new type
     , getNewTypeParams :: [WithLocation Ident] -- ^ Parameters of a new type
     , getNewTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
-    , getNewTypeConstructor :: Constructor -- ^ Constructor
+    , getNewTypeConstructor :: (Ident, Constructor) -- ^ Constructor
     } deriving (Show, Eq)
 
 -- | Map of newtypes

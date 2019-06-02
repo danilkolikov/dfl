@@ -10,8 +10,9 @@ module Frontend.Desugaring.Final.Spec
     ( testSuite
     ) where
 
-import qualified Frontend.Desugaring.Final.ProcessorTest as Processor
+import qualified Frontend.Desugaring.Final.DataTypeDesugaringTest as DataType
 import qualified Frontend.Desugaring.Final.NewTypeDesugaringTest as NewType
+import qualified Frontend.Desugaring.Final.ProcessorTest as Processor
 import qualified Frontend.Desugaring.Final.TypeSynonymDesugaringTest as TypeSynonym
 
 testSuite :: IO ()
@@ -19,3 +20,4 @@ testSuite = do
     Processor.testSuite
     TypeSynonym.testSuite
     NewType.testSuite
+    DataType.testSuite

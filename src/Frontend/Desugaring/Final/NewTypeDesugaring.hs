@@ -31,9 +31,13 @@ desugarNewType (I.TopDeclNewType context simpleType constr deriving') =
         constructor =
             case getValue constr of
                 I.NewConstrSimple name' type' ->
-                    Constructor name' [type'] HM.empty
+                    (getValue name', Constructor name' [type'] HM.empty)
                 I.NewConstrRecord name' getter type' ->
-                    Constructor name' [type'] (HM.singleton (getValue getter) 0)
+                    ( getValue name'
+                    , Constructor
+                          name'
+                          [type']
+                          (HM.singleton (getValue getter) 0))
         field =
             case getValue constr of
                 I.NewConstrRecord _ name' _ -> Just name'
