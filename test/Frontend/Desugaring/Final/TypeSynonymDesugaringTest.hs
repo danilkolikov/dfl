@@ -1,6 +1,6 @@
 {- |
 Module      :  Frontend.Desugaring.Final.TypeSynonymDesugaringTest
-Description :  Tests for the desugaring processor of DFL grammar
+Description :  Tests for desugaring of type synonyms
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
@@ -24,12 +24,12 @@ testSuite :: IO ()
 testSuite =
     hspec $
     describe "desugarTypeSynonym" $ do
-        it "ignores not type synonym definitions" $
+        it "ignores all declarations, except for type synonyms" $
             runDesugaringProcessor
                 (desugarTypeSynonym (I.TopDeclAssignment undefined))
                 emptyDesugaringState `shouldBe`
             Right (Nothing, emptyDesugaringState)
-        it "saves type synonyms" $ do
+        it "desugars type synonyms" $ do
             let typeName = IdentNamed ["Type"]
                 typeName' = withDummyLocation typeName
                 typeArgs = [withDummyLocation $ IdentNamed ["a"]]

@@ -108,7 +108,7 @@ type NewTypes = HashMap Ident NewType
 data Constraint = Constraint
     { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
     , getConstraintType :: WithLocation Ident -- ^ Name of a constrained type
-    , getConstraintTypeArgs :: [WithLocation Ident] -- ^ Optional arguments of a type
+    , getConstraintTypeArgs :: [WithLocation Type] -- ^ Optional arguments of a type
     } deriving (Show, Eq)
 
 -- | Simple constraint
