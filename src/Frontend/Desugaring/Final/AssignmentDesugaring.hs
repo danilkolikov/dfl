@@ -8,6 +8,7 @@ Final desugaring of assignments and related nodes
 -}
 module Frontend.Desugaring.Final.AssignmentDesugaring
     ( desugarExpressions
+    , desugarTopLevelAssignments
     , desugarAssignments
     ) where
 
@@ -31,8 +32,16 @@ desugarExpressions ::
        (WithLocation I.Exp -> DesugaringProcessor (WithLocation Exp))
     -> [WithLocation I.TopDecl]
     -> DesugaringProcessor Expressions
-desugarExpressions desugarExp decls = do
-    desugared <- desugarAssignments desugarExp $ collectAssignments decls
+desugarExpressions desugarExp =
+    desugarTopLevelAssignments desugarExp . collectAssignments
+
+-- | Desugars assignments and defines functions
+desugarTopLevelAssignments ::
+       (WithLocation I.Exp -> DesugaringProcessor (WithLocation Exp))
+    -> [WithLocation I.Assignment]
+    -> DesugaringProcessor Expressions
+desugarTopLevelAssignments desugarExp assignments = do
+    desugared <- desugarAssignments desugarExp assignments
     let defineExpression (_, expr) = defineFunctionName (getExpressionName expr)
     mapM_ defineExpression $ HM.toList desugared
     return desugared
@@ -66,31 +75,38 @@ desugarAssignments desugarExp assignments = do
             desugaredExp <- mergeExpressions name desugaredNonEmpty
             return (groupName, Expression name desugaredExp type')
     desugaredGroups <- mapM desugarGroup (HM.toList grouped)
-    let desugarSinglePattern (singlePattern, exp') = do
-            expIdent <- lift generateNewIdent'
-            desugaredExp <- lift $ desugarExp exp'
-            let expression = Expression expIdent desugaredExp Nothing
-            S.modify $ HM.insert (getValue expIdent) expression
-            prepared <- lift $ preparePatterns singlePattern
-            let processPattern (_, Nothing) = return ()
-                processPattern (pat, Just var) = do
-                    expScope <- S.get
-                    case HM.lookup (getValue var) expScope of
-                        Just found ->
+    let desugarSinglePattern (singlePattern, exp')
+          -- Special case of a function without arguments
+            | (I.PatternVar name Nothing) <- getValue singlePattern = do
+                desugaredExp <- lift $ desugarExp exp'
+                let expression = Expression name desugaredExp Nothing
+                S.modify $ HM.insert (getValue name) expression
+            | otherwise = do
+                expIdent <- lift generateNewIdent'
+                desugaredExp <- lift $ desugarExp exp'
+                let expression = Expression expIdent desugaredExp Nothing
+                S.modify $ HM.insert (getValue expIdent) expression
+                prepared <- lift $ preparePatterns singlePattern
+                let processPattern (_, Nothing) = return ()
+                    processPattern (pat, Just var) = do
+                        expScope <- S.get
+                        case HM.lookup (getValue var) expScope of
+                            Just found ->
+                                lift $
+                                raiseError $
+                                DesugaringErrorIdentifierIsAlreadyDefined
+                                    var
+                                    (getExpressionName found)
+                            Nothing -> return ()
+                        let varExp = withDummyLocation $ ExpVar var
+                            prepareCase ident elseIdent p =
+                                desugarPattern ident p varExp elseIdent
+                        case' <-
                             lift $
-                            raiseError $
-                            DesugaringErrorIdentifierIsAlreadyDefined
-                                var
-                                (getExpressionName found)
-                        Nothing -> return ()
-                    let varExp = withDummyLocation $ ExpVar var
-                        prepareCase ident elseIdent p =
-                            desugarPattern ident p varExp elseIdent
-                    case' <-
-                        lift $ desugarAlts expIdent prepareCase (pat NE.:| [])
-                    let resultExp = Expression var case' Nothing
-                    S.modify $ HM.insert (getValue var) resultExp
-            mapM_ processPattern prepared
+                            desugarAlts expIdent prepareCase (pat NE.:| [])
+                        let resultExp = Expression var case' Nothing
+                        S.modify $ HM.insert (getValue var) resultExp
+                mapM_ processPattern prepared
         processAllPatterns = mapM_ desugarSinglePattern patterns
         scope = HM.fromList desugaredGroups
     (_, finalScope) <- S.runStateT processAllPatterns scope

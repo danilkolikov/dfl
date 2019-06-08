@@ -20,6 +20,10 @@ desugarConstraint c
     | (I.Constraint name params paramArgs) <- getValue c =
         Constraint name params paramArgs <$ c
 
+desugarSimpleClass :: WithLocation I.SimpleClass -> WithLocation SimpleConstraint
+desugarSimpleClass c
+  | (I.SimpleClass name params) <- getValue c = SimpleConstraint name params <$ c
+
 -- | Make custom pattern constructor
 makePattern :: EntityName -> WithLocation Pattern
 makePattern =
