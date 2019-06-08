@@ -1,15 +1,15 @@
-name: dfl
-version: 0.1.0.0
-synopsis: Differentiable Functional Language
-description: Please see the README on GitHub at <https://github.com/danilkolikov/dfl#readme>
+name:               dfl
+version:            0.1.0.0
+synopsis:           Differentiable Functional Language
+description:        Please see the README on GitHub at <https://github.com/danilkolikov/dfl#readme>
 
-github: danilkolikov/dfl
-license: MIT
-author: Danil Kolikov
-maintainer: danilkolikov@gmail.com
-copyright: 2019 Danil Kolikov
+github:             danilkolikov/dfl
+license:            MIT
+author:             Danil Kolikov
+maintainer:         danilkolikov@gmail.com
+copyright:          2019 Danil Kolikov
 
-ghc-options:  -Wall -Werror
+ghc-options:        -Wall -Werror
 dependencies:
 - base >= 4.7 && < 5
 extra-source-files:
@@ -17,7 +17,7 @@ extra-source-files:
 - ChangeLog.md
 
 library:
-  source-dirs: src
+  source-dirs:      src
   dependencies:
   - containers >= 0.6.0.1
   - hashable >= 1.2.7.0
@@ -26,8 +26,11 @@ library:
   - transformers >= 0.5.6.2
   - unordered-containers >= 0.2.9.0
   exposed-modules:
+  - Frontend.Desugaring.Final.AssignmentDesugaring
   - Frontend.Desugaring.Final.Ast
   - Frontend.Desugaring.Final.DataTypeDesugaring
+  - Frontend.Desugaring.Final.ExpressionDesugaring
+  - Frontend.Desugaring.Final.PatternDesugaring
   - Frontend.Desugaring.Final.Processor
   - Frontend.Desugaring.Final.TypeSynonymDesugaring
   - Frontend.Desugaring.Initial.Ast
@@ -61,8 +64,8 @@ library:
 
 tests:
   dfl-test:
-    source-dirs: test
-    main: Spec.hs
+    source-dirs:    test
+    main:           Spec.hs
     ghc-options:
     - -threaded
     - -rtsopts
@@ -79,8 +82,8 @@ tests:
 
 executables:
   dfl-exe:
-    source-dirs: app
-    main: Main.hs
+    source-dirs:    app
+    main:           Main.hs
     ghc-options:
     - -threaded
     - -rtsopts

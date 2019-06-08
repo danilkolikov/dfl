@@ -11,6 +11,7 @@ module Frontend.Desugaring.Final.DataTypeDesugaring
     , desugarDataType
     ) where
 
+import Data.List(union)
 import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast
@@ -49,7 +50,10 @@ desugarDataType (I.TopDeclData context simpleType constrs deriving') =
                 I.ConstrRecord _ fields' ->
                     map ((\(I.FieldDecl name' _) -> name') . getValue) fields'
                 _ -> []
-        fields = concatMap getFields constrs
+        fields = case constrs of
+            [] -> []
+            [c] -> getFields c
+            cs -> foldr1 union $ map getFields cs
         getConstructorName' c =
             case getValue c of
                 (I.ConstrSimple name' _) -> name'

@@ -30,7 +30,6 @@ module Frontend.Desugaring.Final.Ast
     , Expression(..)
     , Expressions
     , Exp(..)
-    , Alt(..)
     , Pattern(..)
     ) where
 
@@ -77,7 +76,7 @@ data DataType = DataType
     , getDataTypeParams :: [WithLocation Ident] -- ^ Parameters of a data type
     , getDataTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
     , getDataTypeConstructors :: [(Ident, Constructor)] -- ^ List of constructors
-    , isNewType:: Bool -- ^ Is this type a newtype?
+    , isNewType :: Bool -- ^ Is this type a newtype?
     } deriving (Show, Eq)
 
 -- | Map of data types
@@ -144,29 +143,23 @@ type Expressions = HashMap Ident Expression
 
 -- | Expression
 data Exp
-    = ExpAbstraction (NonEmpty (WithLocation Ident))
+    = ExpAbstraction (WithLocation Ident)
                      (WithLocation Exp) -- ^ Lambda-abstraction
     | ExpLet Expressions
              (WithLocation Exp) -- ^ Let-abstraction
     | ExpCase (WithLocation Ident)
-              (NonEmpty (WithLocation Alt)) -- ^ Case expression
+              (WithLocation Pattern)
+              (WithLocation Exp)
+              (WithLocation Ident) -- ^ Case expression
     | ExpApplication (WithLocation Exp)
                      (NonEmpty (WithLocation Exp)) -- ^ Application of expressions
     | ExpVar (WithLocation Ident) -- ^ Variable
+    | ExpConstr (WithLocation Ident) -- ^ Constructor
     | ExpConst (WithLocation Const) -- ^ Constant
     deriving (Show, Eq)
 
--- | Alternative in `case` expressions
-data Alt =
-    Alt (WithLocation Pattern) -- ^ Pattern
-        (WithLocation Exp) -- ^ Expression
-    deriving (Show, Eq)
-
 -- | Pattern
-data Pattern
-    = PatternConstr (WithLocation Ident)
-                    [WithLocation Ident] -- ^ Application of a constructor
-    | PatternVar (WithLocation Ident) -- ^ Variable with possible pattern
-    | PatternConst (WithLocation Const) -- ^ Constant
-    | PatternWildcard -- ^ Wildcard
+data Pattern =
+    PatternConstr (WithLocation Ident)
+                  [WithLocation Ident] -- ^ Application of a constructor
     deriving (Show, Eq)
