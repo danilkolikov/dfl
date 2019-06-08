@@ -30,7 +30,8 @@ testSuite =
     describe "desugarToNewConstr" $ do
         it "should desugar NewConstr" $ do
             desugarToNewConstr
-                (NewConstrSimple
+                (withDummyLocation $
+                 NewConstrSimple
                      (withDummyLocation (FuncLabelId (ConId "Class")))
                      (withDummyLocation
                           (ATypeVar (withDummyLocation $ VarId "a")))) `shouldBe`
@@ -46,17 +47,18 @@ testSuite =
                 bType = withDummyLocation $ BType (aType NE.:| [])
                 type' = withDummyLocation $ Type (bType NE.:| [])
             desugarToNewConstr
-                (NewConstrNamed
+                (withDummyLocation $
+                 NewConstrNamed
                      (withDummyLocation (FuncLabelId (ConId "Class")))
                      (withDummyLocation (FuncLabelId (VarId "foo")))
                      type') `shouldBe`
                 withDummyLocation
-                    ((D.NewConstrRecord
-                          (withDummyLocation (D.IdentNamed ["Class"]))
-                          (withDummyLocation (D.IdentNamed ["foo"]))
-                          (withDummyLocation
-                               (D.TypeVar
-                                    (withDummyLocation (D.IdentNamed ["a"]))))))
+                    (D.NewConstrRecord
+                         (withDummyLocation (D.IdentNamed ["Class"]))
+                         (withDummyLocation (D.IdentNamed ["foo"]))
+                         (withDummyLocation
+                              (D.TypeVar
+                                   (withDummyLocation (D.IdentNamed ["a"])))))
         it "keeps track of locations" $
             desugarToNewConstr
                 (WithLocation

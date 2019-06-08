@@ -6,8 +6,11 @@ License     :  MIT
 
 Desugaring of AST nodes to objects, representing ClassAssignment-s.
 -}
-module Frontend.Desugaring.Initial.ToClassAssignment where
+module Frontend.Desugaring.Initial.ToClassAssignment
+    ( desugarToClassAssignment
+    ) where
 
+import Data.Functor (($>))
 import Data.List.NonEmpty (toList)
 
 import qualified Frontend.Desugaring.Initial.Ast as D
@@ -18,32 +21,23 @@ import Frontend.Desugaring.Initial.ToExp
     )
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for types which can be desugared to ClassAssignment
-class DesugarToClassAssignment a where
-    desugarToClassAssignment :: a -> [WithLocation D.ClassAssignment]
-
-instance (DesugarToClassAssignment a) =>
-         DesugarToClassAssignment (WithLocation a) where
-    desugarToClassAssignment =
-        sequence . ((getValue <$>) . desugarToClassAssignment <$>)
-
-instance DesugarToClassAssignment CDecl where
-    desugarToClassAssignment (CDeclGenDecl genDecl) =
-        desugarToClassAssignment genDecl
-    desugarToClassAssignment (CDeclFunction lhs rhs) =
-        [ withDummyLocation $
-          case getValue lhs of
-              Left fun ->
-                  let (ident, pats) = desugarFunLHS fun
-                      desugaredRHS = desugarToExp rhs
-                   in D.ClassAssignmentName ident (toList pats) desugaredRHS
-              Right name ->
-                  let desugaredName = desugarToIdent name
-                      desugaredRHS = desugarToExp rhs
-                   in D.ClassAssignmentName desugaredName [] desugaredRHS
-        ]
-
-instance DesugarToClassAssignment GenDecl where
-    desugarToClassAssignment = desugarGenDecl D.ClassAssignmentType
+-- | Desugar class declaration to ClassAssignment
+desugarToClassAssignment ::
+       WithLocation CDecl -> [WithLocation D.ClassAssignment]
+desugarToClassAssignment cDecl =
+    map (cDecl $>) $
+    case getValue cDecl of
+        CDeclGenDecl genDecl -> desugarGenDecl D.ClassAssignmentType genDecl
+        CDeclFunction lhs rhs ->
+            [ case getValue lhs of
+                  Left fun ->
+                      let (ident, pats) = desugarFunLHS fun
+                          desugaredRHS = desugarToExp rhs
+                       in D.ClassAssignmentName ident (toList pats) desugaredRHS
+                  Right name ->
+                      let desugaredName = desugarToIdent (lhs $> name)
+                          desugaredRHS = desugarToExp rhs
+                       in D.ClassAssignmentName desugaredName [] desugaredRHS
+            ]

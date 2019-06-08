@@ -45,24 +45,25 @@ testSuite =
             gCon1Expected = qCon1Expected
             lit1 = LiteralInteger . withDummyLocation . IntT $ 42
             lit1Expected = withDummyLocation . ConstInt $ 42
-            aPat1 = APatVariable (withDummyLocation var1) Nothing
+            aPat1 =
+                withDummyLocation $
+                APatVariable (withDummyLocation var1) Nothing
             aPat1Expected = withDummyLocation $ PatternVar var1Expected Nothing
             aPat2 =
-                APatVariable
-                    (withDummyLocation var1)
-                    (Just $ withDummyLocation aPat1)
+                withDummyLocation $
+                APatVariable (withDummyLocation var1) (Just aPat1)
             aPat2Expected =
                 withDummyLocation $ PatternVar var1Expected (Just aPat1Expected)
-            aPat3 = APatConstructor (withDummyLocation GConUnit)
+            aPat3 =
+                withDummyLocation $ APatConstructor (withDummyLocation GConUnit)
             aPat3Expected =
                 withDummyLocation $
                 PatternConstr (withDummyLocation $ IdentNamed ["()"]) []
             aPat4 =
+                withDummyLocation $
                 APatRecord
                     (withDummyLocation qCon1)
-                    [ withDummyLocation $
-                      FPat (withDummyLocation qVar1) (withDummyLocation pat1)
-                    ]
+                    [withDummyLocation $ FPat (withDummyLocation qVar1) pat1]
             aPat4Expected =
                 withDummyLocation $
                 PatternRecord
@@ -70,20 +71,19 @@ testSuite =
                     [ withDummyLocation $
                       PatternBinding qVar1Expected pat1Expected
                     ]
-            aPat5 = APatLiteral (withDummyLocation lit1)
+            aPat5 = withDummyLocation $ APatLiteral (withDummyLocation lit1)
             aPat5Expected = withDummyLocation $ PatternConst lit1Expected
-            aPat6 = APatWildcard
+            aPat6 = withDummyLocation APatWildcard
             aPat6Expected = withDummyLocation PatternWildcard
-            aPat7 = APatParens (withDummyLocation pat1)
+            aPat7 = withDummyLocation $ APatParens pat1
             aPat7Expected = pat1Expected
-            aPat8 =
-                APatTuple (withDummyLocation pat1) (withDummyLocation pat2) []
+            aPat8 = withDummyLocation $ APatTuple pat1 pat2 []
             aPat8Expected =
                 withDummyLocation $
                 PatternConstr
                     (withDummyLocation $ IdentParametrised ["(,)"] 2)
                     [pat1Expected, pat2Expected]
-            aPat9 = APatList (withDummyLocation pat1 NE.:| [])
+            aPat9 = withDummyLocation $ APatList (pat1 NE.:| [])
             aPat9Expected =
                 withDummyLocation $
                 PatternConstr
@@ -92,26 +92,25 @@ testSuite =
                     , withDummyLocation $
                       PatternConstr (withDummyLocation $ IdentNamed ["[]"]) []
                     ]
-            lPat1 = LPatSimple (withDummyLocation aPat1)
+            lPat1 = withDummyLocation $ LPatSimple aPat1
             lPat1Expected = aPat1Expected
-            lPat2 = LPatNegated (withDummyLocation . Left . IntT $ 42)
+            lPat2 =
+                withDummyLocation $
+                LPatNegated (withDummyLocation . Left . IntT $ 42)
             lPat2Expected =
                 withDummyLocation $
                 PatternConst (withDummyLocation $ ConstInt (-42))
             lPat3 =
-                LPatConstructor
-                    (withDummyLocation gCon1)
-                    (withDummyLocation aPat1 NE.:| [withDummyLocation aPat2])
+                withDummyLocation $
+                LPatConstructor (withDummyLocation gCon1) (aPat1 NE.:| [aPat2])
             lPat3Expected =
                 withDummyLocation $
                 PatternConstr gCon1Expected [aPat1Expected, aPat2Expected]
-            pat1 = PatSimple (withDummyLocation lPat1)
+            pat1 = withDummyLocation $ PatSimple lPat1
             pat1Expected = lPat1Expected
             pat2 =
-                PatInfix
-                    (withDummyLocation pat1)
-                    (withDummyLocation qConOp)
-                    (withDummyLocation pat1)
+                withDummyLocation $
+                PatInfix pat1 (withDummyLocation qConOp) pat1
             pat2Expected =
                 withDummyLocation $
                 PatternConstr qConOpExpected [pat1Expected, pat1Expected]
@@ -133,5 +132,6 @@ testSuite =
             desugarToPattern pat1 `shouldBe` pat1Expected
             desugarToPattern pat2 `shouldBe` pat2Expected
         it "should keep track of positions" $
-            desugarToPattern (WithLocation aPat1 (sourceLocation 1 2 3 4)) `shouldBe`
+            desugarToPattern
+                (WithLocation (getValue aPat1) (sourceLocation 1 2 3 4)) `shouldBe`
             WithLocation (getValue aPat1Expected) (sourceLocation 1 2 3 4)

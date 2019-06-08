@@ -27,33 +27,34 @@ testSuite =
     hspec $
     describe "desugarToIdent" $ do
         it "should desugar simple names" $ do
-            desugarToIdent (VarId "id") `shouldBe`
+            desugarToIdent (withDummyLocation $ VarId "id") `shouldBe`
                 withDummyLocation (IdentNamed ["id"])
-            desugarToIdent (ConId "Con") `shouldBe`
+            desugarToIdent (withDummyLocation $ ConId "Con") `shouldBe`
                 withDummyLocation (IdentNamed ["Con"])
-            desugarToIdent (VarSym "+") `shouldBe`
+            desugarToIdent (withDummyLocation $ VarSym "+") `shouldBe`
                 withDummyLocation (IdentNamed ["+"])
-            desugarToIdent (ConSym ":|") `shouldBe`
+            desugarToIdent (withDummyLocation $ ConSym ":|") `shouldBe`
                 withDummyLocation (IdentNamed [":|"])
         it "should desugar qualified IDs" $
             desugarToIdent
-                (Qualified [ConId "Module", ConId "Nested"] (VarId "id")) `shouldBe`
+                (withDummyLocation $
+                 Qualified [ConId "Module", ConId "Nested"] (VarId "id")) `shouldBe`
             withDummyLocation (IdentNamed ["Module", "Nested", "id"])
         it "should desugar GCon" $ do
-            desugarToIdent GConList `shouldBe`
+            desugarToIdent (withDummyLocation GConList) `shouldBe`
                 withDummyLocation (IdentNamed ["[]"])
-            desugarToIdent GConUnit `shouldBe`
+            desugarToIdent (withDummyLocation GConUnit) `shouldBe`
                 withDummyLocation (IdentNamed ["()"])
-            desugarToIdent (GConTuple 5) `shouldBe`
+            desugarToIdent (withDummyLocation $ GConTuple 5) `shouldBe`
                 withDummyLocation (IdentParametrised ["(,)"] 5)
         it "should desugar GTyCon" $ do
-            desugarToIdent GTyConList `shouldBe`
+            desugarToIdent (withDummyLocation GTyConList) `shouldBe`
                 withDummyLocation (IdentNamed ["[]"])
-            desugarToIdent GTyConUnit `shouldBe`
+            desugarToIdent (withDummyLocation GTyConUnit) `shouldBe`
                 withDummyLocation (IdentNamed ["()"])
-            desugarToIdent (GTyConTuple 5) `shouldBe`
+            desugarToIdent (withDummyLocation $ GTyConTuple 5) `shouldBe`
                 withDummyLocation (IdentParametrised ["(,)"] 5)
-            desugarToIdent GTyConFunction `shouldBe`
+            desugarToIdent (withDummyLocation GTyConFunction) `shouldBe`
                 withDummyLocation (IdentNamed ["->"])
         it "should keep track of locations" $
             desugarToIdent (WithLocation GTyConList (sourceLocation 1 2 3 4)) `shouldBe`

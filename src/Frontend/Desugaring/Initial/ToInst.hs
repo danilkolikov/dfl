@@ -7,37 +7,29 @@ License     :  MIT
 Desugaring of AST nodes to objects, representing Insts-s.
 -}
 module Frontend.Desugaring.Initial.ToInst
-    ( DesugarToInst(..)
+    ( desugarToInst
     ) where
+
+import Data.Functor (($>))
 
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
+import Frontend.Desugaring.Initial.Util
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for objects which can be desugared to Inst-s
-class DesugarToInst a where
-    desugarToInst :: a -> WithLocation D.Inst -- ^ Desugar object to Inst
-
-instance (DesugarToInst a) => DesugarToInst (WithLocation a) where
-    desugarToInst = (getValue . desugarToInst <$>)
-
-instance DesugarToInst Inst where
-    desugarToInst (InstNamed name vars) =
-        withDummyLocation $
-        D.Inst (desugarToIdent name) (map desugarToIdent vars)
-    desugarToInst (InstTuple f s rest) =
-        withDummyLocation $
-        D.Inst
-            (withDummyLocation $
-             D.IdentParametrised tUPLE_NAME (length rest + 2))
-            (map desugarToIdent (f : s : rest))
-    desugarToInst (InstList t) =
-        withDummyLocation $
-        D.Inst (withDummyLocation $ D.IdentNamed lIST_NAME) [desugarToIdent t]
-    desugarToInst (InstFunction from to) =
-        withDummyLocation $
-        D.Inst
-            (withDummyLocation $ D.IdentNamed fUNCTION_NAME)
-            (map desugarToIdent [from, to])
+-- | Desugar object to Inst
+desugarToInst :: WithLocation Inst -> WithLocation D.Inst
+desugarToInst inst =
+    inst $>
+    case getValue inst of
+        InstNamed name vars ->
+            D.Inst (desugarToIdent name) (map desugarToIdent vars)
+        InstTuple f s rest ->
+            D.Inst
+                (makeIdent' $ D.IdentParametrised tUPLE_NAME (length rest + 2))
+                (map desugarToIdent (f : s : rest))
+        InstList t -> D.Inst (makeIdent lIST_NAME) [desugarToIdent t]
+        InstFunction from to ->
+            D.Inst (makeIdent fUNCTION_NAME) (map desugarToIdent [from, to])

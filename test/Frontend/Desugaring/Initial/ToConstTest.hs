@@ -27,21 +27,28 @@ testSuite =
     hspec $
     describe "desugarToConst" $ do
         it "should desugar simple constants" $ do
-            desugarToConst (IntT 4) `shouldBe` withDummyLocation (ConstInt 4)
-            desugarToConst (FloatT 4.2) `shouldBe`
+            desugarToConst (withDummyLocation $ IntT 4) `shouldBe`
+                withDummyLocation (ConstInt 4)
+            desugarToConst (withDummyLocation $ FloatT 4.2) `shouldBe`
                 withDummyLocation (ConstFloat 4.2)
-            desugarToConst (CharT 'a') `shouldBe`
+            desugarToConst (withDummyLocation $ CharT 'a') `shouldBe`
                 withDummyLocation (ConstChar 'a')
-            desugarToConst (StringT "ab") `shouldBe`
+            desugarToConst (withDummyLocation $ StringT "ab") `shouldBe`
                 withDummyLocation (ConstString "ab")
         it "should desugar literals" $ do
-            desugarToConst (LiteralInteger (withDummyLocation (IntT 4))) `shouldBe`
+            desugarToConst
+                (withDummyLocation $ LiteralInteger (withDummyLocation (IntT 4))) `shouldBe`
                 withDummyLocation (ConstInt 4)
-            desugarToConst (LiteralFloat (withDummyLocation (FloatT 4.2))) `shouldBe`
+            desugarToConst
+                (withDummyLocation $
+                 LiteralFloat (withDummyLocation (FloatT 4.2))) `shouldBe`
                 withDummyLocation (ConstFloat 4.2)
-            desugarToConst (LiteralChar (withDummyLocation (CharT 'a'))) `shouldBe`
+            desugarToConst
+                (withDummyLocation $ LiteralChar (withDummyLocation (CharT 'a'))) `shouldBe`
                 withDummyLocation (ConstChar 'a')
-            desugarToConst (LiteralString (withDummyLocation (StringT "ab"))) `shouldBe`
+            desugarToConst
+                (withDummyLocation $
+                 LiteralString (withDummyLocation (StringT "ab"))) `shouldBe`
                 withDummyLocation (ConstString "ab")
         it "should keep track of locations" $
             desugarToConst (WithLocation (IntT 4) (sourceLocation 1 2 3 4)) `shouldBe`

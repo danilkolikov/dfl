@@ -6,21 +6,19 @@ License     :  MIT
 
 Desugaring of AST nodes to objects, representing SimpleType-s.
 -}
-module Frontend.Desugaring.Initial.ToSimpleType where
+module Frontend.Desugaring.Initial.ToSimpleType
+    ( desugarToSimpleType
+    ) where
+
+import Data.Functor (($>))
 
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for types which can be desugared to SimpleType
-class DesugarToSimpleType a where
-    desugarToSimpleType :: a -> WithLocation D.SimpleType -- ^ Desugar object to SimpleType
-
-instance (DesugarToSimpleType a) => DesugarToSimpleType (WithLocation a) where
-    desugarToSimpleType = (getValue . desugarToSimpleType <$>)
-
-instance DesugarToSimpleType SimpleType where
-    desugarToSimpleType (SimpleType con vars) =
-        withDummyLocation $
-        D.SimpleType (desugarToIdent con) (map desugarToIdent vars)
+-- | Desugar object to SimpleType
+desugarToSimpleType :: WithLocation SimpleType -> WithLocation D.SimpleType
+desugarToSimpleType st
+    | SimpleType con vars <- getValue st =
+        st $> D.SimpleType (desugarToIdent con) (map desugarToIdent vars)

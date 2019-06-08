@@ -28,7 +28,7 @@ testSuite =
     describe "desugarToSimpleClass" $ do
         it "should desugar SimpleClass" $
             desugarToSimpleClass
-                (SimpleClass
+                (withDummyLocation $ SimpleClass
                      (withDummyLocation (Qualified [] (ConId "Class")))
                      (withDummyLocation (VarId "a"))) `shouldBe`
             withDummyLocation

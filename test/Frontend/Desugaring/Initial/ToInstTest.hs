@@ -28,7 +28,8 @@ testSuite =
     describe "desugarToInst" $ do
         it "should desugar Inst" $ do
             desugarToInst
-                (InstNamed
+                (withDummyLocation $
+                 InstNamed
                      (withDummyLocation GTyConUnit)
                      [withDummyLocation $ VarId "a"]) `shouldBe`
                 withDummyLocation
@@ -36,7 +37,8 @@ testSuite =
                          (withDummyLocation $ D.IdentNamed ["()"])
                          [withDummyLocation $ D.IdentNamed ["a"]])
             desugarToInst
-                (InstTuple
+                (withDummyLocation $
+                 InstTuple
                      (withDummyLocation $ VarId "a")
                      (withDummyLocation $ VarId "b")
                      []) `shouldBe`
@@ -46,13 +48,15 @@ testSuite =
                          [ withDummyLocation $ D.IdentNamed ["a"]
                          , withDummyLocation $ D.IdentNamed ["b"]
                          ])
-            desugarToInst (InstList (withDummyLocation $ VarId "a")) `shouldBe`
+            desugarToInst
+                (withDummyLocation $ InstList (withDummyLocation $ VarId "a")) `shouldBe`
                 withDummyLocation
                     (D.Inst
                          (withDummyLocation $ D.IdentNamed ["[]"])
                          [withDummyLocation $ D.IdentNamed ["a"]])
             desugarToInst
-                (InstFunction
+                (withDummyLocation $
+                 InstFunction
                      (withDummyLocation $ VarId "a")
                      (withDummyLocation $ VarId "b")) `shouldBe`
                 withDummyLocation

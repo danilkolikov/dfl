@@ -50,21 +50,25 @@ testSuite =
             var2 = withDummyLocation $ FuncLabelId $ VarId "bar"
             var2Expected = withDummyLocation $ D.IdentNamed ["bar"]
         it "should desugar Constr" $ do
-            desugarToConstr (ConstrSimple conName [aType1]) `shouldBe`
+            desugarToConstr (withDummyLocation $ ConstrSimple conName [aType1]) `shouldBe`
                 withDummyLocation
                     (D.ConstrSimple conNameExpected [type1Expected])
-            desugarToConstr (ConstrInfix bType1 conOp bType2) `shouldBe`
+            desugarToConstr
+                (withDummyLocation $ ConstrInfix bType1 conOp bType2) `shouldBe`
                 withDummyLocation
                     (D.ConstrSimple conOpExpected [type1Expected, type2Expected])
             desugarToConstr
-                (ConstrRecord
+                (withDummyLocation $
+                 ConstrRecord
                      conName
                      [withDummyLocation $ FieldDecl (var1 NE.:| [var2]) type1]) `shouldBe`
                 withDummyLocation
                     (D.ConstrRecord
                          conNameExpected
-                         [ withDummyLocation $ D.FieldDecl var1Expected type1Expected
-                         , withDummyLocation $ D.FieldDecl var2Expected type1Expected
+                         [ withDummyLocation $
+                           D.FieldDecl var1Expected type1Expected
+                         , withDummyLocation $
+                           D.FieldDecl var2Expected type1Expected
                          ])
         it "keeps track of locations" $
             desugarToConstr

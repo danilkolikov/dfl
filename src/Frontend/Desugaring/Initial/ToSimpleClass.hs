@@ -7,22 +7,18 @@ License     :  MIT
 Desugaring of AST nodes to objects, representing SimpleClass-s.
 -}
 module Frontend.Desugaring.Initial.ToSimpleClass
-    ( DesugarToSimpleClass(..)
+    ( desugarToSimpleClass
     ) where
+
+import Data.Functor (($>))
 
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for objects which can be desugared to SimpleClass
-class DesugarToSimpleClass a where
-    desugarToSimpleClass :: a -> WithLocation D.SimpleClass -- ^ Desugar object to SimpleClass
-
-instance (DesugarToSimpleClass a) => DesugarToSimpleClass (WithLocation a) where
-    desugarToSimpleClass = (getValue . desugarToSimpleClass <$>)
-
-instance DesugarToSimpleClass SimpleClass where
-    desugarToSimpleClass (SimpleClass name var) =
-        withDummyLocation $
-        D.SimpleClass (desugarToIdent name) (desugarToIdent var)
+-- | Desugar object to SimpleClass
+desugarToSimpleClass :: WithLocation SimpleClass -> WithLocation D.SimpleClass
+desugarToSimpleClass sc
+    | SimpleClass name var <- getValue sc =
+        sc $> D.SimpleClass (desugarToIdent name) (desugarToIdent var)

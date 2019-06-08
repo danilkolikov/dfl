@@ -7,36 +7,31 @@ License     :  MIT
 Desugaring of AST nodes to objects, representing Constr-s.
 -}
 module Frontend.Desugaring.Initial.ToConstr
-    ( DesugarToConstr(..)
+    ( desugarToConstr
     ) where
 
+import Data.Functor (($>))
 import Data.List.NonEmpty (toList)
 
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.ToType (desugarToType)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for types which can be desugared to Constr
-class DesugarToConstr a where
-    desugarToConstr :: a -> WithLocation D.Constr -- ^ Desugar object to Constr
-
-instance (DesugarToConstr a) => DesugarToConstr (WithLocation a) where
-    desugarToConstr = (getValue . desugarToConstr <$>)
-
-instance DesugarToConstr Constr where
-    desugarToConstr (ConstrSimple name args) =
-        withDummyLocation $
-        D.ConstrSimple (desugarToIdent name) (map desugarToType args)
-    desugarToConstr (ConstrInfix l op r) =
-        withDummyLocation $
-        D.ConstrSimple (desugarToIdent op) (map desugarToType [l, r])
-    desugarToConstr (ConstrRecord name decls) =
-        withDummyLocation $
-        D.ConstrRecord
-            (desugarToIdent name)
-            (concatMap desugarToFieldDecl decls)
+-- | Desugar object to Constr
+desugarToConstr :: WithLocation Constr -> WithLocation D.Constr
+desugarToConstr constr =
+    constr $>
+    case getValue constr of
+        ConstrSimple name args ->
+            D.ConstrSimple (desugarToIdent name) (map desugarToType args)
+        ConstrInfix l op r ->
+            D.ConstrSimple (desugarToIdent op) (map desugarToType [l, r])
+        ConstrRecord name decls ->
+            D.ConstrRecord
+                (desugarToIdent name)
+                (concatMap desugarToFieldDecl decls)
 
 -- Helper functions
 desugarToFieldDecl :: WithLocation FieldDecl -> [WithLocation D.FieldDecl]

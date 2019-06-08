@@ -10,6 +10,8 @@ module Frontend.Desugaring.Initial.ToIdent
     ( DesugarToIdent(..)
     ) where
 
+import Data.Functor (($>))
+
 import Frontend.Desugaring.Initial.Ast
 import Frontend.Syntax.Ast
     ( DClass(..)
@@ -22,12 +24,12 @@ import Frontend.Syntax.Ast
     )
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.NamedEntity (NamedEntity(..))
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token (ConId, ConSym, VarId, VarSym)
 
 -- | Class for types which can be desugared to Ident-s
 class DesugarToIdent a where
-    desugarToIdent :: a -> WithLocation Ident -- ^ Desugar object to Ident
+    desugarToIdent :: WithLocation a -> WithLocation Ident -- ^ Desugar object to Ident
 
 instance (NamedEntity a, NamedEntity b) => DesugarToIdent (OpLabel a b) where
     desugarToIdent = desugarNamedIdent
@@ -60,23 +62,29 @@ instance DesugarToIdent GConSym where
     desugarToIdent = desugarNamedIdent
 
 instance DesugarToIdent GCon where
-    desugarToIdent (GConNamed name) = desugarToIdent name
-    desugarToIdent GConUnit = withDummyLocation $ IdentNamed uNIT_NAME
-    desugarToIdent GConList = withDummyLocation $ IdentNamed lIST_NAME
-    desugarToIdent (GConTuple n) =
-        withDummyLocation $ IdentParametrised tUPLE_NAME n
+    desugarToIdent gCon =
+        gCon $>
+        case getValue gCon of
+            GConNamed name -> getValue $ desugarToIdent name
+            GConUnit -> IdentNamed uNIT_NAME
+            GConList -> IdentNamed lIST_NAME
+            GConTuple n -> IdentParametrised tUPLE_NAME n
 
 instance DesugarToIdent GTyCon where
-    desugarToIdent (GTyConNamed name) = desugarToIdent name
-    desugarToIdent GTyConUnit = withDummyLocation $ IdentNamed uNIT_NAME
-    desugarToIdent GTyConList = withDummyLocation $ IdentNamed lIST_NAME
-    desugarToIdent (GTyConTuple n) =
-        withDummyLocation $ IdentParametrised tUPLE_NAME n
-    desugarToIdent GTyConFunction = withDummyLocation $ IdentNamed fUNCTION_NAME
+    desugarToIdent gTyCon =
+        gTyCon $>
+        case getValue gTyCon of
+            GTyConNamed name -> getValue $ desugarToIdent name
+            GTyConUnit -> IdentNamed uNIT_NAME
+            GTyConList -> IdentNamed lIST_NAME
+            GTyConTuple n -> IdentParametrised tUPLE_NAME n
+            GTyConFunction -> IdentNamed fUNCTION_NAME
 
 instance DesugarToIdent DClass where
-    desugarToIdent (DClass name) = desugarToIdent name
+    desugarToIdent dClass
+        | DClass name <- getValue dClass = desugarToIdent name
 
 -- Helper functions
-desugarNamedIdent :: (NamedEntity a) => a -> WithLocation Ident
-desugarNamedIdent = withDummyLocation . IdentNamed . getEntityName
+desugarNamedIdent :: (NamedEntity a) => WithLocation a -> WithLocation Ident
+desugarNamedIdent (WithLocation ident loc) =
+    WithLocation (IdentNamed $ getEntityName ident) loc

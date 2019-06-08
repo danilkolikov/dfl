@@ -44,7 +44,8 @@ testSuite =
                 ["b"]
         it "should desugar ATypes" $ do
             desugarToType
-                (ATypeConstructor
+                (withDummyLocation $
+                 ATypeConstructor
                      (WithLocation GTyConList (sourceLocation 1 2 3 4))) `shouldBe`
                 withDummyLocation
                     (D.TypeConstr
@@ -52,13 +53,14 @@ testSuite =
                               (D.IdentNamed ["[]"])
                               (sourceLocation 1 2 3 4)))
             desugarToType
-                (ATypeVar (WithLocation (VarId "a") (sourceLocation 1 2 3 4))) `shouldBe`
+                (withDummyLocation $
+                 ATypeVar (WithLocation (VarId "a") (sourceLocation 1 2 3 4))) `shouldBe`
                 withDummyLocation
                     (D.TypeVar
                          (WithLocation
                               (D.IdentNamed ["a"])
                               (sourceLocation 1 2 3 4)))
-            desugarToType (ATypeTuple type1 type2 []) `shouldBe`
+            desugarToType (withDummyLocation $ ATypeTuple type1 type2 []) `shouldBe`
                 withDummyLocation
                     (D.TypeApplication
                          (withDummyLocation
@@ -66,7 +68,7 @@ testSuite =
                                    (withDummyLocation
                                         (D.IdentParametrised ["(,)"] 2))))
                          (type1Expected NE.:| [type2Expected]))
-            desugarToType (ATypeList type1) `shouldBe`
+            desugarToType (withDummyLocation $ ATypeList type1) `shouldBe`
                 withDummyLocation
                     (D.TypeApplication
                          (withDummyLocation
@@ -74,11 +76,11 @@ testSuite =
                                    (withDummyLocation (D.IdentNamed ["[]"]))))
                          (type1Expected NE.:| []))
         it "should desugar BType" $
-            desugarToType (BType (aType1 NE.:| [aType2])) `shouldBe`
+            desugarToType (withDummyLocation $ BType (aType1 NE.:| [aType2])) `shouldBe`
             withDummyLocation
                 (D.TypeApplication type1Expected (type2Expected NE.:| []))
         it "should desugar AType" $
-            desugarToType (Type (bType1 NE.:| [bType2])) `shouldBe`
+            desugarToType (withDummyLocation $ Type (bType1 NE.:| [bType2])) `shouldBe`
             withDummyLocation
                 (D.TypeApplication
                      (withDummyLocation

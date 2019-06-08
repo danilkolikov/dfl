@@ -10,32 +10,37 @@ module Frontend.Desugaring.Initial.ToConst
     ( DesugarToConst(..)
     ) where
 
+import Data.Functor (($>))
+
 import Frontend.Desugaring.Initial.Ast
 import Frontend.Syntax.Ast (Literal(..))
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token (CharT(..), FloatT(..), IntT(..), StringT(..))
 
 -- | Class for types which can be desugared to Const
 class DesugarToConst a where
-    desugarToConst :: a -> WithLocation Const -- ^ Desugars object to Const
-
-instance (DesugarToConst a) => DesugarToConst (WithLocation a) where
-    desugarToConst = (getValue . desugarToConst <$>)
+    desugarToConst :: WithLocation a -> WithLocation Const -- ^ Desugars object to Const
 
 instance DesugarToConst IntT where
-    desugarToConst (IntT x) = withDummyLocation $ ConstInt x
+    desugarToConst int
+        | IntT x <- getValue int = int $> ConstInt x
 
 instance DesugarToConst FloatT where
-    desugarToConst (FloatT x) = withDummyLocation $ ConstFloat x
+    desugarToConst float
+        | FloatT x <- getValue float = float $> ConstFloat x
 
 instance DesugarToConst CharT where
-    desugarToConst (CharT c) = withDummyLocation $ ConstChar c
+    desugarToConst char
+        | CharT c <- getValue char = char $> ConstChar c
 
 instance DesugarToConst StringT where
-    desugarToConst (StringT s) = withDummyLocation $ ConstString s
+    desugarToConst string
+        | StringT s <- getValue string = string $> ConstString s
 
 instance DesugarToConst Literal where
-    desugarToConst (LiteralInteger i) = desugarToConst i
-    desugarToConst (LiteralFloat f) = desugarToConst f
-    desugarToConst (LiteralChar c) = desugarToConst c
-    desugarToConst (LiteralString s) = desugarToConst s
+    desugarToConst literal =
+        case getValue literal of
+            LiteralInteger i -> desugarToConst i
+            LiteralFloat f -> desugarToConst f
+            LiteralChar c -> desugarToConst c
+            LiteralString s -> desugarToConst s

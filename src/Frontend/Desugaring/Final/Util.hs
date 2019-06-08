@@ -4,7 +4,7 @@ Description :  Utility functions for desugaring
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Utility functions for desugaring
+Utility functions for the final step of desugaring
 -}
 module Frontend.Desugaring.Final.Util where
 

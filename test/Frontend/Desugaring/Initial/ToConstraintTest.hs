@@ -46,13 +46,11 @@ testSuite =
                 withDummyLocation . D.TypeVar . withDummyLocation . D.IdentNamed $
                 ["b"]
         it "should desugar constraints" $ do
-            desugarToConstraint (ClassSimple classObj varObj) `shouldBe`
-                withDummyLocation
-                    (D.Constraint classExpected varExpected [])
+            desugarToConstraint (withDummyLocation $ ClassSimple classObj varObj) `shouldBe`
+                    withDummyLocation (D.Constraint classExpected varExpected [])
             desugarToConstraint
-                    (ClassApplied classObj varObj (aType NE.:| [])) `shouldBe`
-                withDummyLocation
-                    (D.Constraint classExpected varExpected [typeExpected])
+                    (withDummyLocation $ ClassApplied classObj varObj (aType NE.:| [])) `shouldBe`
+                    withDummyLocation (D.Constraint classExpected varExpected [typeExpected])
         it "should keep track of locations" $
             desugarToConstraint
                 (WithLocation

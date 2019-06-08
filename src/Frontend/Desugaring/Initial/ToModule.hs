@@ -7,7 +7,7 @@ License     :  MIT
 Desugaring of AST nodes to objects, representing Module-s.
 -}
 module Frontend.Desugaring.Initial.ToModule
-    ( DesugarToModule(..)
+    ( desugarToModule
     ) where
 
 import Data.Functor (($>))
@@ -16,30 +16,26 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.ToTopDecl (desugarToTopDecl)
+import Frontend.Desugaring.Initial.Util
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for types which can be desugared to Module
-class DesugarToModule a where
-    desugarToModule :: a -> WithLocation D.Module -- ^ Desugar object to a Module
-
-instance (DesugarToModule a) => DesugarToModule (WithLocation a) where
-    desugarToModule = (getValue . desugarToModule <$>)
-
-instance DesugarToModule Module where
-    desugarToModule (ModuleExplicit name exports body) =
-        withDummyLocation $
-        bodyToDecls
-            (D.Module (desugarToIdent name) (desugarExports exports))
-            (getValue body)
-    desugarToModule (ModuleImplicit body) =
-        withDummyLocation $
-        bodyToDecls
-            (D.Module
-                 (withDummyLocation $ D.IdentNamed dEFAULT_MODULE_NAME)
-                 D.ImpExpAll)
-            (getValue body)
+-- | Desugar object to a Module
+desugarToModule :: WithLocation Module -> WithLocation D.Module
+desugarToModule md =
+    md $>
+    case getValue md of
+        ModuleExplicit name exports body ->
+            bodyToDecls
+                (D.Module (desugarToIdent name) (desugarExports exports))
+                (getValue body)
+        ModuleImplicit body ->
+            bodyToDecls
+                (D.Module
+                     (makeIdent dEFAULT_MODULE_NAME)
+                     D.ImpExpAll)
+                (getValue body)
 
 -- Helper functions
 bodyToDecls ::
@@ -68,24 +64,24 @@ desugarExports (Just (f:rest)) =
 desugarImpDecl :: WithLocation ImpDecl -> WithLocation D.ImpDecl
 desugarImpDecl impDecl =
     impDecl $>
-    (case getValue impDecl of
-         ImpDecl qual name as impSpec ->
-             let (hiding, imports) =
-                     case impSpec of
-                         Nothing -> (False, D.ImpExpAll)
-                         Just (WithLocation (ImpSpec flag imps) _) ->
-                             ( flag
-                             , case imps of
-                                   [] -> D.ImpExpNothing
-                                   f:rest ->
-                                       D.ImpExpSome
-                                           (fmap desugarImport (f NE.:| rest)))
-              in D.ImpDecl
-                     qual
-                     (desugarToIdent name)
-                     (desugarToIdent <$> as)
-                     hiding
-                     imports)
+    case getValue impDecl of
+        ImpDecl qual name as impSpec ->
+            let (hiding, imports) =
+                    case impSpec of
+                        Nothing -> (False, D.ImpExpAll)
+                        Just (WithLocation (ImpSpec flag imps) _) ->
+                            ( flag
+                            , case imps of
+                                  [] -> D.ImpExpNothing
+                                  f:rest ->
+                                      D.ImpExpSome
+                                          (fmap desugarImport (f NE.:| rest)))
+             in D.ImpDecl
+                    qual
+                    (desugarToIdent name)
+                    (desugarToIdent <$> as)
+                    hiding
+                    imports
 
 desugarImport :: WithLocation Import -> WithLocation D.Import
 desugarImport import' =

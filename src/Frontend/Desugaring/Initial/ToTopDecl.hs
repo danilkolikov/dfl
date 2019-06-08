@@ -7,8 +7,10 @@ License     :  MIT
 Desugaring of AST nodes to objects, representing TopDecl-s.
 -}
 module Frontend.Desugaring.Initial.ToTopDecl
-    ( DesugarToTopDecl(..)
+    ( desugarToTopDecl
     ) where
+
+import Data.Functor (($>))
 
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToClassAssignment (desugarToClassAssignment)
@@ -23,46 +25,42 @@ import Frontend.Desugaring.Initial.ToSimpleClass (desugarToSimpleClass)
 import Frontend.Desugaring.Initial.ToSimpleType (desugarToSimpleType)
 import Frontend.Desugaring.Initial.ToType (desugarToType)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
--- | Class for types which can be desugared to TopDecl-s
-class DesugarToTopDecl a where
-    desugarToTopDecl :: a -> [WithLocation D.TopDecl] -- ^ Desugar object to TopDecl-s
-
-instance (DesugarToTopDecl a) => DesugarToTopDecl (WithLocation a) where
-    desugarToTopDecl = sequence . ((getValue <$>) . desugarToTopDecl <$>)
-
-instance DesugarToTopDecl TopDecl where
-    desugarToTopDecl (TopDeclType name type') =
-        return . withDummyLocation $
-        D.TopDeclType (desugarToSimpleType name) (desugarToType type')
-    desugarToTopDecl (TopDeclData context name constrs deriving') =
-        return . withDummyLocation $
-        D.TopDeclData
-            (map desugarToConstraint context)
-            (desugarToSimpleType name)
-            (map desugarToConstr constrs)
-            (map desugarToIdent deriving')
-    desugarToTopDecl (TopDeclNewType context name constr deriving') =
-        return . withDummyLocation $
-        D.TopDeclNewType
-            (map desugarToConstraint context)
-            (desugarToSimpleType name)
-            (desugarToNewConstr constr)
-            (map desugarToIdent deriving')
-    desugarToTopDecl (TopDeclClass context name var methods) =
-        return . withDummyLocation $
-        D.TopDeclClass
-            (map desugarToSimpleClass context)
-            (desugarToIdent name)
-            (desugarToIdent var)
-            (concatMap desugarToClassAssignment methods)
-    desugarToTopDecl (TopDeclInstance context name inst decls) =
-        return . withDummyLocation $
-        D.TopDeclInstance
-            (map desugarToSimpleClass context)
-            (desugarToIdent name)
-            (desugarToInst inst)
-            (map desugarToInstAssignment decls)
-    desugarToTopDecl (TopDeclDecl decl) =
-        map (withDummyLocation . D.TopDeclAssignment) $ desugarToAssignment decl
+-- ^ Desugar object to TopDecl-s
+desugarToTopDecl :: WithLocation TopDecl -> [WithLocation D.TopDecl]
+desugarToTopDecl topDecl =
+    map (topDecl $>) $
+    case getValue topDecl of
+        TopDeclType name type' ->
+            return $
+            D.TopDeclType (desugarToSimpleType name) (desugarToType type')
+        TopDeclData context name constrs deriving' ->
+            return $
+            D.TopDeclData
+                (map desugarToConstraint context)
+                (desugarToSimpleType name)
+                (map desugarToConstr constrs)
+                (map desugarToIdent deriving')
+        TopDeclNewType context name constr deriving' ->
+            return $
+            D.TopDeclNewType
+                (map desugarToConstraint context)
+                (desugarToSimpleType name)
+                (desugarToNewConstr constr)
+                (map desugarToIdent deriving')
+        TopDeclClass context name var methods ->
+            return $
+            D.TopDeclClass
+                (map desugarToSimpleClass context)
+                (desugarToIdent name)
+                (desugarToIdent var)
+                (concatMap desugarToClassAssignment methods)
+        TopDeclInstance context name inst decls ->
+            return $
+            D.TopDeclInstance
+                (map desugarToSimpleClass context)
+                (desugarToIdent name)
+                (desugarToInst inst)
+                (map desugarToInstAssignment decls)
+        TopDeclDecl decl -> map D.TopDeclAssignment $ desugarToAssignment decl
