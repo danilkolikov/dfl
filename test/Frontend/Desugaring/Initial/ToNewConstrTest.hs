@@ -8,69 +8,42 @@ Test suite for desugaring of objects to NewConstr-s
 -}
 module Frontend.Desugaring.Initial.ToNewConstrTest
     ( testSuite
+    , getNewConstrExamples
     ) where
 
 import Test.Hspec
 
-import qualified Data.List.NonEmpty as NE
-
 import qualified Frontend.Desugaring.Initial.Ast as D
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
 import Frontend.Desugaring.Initial.ToNewConstr (desugarToNewConstr)
+import Frontend.Desugaring.Initial.ToTypeTest (getTypeExample)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
-import Frontend.Syntax.Token
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Utils.RandomSelector
+
+getNewConstrExamples ::
+       RandomSelector (WithLocation NewConstr, WithLocation D.NewConstr)
+getNewConstrExamples =
+    selectFromRandom
+        [ do (nameEx, nameRes) <- getIdentExample
+             (typeEx, typeRes) <- getTypeExample
+             withSameLocation $
+                 return
+                     ( NewConstrSimple nameEx typeEx
+                     , D.NewConstrSimple nameRes typeRes)
+        , do (nameEx, nameRes) <- getIdentExample
+             (fieldEx, fieldRes) <- getIdentExample
+             (typeEx, typeRes) <- getTypeExample
+             withSameLocation $
+                 return
+                     ( NewConstrNamed nameEx fieldEx typeEx
+                     , D.NewConstrRecord nameRes fieldRes typeRes)
+        ]
 
 testSuite :: IO ()
 testSuite =
     hspec $
-    describe "desugarToNewConstr" $ do
-        it "should desugar NewConstr" $ do
-            desugarToNewConstr
-                (withDummyLocation $
-                 NewConstrSimple
-                     (withDummyLocation (FuncLabelId (ConId "Class")))
-                     (withDummyLocation
-                          (ATypeVar (withDummyLocation $ VarId "a")))) `shouldBe`
-                withDummyLocation
-                    (D.NewConstrSimple
-                         (withDummyLocation (D.IdentNamed ["Class"]))
-                         (withDummyLocation .
-                          D.TypeVar . withDummyLocation . D.IdentNamed $
-                          ["a"]))
-            let aType =
-                    withDummyLocation . ATypeVar . withDummyLocation . VarId $
-                    "a"
-                bType = withDummyLocation $ BType (aType NE.:| [])
-                type' = withDummyLocation $ Type (bType NE.:| [])
-            desugarToNewConstr
-                (withDummyLocation $
-                 NewConstrNamed
-                     (withDummyLocation (FuncLabelId (ConId "Class")))
-                     (withDummyLocation (FuncLabelId (VarId "foo")))
-                     type') `shouldBe`
-                withDummyLocation
-                    (D.NewConstrRecord
-                         (withDummyLocation (D.IdentNamed ["Class"]))
-                         (withDummyLocation (D.IdentNamed ["foo"]))
-                         (withDummyLocation
-                              (D.TypeVar
-                                   (withDummyLocation (D.IdentNamed ["a"])))))
-        it "keeps track of locations" $
-            desugarToNewConstr
-                (WithLocation
-                     (NewConstrSimple
-                          (withDummyLocation (FuncLabelId (ConId "Class")))
-                          (withDummyLocation
-                               (ATypeVar (withDummyLocation $ VarId "a"))))
-                     (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation
-                (D.NewConstrSimple
-                     (withDummyLocation (D.IdentNamed ["Class"]))
-                     (withDummyLocation .
-                      D.TypeVar . withDummyLocation . D.IdentNamed $
-                      ["a"]))
-                (sourceLocation 1 2 3 4)
+    describe "desugarToNewConstr" $
+    it "should desugar NewConstr" $
+    checkDesugaring 10 3 desugarToNewConstr getNewConstrExamples

@@ -18,7 +18,7 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
 import Frontend.Syntax.Token
-import Frontend.Syntax.Utils.RandomSelector
+import Frontend.Utils.RandomSelector
     ( RandomSelector
     , selectFromRandom
     , selectFromRandomRecursive

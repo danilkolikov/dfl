@@ -8,42 +8,30 @@ Test suite for desugaring of objects to SimpleType-s
 -}
 module Frontend.Desugaring.Initial.ToSimpleTypeTest
     ( testSuite
+    , getSimpleTypeExample
     ) where
 
 import Test.Hspec
 
 import qualified Frontend.Desugaring.Initial.Ast as D
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
 import Frontend.Desugaring.Initial.ToSimpleType (desugarToSimpleType)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
-import Frontend.Syntax.Token
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Utils.RandomSelector
+
+getSimpleTypeExample ::
+       RandomSelector (WithLocation SimpleType, WithLocation D.SimpleType)
+getSimpleTypeExample = do
+    (nameEx, nameRes) <- getIdentExample
+    (paramsEx, paramsRes) <- randomList 5 getIdentExample
+    withSameLocation $
+        return (SimpleType nameEx paramsEx, D.SimpleType nameRes paramsRes)
 
 testSuite :: IO ()
 testSuite =
     hspec $
-    describe "desugarToSimpleType" $ do
-        it "should desugar SimpleType" $
-            desugarToSimpleType
-                (withDummyLocation $ SimpleType
-                     (withDummyLocation (ConId "Type"))
-                     [withDummyLocation (VarId "a")]) `shouldBe`
-            withDummyLocation
-                (D.SimpleType
-                     (withDummyLocation (D.IdentNamed ["Type"]))
-                     [withDummyLocation (D.IdentNamed ["a"])])
-        it "keeps track of locations" $
-            desugarToSimpleType
-                (WithLocation
-                     (SimpleType
-                          (withDummyLocation (ConId "Type"))
-                          [withDummyLocation (VarId "a")])
-                     (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation
-                (D.SimpleType
-                     (withDummyLocation (D.IdentNamed ["Type"]))
-                     [withDummyLocation (D.IdentNamed ["a"])])
-                (sourceLocation 1 2 3 4)
+    describe "desugarToSimpleType" $
+    it "should desugar SimpleType" $
+    checkDesugaring 5 1 desugarToSimpleType getSimpleTypeExample

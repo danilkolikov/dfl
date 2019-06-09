@@ -8,6 +8,7 @@ Desugaring of AST nodes to objects, representing Constr-s.
 -}
 module Frontend.Desugaring.Initial.ToConstr
     ( desugarToConstr
+    , desugarToFieldDecl
     ) where
 
 import Data.Functor (($>))
@@ -34,6 +35,7 @@ desugarToConstr constr =
                 (concatMap desugarToFieldDecl decls)
 
 -- Helper functions
+-- | Desugar field declaration
 desugarToFieldDecl :: WithLocation FieldDecl -> [WithLocation D.FieldDecl]
 desugarToFieldDecl (WithLocation (FieldDecl vars type') loc) =
     let desugaredType = desugarToType type'

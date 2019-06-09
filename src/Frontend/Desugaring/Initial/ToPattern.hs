@@ -8,6 +8,7 @@ Desugaring of AST nodes to objects, representing Pattern-s.
 -}
 module Frontend.Desugaring.Initial.ToPattern
     ( DesugarToPattern(..)
+    , desugarToPatternBinding
     ) where
 
 import Data.Functor (($>))
@@ -89,6 +90,7 @@ instance DesugarToPattern APat where
                  in PatternConstr constr [firstDesugared, patsDesugared]
 
 -- Helper functions
+-- | Desugar FPat to a pattern binding
 desugarToPatternBinding :: WithLocation FPat -> WithLocation PatternBinding
 desugarToPatternBinding (WithLocation (FPat name pat) loc) =
     WithLocation

@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Syntax.Utils.RandomSelector
+Module      :  Frontend.Utils.RandomSelector
 Description :  Selector of random values
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Module defines functions for selection of a random value from a list.
 -}
-module Frontend.Syntax.Utils.RandomSelector
+module Frontend.Utils.RandomSelector
     ( RandomSelector
     , evalRandomSelector
     , selectRandom
@@ -15,6 +15,8 @@ module Frontend.Syntax.Utils.RandomSelector
     , selectFromRandomRecursive
     , selectFromRandomRecursiveWeighted
     , withDecreasedDepth
+    , randomNumber
+    , randomNumberWeighted
     ) where
 
 import qualified Control.Monad.Trans.State as ST (State, evalState, get, modify)

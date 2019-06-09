@@ -8,54 +8,43 @@ Test suite for desugaring of objects to Constraint-s
 -}
 module Frontend.Desugaring.Initial.ToConstraintTest
     ( testSuite
+    , getConstraintExample
     ) where
 
 import Test.Hspec
 
 import qualified Data.List.NonEmpty as NE
 
-import qualified Frontend.Desugaring.Initial.Ast as D
-    ( Constraint(..)
-    , Ident(..)
-    , Type(..)
-    )
+import qualified Frontend.Desugaring.Initial.Ast as D (Constraint(..))
+import Frontend.Desugaring.Initial.TestUtils
 import Frontend.Desugaring.Initial.ToConstraint (desugarToConstraint)
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
+import Frontend.Desugaring.Initial.ToTypeTest (getTypeExample)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
-import Frontend.Syntax.Token
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Utils.RandomSelector
+
+getConstraintExample ::
+       RandomSelector (WithLocation Class, WithLocation D.Constraint)
+getConstraintExample =
+    selectFromRandom
+        [ do (nameEx, nameRes) <- getIdentExample
+             (argEx, argRes) <- getIdentExample
+             withSameLocation $
+                 return
+                     (ClassSimple nameEx argEx, D.Constraint nameRes argRes [])
+        , do (nameEx, nameRes) <- getIdentExample
+             (argEx, argRes) <- getIdentExample
+             (paramsEx, paramsRes) <- randomNonEmpty 2 getTypeExample
+             withSameLocation $
+                 return
+                     ( ClassApplied nameEx argEx paramsEx
+                     , D.Constraint nameRes argRes (NE.toList paramsRes))
+        ]
 
 testSuite :: IO ()
 testSuite =
     hspec $
-    describe "desugarToConstraint" $ do
-        let className = Qualified [] $ ConId "Class"
-            classObj = WithLocation className (sourceLocation 1 2 3 4)
-            classExpected =
-                WithLocation (D.IdentNamed ["Class"]) (sourceLocation 1 2 3 4)
-            varName = VarId "a"
-            varObj = WithLocation varName (sourceLocation 5 6 7 8)
-            varExpected =
-                WithLocation (D.IdentNamed ["a"]) (sourceLocation 5 6 7 8)
-            aType =
-                withDummyLocation . ATypeVar . withDummyLocation . VarId $ "b"
-            typeExpected =
-                withDummyLocation . D.TypeVar . withDummyLocation . D.IdentNamed $
-                ["b"]
-        it "should desugar constraints" $ do
-            desugarToConstraint (withDummyLocation $ ClassSimple classObj varObj) `shouldBe`
-                    withDummyLocation (D.Constraint classExpected varExpected [])
-            desugarToConstraint
-                    (withDummyLocation $ ClassApplied classObj varObj (aType NE.:| [])) `shouldBe`
-                    withDummyLocation (D.Constraint classExpected varExpected [typeExpected])
-        it "should keep track of locations" $
-            desugarToConstraint
-                (WithLocation
-                     (ClassSimple classObj varObj)
-                     (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation
-                (D.Constraint classExpected varExpected [])
-                (sourceLocation 1 2 3 4)
+    describe "desugarToConstraint" $
+    it "should desugar constraints" $
+    checkDesugaring 10 3 desugarToConstraint getConstraintExample

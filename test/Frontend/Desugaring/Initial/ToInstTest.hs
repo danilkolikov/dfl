@@ -8,68 +8,49 @@ Test suite for desugaring of objects to Inst-s
 -}
 module Frontend.Desugaring.Initial.ToInstTest
     ( testSuite
+    , getInstExample
     ) where
 
 import Test.Hspec
 
 import qualified Frontend.Desugaring.Initial.Ast as D
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
 import Frontend.Desugaring.Initial.ToInst (desugarToInst)
+import Frontend.Desugaring.Initial.Util
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
-import Frontend.Syntax.Token
+import Frontend.Syntax.EntityName
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Utils.RandomSelector
+
+getInstExample :: RandomSelector (WithLocation Inst, WithLocation D.Inst)
+getInstExample =
+    selectFromRandom
+        [ do (nameEx, nameRes) <- getIdentExample
+             (argsEx, argsRes) <- randomList 2 getIdentExample
+             withSameLocation $
+                 return (InstNamed nameEx argsEx, D.Inst nameRes argsRes)
+        , do (firstEx, firstRes) <- getIdentExample
+             (secondEx, secondRes) <- getIdentExample
+             (restEx, restRes) <- randomList 2 getIdentExample
+             let ident = makeIdent' $ D.IdentParametrised tUPLE_NAME 4
+             withSameLocation $
+                 return
+                     ( InstTuple firstEx secondEx restEx
+                     , D.Inst ident (firstRes : secondRes : restRes))
+        , do (argEx, argRes) <- getIdentExample
+             let ident = makeIdent lIST_NAME
+             withSameLocation $ return (InstList argEx, D.Inst ident [argRes])
+        , do (fromEx, fromRes) <- getIdentExample
+             (toEx, toRes) <- getIdentExample
+             let ident = makeIdent fUNCTION_NAME
+             withSameLocation $
+                 return
+                     (InstFunction fromEx toEx, D.Inst ident [fromRes, toRes])
+        ]
 
 testSuite :: IO ()
 testSuite =
     hspec $
-    describe "desugarToInst" $ do
-        it "should desugar Inst" $ do
-            desugarToInst
-                (withDummyLocation $
-                 InstNamed
-                     (withDummyLocation GTyConUnit)
-                     [withDummyLocation $ VarId "a"]) `shouldBe`
-                withDummyLocation
-                    (D.Inst
-                         (withDummyLocation $ D.IdentNamed ["()"])
-                         [withDummyLocation $ D.IdentNamed ["a"]])
-            desugarToInst
-                (withDummyLocation $
-                 InstTuple
-                     (withDummyLocation $ VarId "a")
-                     (withDummyLocation $ VarId "b")
-                     []) `shouldBe`
-                withDummyLocation
-                    (D.Inst
-                         (withDummyLocation $ D.IdentParametrised ["(,)"] 2)
-                         [ withDummyLocation $ D.IdentNamed ["a"]
-                         , withDummyLocation $ D.IdentNamed ["b"]
-                         ])
-            desugarToInst
-                (withDummyLocation $ InstList (withDummyLocation $ VarId "a")) `shouldBe`
-                withDummyLocation
-                    (D.Inst
-                         (withDummyLocation $ D.IdentNamed ["[]"])
-                         [withDummyLocation $ D.IdentNamed ["a"]])
-            desugarToInst
-                (withDummyLocation $
-                 InstFunction
-                     (withDummyLocation $ VarId "a")
-                     (withDummyLocation $ VarId "b")) `shouldBe`
-                withDummyLocation
-                    (D.Inst
-                         (withDummyLocation $ D.IdentNamed ["->"])
-                         [ withDummyLocation $ D.IdentNamed ["a"]
-                         , withDummyLocation $ D.IdentNamed ["b"]
-                         ])
-        it "should keep track of locations" $
-            desugarToInst
-                (WithLocation
-                     (InstNamed (withDummyLocation GTyConUnit) [])
-                     (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation
-                (D.Inst (withDummyLocation $ D.IdentNamed ["()"]) [])
-                (sourceLocation 1 2 3 4)
+    describe "desugarToInst" $
+    it "should desugar Inst" $ checkDesugaring 10 1 desugarToInst getInstExample

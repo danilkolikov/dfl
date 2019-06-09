@@ -8,86 +8,105 @@ Test suite for desugaring of objects to Type-s
 -}
 module Frontend.Desugaring.Initial.ToTypeTest
     ( testSuite
+    , getTypeExample
     ) where
 
 import Test.Hspec
 
+import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE
 
 import qualified Frontend.Desugaring.Initial.Ast as D (Ident(..), Type(..))
-import Frontend.Desugaring.Initial.ToType (desugarToType)
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
+import Frontend.Desugaring.Initial.ToType (DesugarToType(..))
+import Frontend.Desugaring.Initial.Util
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
-import Frontend.Syntax.Token
+import Frontend.Syntax.EntityName
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Utils.RandomSelector
+
+type TypeExample a = RandomSelector (WithLocation a, WithLocation D.Type)
+
+class WithTypeExamples a where
+    getTypeExample :: TypeExample a
+
+instance WithTypeExamples AType where
+    getTypeExample =
+        selectFromRandomRecursive
+            [ do (nameEx, nameRes) <- getIdentExample
+                 return
+                     (nameEx $> ATypeVar nameEx, nameRes $> D.TypeVar nameRes)
+            , do (nameEx, nameRes) <- getIdentExample
+                 return
+                     ( nameEx $> ATypeConstructor nameEx
+                     , nameRes $> D.TypeConstr nameRes)
+            ]
+            [ do (firstEx, firstRes) <- getTypeExample
+                 (secondEx, secondRes) <- getTypeExample
+                 (restEx, restRes) <- randomList 2 getTypeExample
+                 let ident = makeTypeConstr' $ D.IdentParametrised tUPLE_NAME 4
+                 withSameLocation $
+                     return
+                         ( ATypeTuple firstEx secondEx restEx
+                         , D.TypeApplication
+                               ident
+                               (firstRes NE.:| secondRes : restRes))
+            , do (typeEx, typeRes) <- getTypeExample
+                 let ident = makeTypeConstr lIST_NAME
+                 withSameLocation $
+                     return
+                         ( ATypeList typeEx
+                         , D.TypeApplication ident (typeRes NE.:| []))
+            , do (typeEx, typeRes) <- getTypeExample
+                 return (typeEx $> ATypeParens typeEx, typeRes)
+            ]
+
+instance WithTypeExamples BType where
+    getTypeExample =
+        selectFromRandomRecursive
+            [ do (typeEx, typeRes) <- getTypeExample
+                 return (typeEx $> BType (typeEx NE.:| []), typeRes)
+            ]
+            [ do (typesEx, typesRes) <- randomNonEmpty 3 getTypeExample
+                 withSameLocation $
+                     return
+                         ( BType typesEx
+                         , D.TypeApplication
+                               (NE.head typesRes)
+                               (NE.fromList . NE.tail $ typesRes))
+            ]
+
+instance WithTypeExamples Type where
+    getTypeExample =
+        selectFromRandomRecursive
+            [ do (typeEx, typeRes) <- getTypeExample
+                 return (typeEx $> Type (typeEx NE.:| []), typeRes)
+            ]
+            [ do (typesEx, typesRes) <- randomNonEmpty 3 getTypeExample
+                 location <- getRandomSourceLocation
+                 let type' = Type typesEx
+                     func = makeTypeConstr fUNCTION_NAME
+                     (fRes NE.:| [sRes, tRes]) = typesRes
+                     rightFunc = D.TypeApplication func (sRes NE.:| [tRes])
+                     rightFunc' = WithLocation rightFunc location
+                     resFunc = D.TypeApplication func (fRes NE.:| [rightFunc'])
+                 return
+                     ( WithLocation type' location
+                     , WithLocation resFunc location)
+            ]
+
+checkTypeDesugaring ::
+       (WithTypeExamples a, DesugarToType a) => TypeExample a -> Expectation
+checkTypeDesugaring = checkDesugaring 10 3 desugarToType
 
 testSuite :: IO ()
 testSuite =
     hspec $
     describe "desugarToType" $ do
-        let aType1 =
-                withDummyLocation . ATypeVar . withDummyLocation . VarId $ "a"
-            bType1 = withDummyLocation $ BType (aType1 NE.:| [])
-            type1 = withDummyLocation $ Type (bType1 NE.:| [])
-            type1Expected =
-                withDummyLocation . D.TypeVar . withDummyLocation . D.IdentNamed $
-                ["a"]
-            aType2 =
-                withDummyLocation . ATypeVar . withDummyLocation . VarId $ "b"
-            bType2 = withDummyLocation $ BType (aType2 NE.:| [])
-            type2 = withDummyLocation $ Type (bType2 NE.:| [])
-            type2Expected =
-                withDummyLocation . D.TypeVar . withDummyLocation . D.IdentNamed $
-                ["b"]
-        it "should desugar ATypes" $ do
-            desugarToType
-                (withDummyLocation $
-                 ATypeConstructor
-                     (WithLocation GTyConList (sourceLocation 1 2 3 4))) `shouldBe`
-                withDummyLocation
-                    (D.TypeConstr
-                         (WithLocation
-                              (D.IdentNamed ["[]"])
-                              (sourceLocation 1 2 3 4)))
-            desugarToType
-                (withDummyLocation $
-                 ATypeVar (WithLocation (VarId "a") (sourceLocation 1 2 3 4))) `shouldBe`
-                withDummyLocation
-                    (D.TypeVar
-                         (WithLocation
-                              (D.IdentNamed ["a"])
-                              (sourceLocation 1 2 3 4)))
-            desugarToType (withDummyLocation $ ATypeTuple type1 type2 []) `shouldBe`
-                withDummyLocation
-                    (D.TypeApplication
-                         (withDummyLocation
-                              (D.TypeConstr
-                                   (withDummyLocation
-                                        (D.IdentParametrised ["(,)"] 2))))
-                         (type1Expected NE.:| [type2Expected]))
-            desugarToType (withDummyLocation $ ATypeList type1) `shouldBe`
-                withDummyLocation
-                    (D.TypeApplication
-                         (withDummyLocation
-                              (D.TypeConstr
-                                   (withDummyLocation (D.IdentNamed ["[]"]))))
-                         (type1Expected NE.:| []))
-        it "should desugar BType" $
-            desugarToType (withDummyLocation $ BType (aType1 NE.:| [aType2])) `shouldBe`
-            withDummyLocation
-                (D.TypeApplication type1Expected (type2Expected NE.:| []))
         it "should desugar AType" $
-            desugarToType (withDummyLocation $ Type (bType1 NE.:| [bType2])) `shouldBe`
-            withDummyLocation
-                (D.TypeApplication
-                     (withDummyLocation
-                          (D.TypeConstr
-                               (withDummyLocation (D.IdentNamed ["->"]))))
-                     (type1Expected NE.:| [type2Expected]))
-        it "should keep track of positions" $
-            desugarToType
-                (WithLocation (getValue type1) (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation (getValue type1Expected) (sourceLocation 1 2 3 4)
+            checkTypeDesugaring (getTypeExample :: TypeExample AType)
+        it "should desugar BType" $
+            checkTypeDesugaring (getTypeExample :: TypeExample BType)
+        it "should desugar Type" $
+            checkTypeDesugaring (getTypeExample :: TypeExample Type)

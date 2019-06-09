@@ -8,10 +8,12 @@ Test suite for desugaring of objects to Pattern-s
 -}
 module Frontend.Desugaring.Initial.ToPatternTest
     ( testSuite
+    , getPatternExample
     ) where
 
 import Test.Hspec
 
+import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Initial.Ast
@@ -20,118 +22,137 @@ import Frontend.Desugaring.Initial.Ast
     , Pattern(..)
     , PatternBinding(..)
     )
-import Frontend.Desugaring.Initial.ToPattern (desugarToPattern)
-import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToConstTest (getConstExample)
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
+import Frontend.Desugaring.Initial.ToPattern
+    ( DesugarToPattern(..)
+    , desugarToPatternBinding
     )
-import Frontend.Syntax.Token
+import Frontend.Desugaring.Initial.Util
+import Frontend.Syntax.Ast
+import Frontend.Syntax.EntityName
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Syntax.Token (FloatT(..), IntT(..))
+import Frontend.Utils.RandomSelector
+
+type PatternExample a = RandomSelector (WithLocation a, WithLocation Pattern)
+
+class WithPatternExamples a where
+    getPatternExample :: PatternExample a
+
+instance WithPatternExamples APat where
+    getPatternExample =
+        selectFromRandomRecursive
+            [ do (varEx, varRes) <- getIdentExample
+                 (patEx, patRes) <- randomMaybe getPatternExample
+                 withSameLocation $
+                     return (APatVariable varEx patEx, PatternVar varRes patRes)
+            , do (nameEx, nameRes) <- getIdentExample
+                 withSameLocation $
+                     return (APatConstructor nameEx, PatternConstr nameRes [])
+            , do (constEx, constRes) <- getConstExample
+                 withSameLocation $
+                     return (APatLiteral constEx, PatternConst constRes)
+            , withSameLocation $ return (APatWildcard, PatternWildcard)
+            ]
+            [ do (nameEx, nameRes) <- getIdentExample
+                 (bindingsEx, bindingsRes) <-
+                     randomList 2 getPatternBindingExample
+                 withSameLocation $
+                     return
+                         ( APatRecord nameEx bindingsEx
+                         , PatternRecord nameRes bindingsRes)
+            , do (patEx, patRes) <- getPatternExample
+                 return (patEx $> APatParens patEx, patRes)
+            , do (firstEx, firstRes) <- getPatternExample
+                 (secondEx, secondRes) <- getPatternExample
+                 (restEx, restRes) <- randomList 2 getPatternExample
+                 let ident = makeIdent' $ IdentParametrised tUPLE_NAME 4
+                 withSameLocation $
+                     return
+                         ( APatTuple firstEx secondEx restEx
+                         , PatternConstr ident (firstRes : secondRes : restRes))
+            , do (patsEx, patsRes) <- randomNonEmpty 2 getPatternExample
+                 loc <- getRandomSourceLocation
+                 let firstRes NE.:| [secondRes] = patsRes
+                     constr = makeIdent cOLON_NAME
+                     empty = makePattern lIST_NAME
+                     lastRes = PatternConstr constr [secondRes, empty]
+                     lastRes' = WithLocation lastRes loc
+                     res = PatternConstr constr [firstRes, lastRes']
+                     ex = APatList patsEx
+                 return (WithLocation ex loc, WithLocation res loc)
+            ]
+
+instance WithPatternExamples LPat where
+    getPatternExample =
+        selectFromRandomRecursive
+            [ do location <- getRandomSourceLocation
+                 let wrap = (`WithLocation` location)
+                 selectFromRandom
+                     [ return
+                           ( wrap $ LPatNegated $ wrap $ Left $ IntT 4
+                           , wrap $ PatternConst $ wrap $ ConstInt (-4))
+                     , return
+                           ( wrap $ LPatNegated $ wrap $ Right $ FloatT 4.2
+                           , wrap $ PatternConst $ wrap $ ConstFloat (-4.2))
+                     ]
+            ]
+            [ do (patEx, patRes) <- getPatternExample
+                 return (patEx $> LPatSimple patEx, patRes)
+            , do (nameEx, nameRes) <- getIdentExample
+                 (argsEx, argsRes) <- randomNonEmpty 3 getPatternExample
+                 withSameLocation $
+                     return
+                         ( LPatConstructor nameEx argsEx
+                         , PatternConstr nameRes (NE.toList argsRes))
+            ]
+
+instance WithPatternExamples Pat where
+    getPatternExample =
+        selectFromRandomRecursive
+            [ do (patEx, patRes) <- getPatternExample
+                 return (patEx $> PatSimple patEx, patRes)
+            ]
+            [ do (opEx, opRes) <- getIdentExample
+                 (lEx, lRes) <- getPatternExample
+                 (rEx, rRes) <- getPatternExample
+                 withSameLocation $
+                     return
+                         ( PatInfix lEx opEx rEx
+                         , PatternConstr opRes [lRes, rRes])
+            ]
+
+checkPatternDesugaring ::
+       (WithPatternExamples a, DesugarToPattern a)
+    => PatternExample a
+    -> Expectation
+checkPatternDesugaring = checkDesugaring 10 3 desugarToPattern
+
+getPatternBindingExample ::
+       RandomSelector (WithLocation FPat, WithLocation PatternBinding)
+getPatternBindingExample = do
+    (nameEx, nameRes) <- getIdentExample
+    (patEx, patRes) <- getPatternExample
+    withSameLocation $ return (FPat nameEx patEx, PatternBinding nameRes patRes)
 
 testSuite :: IO ()
 testSuite =
-    hspec $
-    describe "desugarToPattern" $ do
-        let var1 = FuncLabelId . VarId $ "a"
-            var1Expected = withDummyLocation . IdentNamed $ ["a"]
-            qVar1 = FuncLabelId . Qualified [] . VarId $ "b"
-            qVar1Expected = withDummyLocation . IdentNamed $ ["b"]
-            qCon1 = FuncLabelId . Qualified [] . ConId $ "Con"
-            qCon1Expected = withDummyLocation . IdentNamed $ ["Con"]
-            qConOp = OpLabelSym GConSymColon
-            qConOpExpected = withDummyLocation $ IdentNamed [":"]
-            gCon1 = GConNamed (withDummyLocation qCon1)
-            gCon1Expected = qCon1Expected
-            lit1 = LiteralInteger . withDummyLocation . IntT $ 42
-            lit1Expected = withDummyLocation . ConstInt $ 42
-            aPat1 =
-                withDummyLocation $
-                APatVariable (withDummyLocation var1) Nothing
-            aPat1Expected = withDummyLocation $ PatternVar var1Expected Nothing
-            aPat2 =
-                withDummyLocation $
-                APatVariable (withDummyLocation var1) (Just aPat1)
-            aPat2Expected =
-                withDummyLocation $ PatternVar var1Expected (Just aPat1Expected)
-            aPat3 =
-                withDummyLocation $ APatConstructor (withDummyLocation GConUnit)
-            aPat3Expected =
-                withDummyLocation $
-                PatternConstr (withDummyLocation $ IdentNamed ["()"]) []
-            aPat4 =
-                withDummyLocation $
-                APatRecord
-                    (withDummyLocation qCon1)
-                    [withDummyLocation $ FPat (withDummyLocation qVar1) pat1]
-            aPat4Expected =
-                withDummyLocation $
-                PatternRecord
-                    qCon1Expected
-                    [ withDummyLocation $
-                      PatternBinding qVar1Expected pat1Expected
-                    ]
-            aPat5 = withDummyLocation $ APatLiteral (withDummyLocation lit1)
-            aPat5Expected = withDummyLocation $ PatternConst lit1Expected
-            aPat6 = withDummyLocation APatWildcard
-            aPat6Expected = withDummyLocation PatternWildcard
-            aPat7 = withDummyLocation $ APatParens pat1
-            aPat7Expected = pat1Expected
-            aPat8 = withDummyLocation $ APatTuple pat1 pat2 []
-            aPat8Expected =
-                withDummyLocation $
-                PatternConstr
-                    (withDummyLocation $ IdentParametrised ["(,)"] 2)
-                    [pat1Expected, pat2Expected]
-            aPat9 = withDummyLocation $ APatList (pat1 NE.:| [])
-            aPat9Expected =
-                withDummyLocation $
-                PatternConstr
-                    (withDummyLocation $ IdentNamed [":"])
-                    [ pat1Expected
-                    , withDummyLocation $
-                      PatternConstr (withDummyLocation $ IdentNamed ["[]"]) []
-                    ]
-            lPat1 = withDummyLocation $ LPatSimple aPat1
-            lPat1Expected = aPat1Expected
-            lPat2 =
-                withDummyLocation $
-                LPatNegated (withDummyLocation . Left . IntT $ 42)
-            lPat2Expected =
-                withDummyLocation $
-                PatternConst (withDummyLocation $ ConstInt (-42))
-            lPat3 =
-                withDummyLocation $
-                LPatConstructor (withDummyLocation gCon1) (aPat1 NE.:| [aPat2])
-            lPat3Expected =
-                withDummyLocation $
-                PatternConstr gCon1Expected [aPat1Expected, aPat2Expected]
-            pat1 = withDummyLocation $ PatSimple lPat1
-            pat1Expected = lPat1Expected
-            pat2 =
-                withDummyLocation $
-                PatInfix pat1 (withDummyLocation qConOp) pat1
-            pat2Expected =
-                withDummyLocation $
-                PatternConstr qConOpExpected [pat1Expected, pat1Expected]
-        it "should desugar APat" $ do
-            desugarToPattern aPat1 `shouldBe` aPat1Expected
-            desugarToPattern aPat2 `shouldBe` aPat2Expected
-            desugarToPattern aPat3 `shouldBe` aPat3Expected
-            desugarToPattern aPat4 `shouldBe` aPat4Expected
-            desugarToPattern aPat5 `shouldBe` aPat5Expected
-            desugarToPattern aPat6 `shouldBe` aPat6Expected
-            desugarToPattern aPat7 `shouldBe` aPat7Expected
-            desugarToPattern aPat8 `shouldBe` aPat8Expected
-            desugarToPattern aPat9 `shouldBe` aPat9Expected
-        it "should desugar LPat" $ do
-            desugarToPattern lPat1 `shouldBe` lPat1Expected
-            desugarToPattern lPat2 `shouldBe` lPat2Expected
-            desugarToPattern lPat3 `shouldBe` lPat3Expected
-        it "should desugar Pat" $ do
-            desugarToPattern pat1 `shouldBe` pat1Expected
-            desugarToPattern pat2 `shouldBe` pat2Expected
-        it "should keep track of positions" $
-            desugarToPattern
-                (WithLocation (getValue aPat1) (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation (getValue aPat1Expected) (sourceLocation 1 2 3 4)
+    hspec $ do
+        describe "desugarToPattern" $ do
+            it "should desugar APat" $
+                checkPatternDesugaring
+                    (getPatternExample :: PatternExample APat)
+            it "should desugar LPat" $
+                checkPatternDesugaring
+                    (getPatternExample :: PatternExample LPat)
+            it "should desugar Pat" $
+                checkPatternDesugaring (getPatternExample :: PatternExample Pat)
+        describe "desugarToPatternBinding" $
+            it "should desugar FPat" $
+            checkDesugaring
+                10
+                3
+                desugarToPatternBinding
+                getPatternBindingExample

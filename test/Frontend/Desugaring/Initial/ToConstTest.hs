@@ -8,48 +8,63 @@ Test suite for desugaring of objects to Const-s
 -}
 module Frontend.Desugaring.Initial.ToConstTest
     ( testSuite
+    , getConstExample
     ) where
 
 import Test.Hspec
 
+import Data.Functor (($>))
+
 import Frontend.Desugaring.Initial.Ast (Const(..))
-import Frontend.Desugaring.Initial.ToConst (desugarToConst)
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToConst (DesugarToConst(..))
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
+import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token
+import Frontend.Utils.RandomSelector
+
+type ConstExample a = RandomSelector (WithLocation a, WithLocation Const)
+
+class WithConstExamples a where
+    getConstExample :: ConstExample a
+
+instance WithConstExamples IntT where
+    getConstExample = withSameLocation $ return (IntT 4, ConstInt 4)
+
+instance WithConstExamples FloatT where
+    getConstExample = withSameLocation $ return (FloatT 4.2, ConstFloat 4.2)
+
+instance WithConstExamples CharT where
+    getConstExample = withSameLocation $ return (CharT 'a', ConstChar 'a')
+
+instance WithConstExamples StringT where
+    getConstExample = withSameLocation $ return (StringT "ab", ConstString "ab")
+
+instance WithConstExamples Literal where
+    getConstExample =
+        selectFromRandom
+            [ do (ex, res) <- getConstExample
+                 return (ex $> LiteralInteger ex, res)
+            , do (ex, res) <- getConstExample
+                 return (ex $> LiteralFloat ex, res)
+            , do (ex, res) <- getConstExample
+                 return (ex $> LiteralChar ex, res)
+            , do (ex, res) <- getConstExample
+                 return (ex $> LiteralString ex, res)
+            ]
+
+checkConstDesugaring ::
+       (WithConstExamples a, DesugarToConst a) => ConstExample a -> Expectation
+checkConstDesugaring = checkDesugaring 10 1 desugarToConst
 
 testSuite :: IO ()
 testSuite =
     hspec $
     describe "desugarToConst" $ do
         it "should desugar simple constants" $ do
-            desugarToConst (withDummyLocation $ IntT 4) `shouldBe`
-                withDummyLocation (ConstInt 4)
-            desugarToConst (withDummyLocation $ FloatT 4.2) `shouldBe`
-                withDummyLocation (ConstFloat 4.2)
-            desugarToConst (withDummyLocation $ CharT 'a') `shouldBe`
-                withDummyLocation (ConstChar 'a')
-            desugarToConst (withDummyLocation $ StringT "ab") `shouldBe`
-                withDummyLocation (ConstString "ab")
-        it "should desugar literals" $ do
-            desugarToConst
-                (withDummyLocation $ LiteralInteger (withDummyLocation (IntT 4))) `shouldBe`
-                withDummyLocation (ConstInt 4)
-            desugarToConst
-                (withDummyLocation $
-                 LiteralFloat (withDummyLocation (FloatT 4.2))) `shouldBe`
-                withDummyLocation (ConstFloat 4.2)
-            desugarToConst
-                (withDummyLocation $ LiteralChar (withDummyLocation (CharT 'a'))) `shouldBe`
-                withDummyLocation (ConstChar 'a')
-            desugarToConst
-                (withDummyLocation $
-                 LiteralString (withDummyLocation (StringT "ab"))) `shouldBe`
-                withDummyLocation (ConstString "ab")
-        it "should keep track of locations" $
-            desugarToConst (WithLocation (IntT 4) (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation (ConstInt 4) (sourceLocation 1 2 3 4)
+            checkConstDesugaring (getConstExample :: ConstExample IntT)
+            checkConstDesugaring (getConstExample :: ConstExample FloatT)
+            checkConstDesugaring (getConstExample :: ConstExample CharT)
+            checkConstDesugaring (getConstExample :: ConstExample StringT)
+        it "should desugar literals" $
+            checkConstDesugaring (getConstExample :: ConstExample Literal)

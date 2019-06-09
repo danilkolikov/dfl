@@ -8,42 +8,30 @@ Test suite for desugaring of objects to SimpleClass-s
 -}
 module Frontend.Desugaring.Initial.ToSimpleClassTest
     ( testSuite
+    , getSimpleClassExample
     ) where
 
 import Test.Hspec
 
 import qualified Frontend.Desugaring.Initial.Ast as D
+import Frontend.Desugaring.Initial.TestUtils
+import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
 import Frontend.Desugaring.Initial.ToSimpleClass (desugarToSimpleClass)
 import Frontend.Syntax.Ast
-import Frontend.Syntax.Position
-    ( WithLocation(..)
-    , sourceLocation
-    , withDummyLocation
-    )
-import Frontend.Syntax.Token
+import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Utils.RandomSelector
+
+getSimpleClassExample ::
+       RandomSelector (WithLocation SimpleClass, WithLocation D.SimpleClass)
+getSimpleClassExample = do
+    (nameEx, nameRes) <- getIdentExample
+    (paramEx, paramRes) <- getIdentExample
+    withSameLocation $
+        return (SimpleClass nameEx paramEx, D.SimpleClass nameRes paramRes)
 
 testSuite :: IO ()
 testSuite =
     hspec $
-    describe "desugarToSimpleClass" $ do
-        it "should desugar SimpleClass" $
-            desugarToSimpleClass
-                (withDummyLocation $ SimpleClass
-                     (withDummyLocation (Qualified [] (ConId "Class")))
-                     (withDummyLocation (VarId "a"))) `shouldBe`
-            withDummyLocation
-                (D.SimpleClass
-                     (withDummyLocation (D.IdentNamed ["Class"]))
-                     (withDummyLocation (D.IdentNamed ["a"])))
-        it "keeps track of locations" $
-            desugarToSimpleClass
-                (WithLocation
-                     (SimpleClass
-                          (withDummyLocation (Qualified [] (ConId "Class")))
-                          (withDummyLocation (VarId "a")))
-                     (sourceLocation 1 2 3 4)) `shouldBe`
-            WithLocation
-                (D.SimpleClass
-                     (withDummyLocation (D.IdentNamed ["Class"]))
-                     (withDummyLocation (D.IdentNamed ["a"])))
-                (sourceLocation 1 2 3 4)
+    describe "desugarToSimpleClass" $
+    it "should desugar SimpleClass" $
+    checkDesugaring 5 1 desugarToSimpleClass getSimpleClassExample
