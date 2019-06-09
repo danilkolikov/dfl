@@ -66,7 +66,7 @@ testSuite =
     hspec $ do
         describe "desugarToConstr" $
             it "should desugar Constr" $
-            checkDesugaring 10 3 desugarToConstr getConstrExample
+            checkDesugaring desugarToConstr getConstrExample
         describe "desugarToFieldDecl" $
             it "should desugar FieldDecl" $
-            checkDesugaring 10 3 desugarToFieldDecl getFieldDeclExample
+            checkDesugaring desugarToFieldDecl getFieldDeclExample

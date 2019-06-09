@@ -47,6 +47,7 @@ bodyToDecls ::
 bodyToDecls wrap (Body impDecls topDecls) =
     wrap (map desugarImpDecl impDecls) (concatMap desugarToTopDecl topDecls)
 
+-- | Desugar Export
 desugarExport :: WithLocation Export -> WithLocation D.Export
 desugarExport export =
     export $>
@@ -56,6 +57,7 @@ desugarExport export =
             D.ExportDataOrClass (desugarToIdent name) (desugarToImpExp funcs)
         ExportModule name -> D.ExportModule (desugarToIdent name)
 
+-- | Desugar exports of a module
 desugarExports ::
        Maybe [WithLocation Export] -> D.ImpExpList (WithLocation D.Export)
 desugarExports Nothing = D.ImpExpAll
@@ -63,6 +65,7 @@ desugarExports (Just []) = D.ImpExpNothing
 desugarExports (Just (f:rest)) =
     D.ImpExpSome (fmap desugarExport (f NE.:| rest))
 
+-- | Desugar ImpDecl
 desugarImpDecl :: WithLocation ImpDecl -> WithLocation D.ImpDecl
 desugarImpDecl impDecl =
     impDecl $>
@@ -76,7 +79,10 @@ desugarImpDecl impDecl =
                     hiding
                     imports
 
-desugarImpSpec :: Maybe (WithLocation ImpSpec) -> (Bool, D.ImpExpList (WithLocation D.Import))
+-- | Desugar ImpSpec
+desugarImpSpec ::
+       Maybe (WithLocation ImpSpec)
+    -> (Bool, D.ImpExpList (WithLocation D.Import))
 desugarImpSpec impSpec =
     case impSpec of
         Nothing -> (False, D.ImpExpAll)
@@ -86,6 +92,7 @@ desugarImpSpec impSpec =
                   [] -> D.ImpExpNothing
                   f:rest -> D.ImpExpSome (fmap desugarImport (f NE.:| rest)))
 
+-- | Desugar Import
 desugarImport :: WithLocation Import -> WithLocation D.Import
 desugarImport import' =
     import' $>
@@ -94,6 +101,7 @@ desugarImport import' =
         ImportDataOrClass name meths ->
             D.ImportDataOrClass (desugarToIdent name) (desugarToImpExp meths)
 
+-- | Desugar ImpExp list
 desugarToImpExp ::
        WithLocation ImpExpList -> D.ImpExpList (WithLocation D.Ident)
 desugarToImpExp list

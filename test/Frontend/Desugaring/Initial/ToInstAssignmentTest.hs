@@ -50,4 +50,4 @@ testSuite =
     hspec $
     describe "desugarToInstAssignment" $
     it "should desugar IDecl" $
-    checkDesugaring 10 2 desugarToInstAssignment getInstAssignmentExample
+    checkDesugaring desugarToInstAssignment getInstAssignmentExample

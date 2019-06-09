@@ -120,7 +120,7 @@ instance WithIdentExamples DClass where
 
 checkIdentDesugaring ::
        (WithIdentExamples a, DesugarToIdent a) => IdentExample a -> Expectation
-checkIdentDesugaring = checkDesugaring 10 1 desugarToIdent
+checkIdentDesugaring = checkDesugaring desugarToIdent
 
 testSuite :: IO ()
 testSuite =

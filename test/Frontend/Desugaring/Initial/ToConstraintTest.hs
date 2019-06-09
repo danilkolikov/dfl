@@ -47,4 +47,4 @@ testSuite =
     hspec $
     describe "desugarToConstraint" $
     it "should desugar constraints" $
-    checkDesugaring 10 3 desugarToConstraint getConstraintExample
+    checkDesugaring desugarToConstraint getConstraintExample

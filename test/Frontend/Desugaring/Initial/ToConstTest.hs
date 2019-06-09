@@ -55,7 +55,7 @@ instance WithConstExamples Literal where
 
 checkConstDesugaring ::
        (WithConstExamples a, DesugarToConst a) => ConstExample a -> Expectation
-checkConstDesugaring = checkDesugaring 10 1 desugarToConst
+checkConstDesugaring = checkDesugaring desugarToConst
 
 testSuite :: IO ()
 testSuite =

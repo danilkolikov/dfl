@@ -34,4 +34,4 @@ testSuite =
     hspec $
     describe "desugarToSimpleType" $
     it "should desugar SimpleType" $
-    checkDesugaring 5 1 desugarToSimpleType getSimpleTypeExample
+    checkDesugaring desugarToSimpleType getSimpleTypeExample

@@ -28,18 +28,18 @@ import qualified Frontend.Desugaring.Initial.ToTypeTest as ToType
 
 testSuite :: IO ()
 testSuite = do
-    ToIdent.testSuite
+    ToAssignment.testSuite
+    ToClassAssignment.testSuite
     ToConst.testSuite
-    ToType.testSuite
-    ToConstraint.testSuite
-    ToInst.testSuite
-    ToSimpleClass.testSuite
-    ToSimpleType.testSuite
     ToConstr.testSuite
+    ToConstraint.testSuite
+    ToExp.testSuite
+    ToIdent.testSuite
+    ToInst.testSuite
+    ToModule.testSuite
     ToNewConstr.testSuite
     ToPattern.testSuite
-    ToExp.testSuite
-    ToClassAssignment.testSuite
-    ToAssignment.testSuite
+    ToSimpleClass.testSuite
+    ToSimpleType.testSuite
     ToTopDecl.testSuite
-    ToModule.testSuite
+    ToType.testSuite

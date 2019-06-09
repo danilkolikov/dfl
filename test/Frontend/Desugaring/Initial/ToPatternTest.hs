@@ -128,7 +128,7 @@ checkPatternDesugaring ::
        (WithPatternExamples a, DesugarToPattern a)
     => PatternExample a
     -> Expectation
-checkPatternDesugaring = checkDesugaring 10 3 desugarToPattern
+checkPatternDesugaring = checkDesugaring desugarToPattern
 
 getPatternBindingExample ::
        RandomSelector (WithLocation FPat, WithLocation PatternBinding)
@@ -151,8 +151,4 @@ testSuite =
                 checkPatternDesugaring (getPatternExample :: PatternExample Pat)
         describe "desugarToPatternBinding" $
             it "should desugar FPat" $
-            checkDesugaring
-                10
-                3
-                desugarToPatternBinding
-                getPatternBindingExample
+            checkDesugaring desugarToPatternBinding getPatternBindingExample

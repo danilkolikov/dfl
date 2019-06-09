@@ -53,4 +53,4 @@ testSuite :: IO ()
 testSuite =
     hspec $
     describe "desugarToInst" $
-    it "should desugar Inst" $ checkDesugaring 10 1 desugarToInst getInstExample
+    it "should desugar Inst" $ checkDesugaring desugarToInst getInstExample

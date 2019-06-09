@@ -260,13 +260,9 @@ instance WithExpExamples AExp where
                          , D.ExpRecordUpdate expRes bindingsRes)
             ]
 
-checkDesugaring' ::
-       (Eq b, Show b) => (a -> b) -> RandomSelector (a, b) -> Expectation
-checkDesugaring' = checkDesugaring 10 3
-
 checkExpDesugaring ::
        (WithExpExamples a, DesugarToExp a) => ExpExample a -> Expectation
-checkExpDesugaring = checkDesugaring' desugarToExp
+checkExpDesugaring = checkDesugaring desugarToExp
 
 getOperatorExample :: RandomSelector (WithLocation QOp, WithLocation D.Exp)
 getOperatorExample =
@@ -437,23 +433,23 @@ testSuite =
                 checkExpDesugaring (getExpExample :: ExpExample InfixExp)
         describe "desugarToAssignment" $
             it "desugars Decl" $
-            checkDesugaring' desugarToAssignment getAssignmentExample
+            checkDesugaring desugarToAssignment getAssignmentExample
         describe "desugarOperator" $
             it "desugars QOp" $
-            checkDesugaring' desugarOperator getOperatorExample
+            checkDesugaring desugarOperator getOperatorExample
         describe "desugarToAlt" $
-            it "desugars Alt" $ checkDesugaring' desugarToAlt getAltExample
+            it "desugars Alt" $ checkDesugaring desugarToAlt getAltExample
         describe "desugarStmt" $
-            it "desugars Stmt" $ checkDesugaring' desugarStmt getStmtExample
+            it "desugars Stmt" $ checkDesugaring desugarStmt getStmtExample
         describe "desugarQual" $
-            it "desugars Qual" $ checkDesugaring' desugarQual getQualExample
+            it "desugars Qual" $ checkDesugaring desugarQual getQualExample
         describe "desugarToBinding" $
             it "desugars FBind" $
-            checkDesugaring' desugarToBinding getBindingExample
+            checkDesugaring desugarToBinding getBindingExample
         describe "desugarGdPat" $
-            it "desugars GdPat" $ checkDesugaring' desugarGdPat getGdPatExample
+            it "desugars GdPat" $ checkDesugaring desugarGdPat getGdPatExample
         describe "desugarGuard" $
-            it "desugars Guard" $ checkDesugaring' desugarGuard getGuardExample
+            it "desugars Guard" $ checkDesugaring desugarGuard getGuardExample
         describe "desugarFunLHS" $
             it "desugars FunLHS" $
-            checkDesugaring' desugarFunLHS getFunLHSExample
+            checkDesugaring desugarFunLHS getFunLHSExample

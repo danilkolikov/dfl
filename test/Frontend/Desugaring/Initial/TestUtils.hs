@@ -23,6 +23,15 @@ mAX_LINE = 1000
 mAX_COLUMN :: Int
 mAX_COLUMN = 1000
 
+sEED :: Int
+sEED = 42
+
+n_TEST_CASES :: Int
+n_TEST_CASES = 10
+
+dEPTH :: Int
+dEPTH = 2
+
 getRandomLine :: RandomSelector Int
 getRandomLine = randomNumber mAX_LINE
 
@@ -58,15 +67,9 @@ randomMaybe rs =
     selectFromRandom [return (Nothing, Nothing), bimap Just Just <$> rs]
 
 checkDesugaring ::
-       (Eq b, Show b)
-    => Int
-    -> Int
-    -> (a -> b)
-    -> RandomSelector (a, b)
-    -> Expectation
-checkDesugaring n depth desugar rs =
+       (Eq b, Show b) => (a -> b) -> RandomSelector (a, b) -> Expectation
+checkDesugaring desugar rs =
     let checkSingle (example, res) = desugar example `shouldBe` res
-        getExamples = replicateM n rs
-        seed = 42
-        examples = evalRandomSelector getExamples seed depth
+        getExamples = replicateM n_TEST_CASES rs
+        examples = evalRandomSelector getExamples sEED dEPTH
      in mapM_ checkSingle examples

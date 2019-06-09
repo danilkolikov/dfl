@@ -92,4 +92,4 @@ testSuite =
     hspec $
     describe "desugarToTopDecl" $
     it "should desugar TopDecl" $
-    checkDesugaring 10 2 desugarToTopDecl getTopDeclExample
+    checkDesugaring desugarToTopDecl getTopDeclExample

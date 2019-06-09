@@ -98,7 +98,7 @@ instance WithTypeExamples Type where
 
 checkTypeDesugaring ::
        (WithTypeExamples a, DesugarToType a) => TypeExample a -> Expectation
-checkTypeDesugaring = checkDesugaring 10 3 desugarToType
+checkTypeDesugaring = checkDesugaring desugarToType
 
 testSuite :: IO ()
 testSuite =

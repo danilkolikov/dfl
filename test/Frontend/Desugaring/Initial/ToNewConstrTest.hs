@@ -46,4 +46,4 @@ testSuite =
     hspec $
     describe "desugarToNewConstr" $
     it "should desugar NewConstr" $
-    checkDesugaring 10 3 desugarToNewConstr getNewConstrExample
+    checkDesugaring desugarToNewConstr getNewConstrExample

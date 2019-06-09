@@ -140,8 +140,12 @@ getImpSpecExample = do
     loc <- getRandomSourceLocation
     selectFromRandom
         [ return (Nothing, (False, D.ImpExpAll))
-        , return (Just (WithLocation (ImpSpec False []) loc), (False, D.ImpExpNothing))
-        , return (Just (WithLocation (ImpSpec True []) loc), (True, D.ImpExpNothing))
+        , return
+              ( Just (WithLocation (ImpSpec False []) loc)
+              , (False, D.ImpExpNothing))
+        , return
+              ( Just (WithLocation (ImpSpec True []) loc)
+              , (True, D.ImpExpNothing))
         , do (nameEx, nameRes) <- randomList 2 getImportExample
              return
                  ( Just (WithLocation (ImpSpec True nameEx) loc)
@@ -153,19 +157,19 @@ testSuite =
     hspec $ do
         describe "desugarToModule" $
             it "should desugar Module" $
-            checkDesugaring 10 2 desugarToModule getModuleExample
+            checkDesugaring desugarToModule getModuleExample
         describe "desugarToImport" $
             it "should desugar Import" $
-            checkDesugaring 10 2 desugarImport getImportExample
+            checkDesugaring desugarImport getImportExample
         describe "desugarToExport" $
             it "should desugar Export" $
-            checkDesugaring 10 2 desugarExport getExportExample
+            checkDesugaring desugarExport getExportExample
         describe "desugarToImpExp" $
             it "should desugar ImpExpList" $
-            checkDesugaring 10 2 desugarToImpExp getImpExpListExample
+            checkDesugaring desugarToImpExp getImpExpListExample
         describe "desugarToImpDecl" $
             it "should desugar ImpDecl" $
-            checkDesugaring 10 2 desugarImpDecl getImpDeclExample
+            checkDesugaring desugarImpDecl getImpDeclExample
         describe "desugarImpSpec" $
             it "should desugar ImpSpec" $
-            checkDesugaring 10 2 desugarImpSpec getImpSpecExample
+            checkDesugaring desugarImpSpec getImpSpecExample

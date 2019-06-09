@@ -58,4 +58,4 @@ testSuite =
     hspec $
     describe "desugarToClassAssignment" $
     it "should desugar CDecl" $
-    checkDesugaring 10 2 desugarToClassAssignment getClassAssignmentExample
+    checkDesugaring desugarToClassAssignment getClassAssignmentExample

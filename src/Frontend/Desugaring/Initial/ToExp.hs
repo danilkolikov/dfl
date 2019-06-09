@@ -322,45 +322,6 @@ desugarFunLHS (FunLHSNested lhs pats) =
     let (ident, f NE.:| rest) = desugarFunLHS (getValue lhs)
      in (ident, f NE.:| (rest ++ NE.toList (fmap desugarToPattern pats)))
 
--- | Desugar guarded patterns
--- desugarGdPats :: NE.NonEmpty (WithLocation GdPat) -> WithLocation D.Exp
--- desugarGdPats (first NE.:| rest) =
---     let desugaredRest =
---             case rest of
---                 [] -> undefinedExp
---                 (s:others) -> desugarGdPats (s NE.:| others)
---         (GdPat guards exp') = getValue first
---         desugaredExp = desugarToExp exp'
---      in desugarGuards guards desugaredExp desugaredRest
-
--- | Desugar guards
--- desugarGuards ::
---        NE.NonEmpty (WithLocation Guard)
---     -> WithLocation D.Exp
---     -> WithLocation D.Exp
---     -> WithLocation D.Exp
--- desugarGuards (first NE.:| rest) success failure =
---     let desugaredRest =
---             case rest of
---                 [] -> success
---                 s:others -> desugarGuards (s NE.:| others) success failure
---      in first $>
---         case getValue first of
---             GuardPattern pat exp' ->
---                 let desugaredPat = desugarToPattern pat
---                     desugaredExp = desugarToExp exp'
---                     alt = first $> D.AltSimple desugaredPat desugaredRest
---                     altFailure = first $> D.AltSimple wildcardPattern failure
---                  in D.ExpCase desugaredExp (alt NE.:| [altFailure])
---             GuardLet decls ->
---                 let desugaredDecls = concatMap desugarToAssignment decls
---                  in withDecls desugaredDecls desugaredRest
---             GuardExpr exp' ->
---                 let desugaredExp = desugarToExp exp'
---                     altSuccess = exp' $> D.AltSimple truePattern desugaredRest
---                     altFailure = exp' $> D.AltSimple falsePattern failure
---                  in D.ExpCase desugaredExp (altSuccess NE.:| [altFailure])
-
 -- | Make let block
 withDecls :: [WithLocation D.Assignment] -> WithLocation D.Exp -> D.Exp
 withDecls [] = getValue
