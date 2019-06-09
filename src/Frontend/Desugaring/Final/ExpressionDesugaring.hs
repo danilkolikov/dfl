@@ -56,29 +56,30 @@ desugarExp e =
             return $ ExpLet expressions resExp <$ e
         (I.ExpLeftSection exp' op) -> do
             desugaredExp <- desugarExp exp'
+            desugaredOp <- desugarExp op
             newIdent <- generateNewIdent'
-            let func = ExpVar op <$ op
-                arg = withDummyLocation $ ExpVar newIdent
+            let arg = withDummyLocation $ ExpVar newIdent
                 application =
                     withDummyLocation $
-                    ExpApplication func (desugaredExp NE.:| [arg])
+                    ExpApplication desugaredOp (desugaredExp NE.:| [arg])
             return $ ExpAbstraction newIdent application <$ e
         (I.ExpRightSection op exp') -> do
+            desugaredOp <- desugarExp op
             desugaredExp <- desugarExp exp'
             newIdent <- generateNewIdent'
-            let func = ExpVar op <$ op
-                arg = withDummyLocation $ ExpVar newIdent
+            let arg = withDummyLocation $ ExpVar newIdent
                 application =
                     withDummyLocation $
-                    ExpApplication func (arg NE.:| [desugaredExp])
+                    ExpApplication desugaredOp (arg NE.:| [desugaredExp])
             return $ ExpAbstraction newIdent application <$ e
         (I.ExpCase exp' alts) -> do
             desugaredExp <- desugarExp exp'
             let desugarAlt alt =
                     case getValue alt of
-                        I.Alt pat altExp -> do
+                        I.AltSimple pat altExp -> do
                             desugaredExp' <- desugarExp altExp
                             return (PreparedAlt pat desugaredExp')
+                        I.AltGuarded _ _ _ -> error "TODO: Implement this case"
             desugaredAlts <- mapM desugarAlt alts
             abstraction <- desugarAltsToAbstraction desugaredAlts
             return $ ExpApplication abstraction (desugaredExp NE.:| []) <$ e

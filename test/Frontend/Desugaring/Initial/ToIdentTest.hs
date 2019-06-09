@@ -9,6 +9,7 @@ Test suite for desugaring of objects to Ident-s
 module Frontend.Desugaring.Initial.ToIdentTest
     ( testSuite
     , getIdentExample
+    , IdentExample
     ) where
 
 import Test.Hspec hiding (example)

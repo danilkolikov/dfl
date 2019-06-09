@@ -222,8 +222,8 @@ data Exp
     | ExpListCompr (WithLocation Exp)
                    (NonEmpty (WithLocation Stmt)) -- ^ List comprehension
     | ExpLeftSection (WithLocation Exp)
-                     (WithLocation Ident) -- ^ Left section
-    | ExpRightSection (WithLocation Ident)
+                     (WithLocation Exp) -- ^ Left section
+    | ExpRightSection (WithLocation Exp)
                       (WithLocation Exp) -- ^ Right section
     | ExpRecordConstr (WithLocation Ident)
                       [WithLocation Binding] -- ^ Construction of a record
@@ -246,7 +246,16 @@ data Binding =
     deriving (Show, Eq)
 
 -- | Alternative in `case` expressions
-data Alt =
-    Alt (WithLocation Pattern) -- ^ Pattern
-        (WithLocation Exp) -- ^ Expression
+data Alt
+    = AltSimple (WithLocation Pattern) -- ^ Pattern
+                (WithLocation Exp) -- ^ Expression
+    | AltGuarded (WithLocation Pattern) -- ^ Pattern
+                 (NonEmpty (WithLocation GuardedExp)) -- ^ Guarded expression
+                 [WithLocation Assignment] -- ^ Where block
+    deriving (Show, Eq)
+
+-- | Expression with a guard
+data GuardedExp =
+    GuardedExp (NonEmpty (WithLocation Stmt)) -- ^ List of guards
+               (WithLocation Exp) -- ^ Expression
     deriving (Show, Eq)

@@ -1,3 +1,11 @@
+{- |
+Module      :  Frontend.Desugaring.Initial.TestUtils
+Description :  Utility functins
+Copyright   :  (c) Danil Kolikov, 2019
+License     :  MIT
+
+Utility functions for testing of desugaring
+-}
 module Frontend.Desugaring.Initial.TestUtils where
 
 import Test.Hspec hiding (example)

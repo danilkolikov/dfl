@@ -13,9 +13,17 @@ module Frontend.Desugaring.Initial.ToExp
     , desugarToAssignment
     , desugarFunLHS
     , desugarGenDecl
+    , desugarToAlt
+    , desugarStmt
+    , desugarQual
+    , desugarOperator
+    , desugarToBinding
+    , desugarGuard
+    , desugarGdPat
+    , withDecls
     ) where
 
-import Data.Functor (($>), (<$))
+import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE (NonEmpty(..), init, last, toList)
 
 import qualified Frontend.Desugaring.Initial.Ast as D
@@ -60,11 +68,13 @@ instance DesugarToExp RHS where
                     desugaredDecls = concatMap desugarToAssignment decls
                  in withDecls desugaredDecls desugaredExp
             RHSGuarded gdrhs decls ->
-                let gdRHSToGdPat (GdRHS pat exp') = GdPat pat exp'
-                    desugaredGuards =
-                        desugarGdPats $ fmap (gdRHSToGdPat <$>) gdrhs
-                    desugaredDecls = concatMap desugarToAssignment decls
-                 in withDecls desugaredDecls desugaredGuards
+                let desugaredDecls = concatMap desugarToAssignment decls
+                    gdRHSToGdPat (GdRHS pat exp') = GdPat pat exp'
+                    guardedExp = fmap (desugarGdPat . (gdRHSToGdPat <$>)) gdrhs
+                    unitPat = makePattern uNIT_NAME
+                    alt = rhs $> D.AltGuarded unitPat guardedExp desugaredDecls
+                    unitExp = makeExp uNIT_NAME
+                 in D.ExpCase unitExp (alt NE.:| [])
 
 instance DesugarToExp Exp where
     desugarToExp exp' =
@@ -87,8 +97,7 @@ instance DesugarToExp InfixExp where
                         (makeExp nEGATE_NAME)
                         (desugaredExp NE.:| [])
             InfixExpApplication l op r ->
-                let name = desugarToIdent op
-                    func = D.ExpVar name <$ name
+                let func = desugarOperator op
                     args = fmap desugarToExp (l NE.:| [r])
                  in infixExp $> D.ExpApplication func args
 
@@ -115,8 +124,11 @@ instance DesugarToExp LExp where
                 let desugaredCond = desugarToExp cond
                     desugaredTrue = desugarToExp true
                     desugaredFalse = desugarToExp false
-                    trueAlt = lExp $> D.Alt truePattern desugaredTrue
-                    falseAlt = lExp $> D.Alt falsePattern desugaredFalse
+                    trueAlt =
+                        desugaredTrue $> D.AltSimple truePattern desugaredTrue
+                    falseAlt =
+                        desugaredFalse $>
+                        D.AltSimple falsePattern desugaredFalse
                  in D.ExpCase desugaredCond (trueAlt NE.:| [falseAlt])
             LExpCase exp' alts ->
                 let desugaredExp = desugarToExp exp'
@@ -153,7 +165,7 @@ instance DesugarToExp AExp where
                             [] -> makeConstr lIST_NAME
                             (s:exps) ->
                                 desugarToExp (aExp $> AExpList (s NE.:| exps))
-                    function = makeExp cOLON_NAME
+                    function = makeConstr cOLON_NAME
                  in D.ExpApplication function (desugaredL NE.:| [desugaredR])
             AExpSequence f s e ->
                 let desugaredF = desugarToExp f
@@ -184,10 +196,10 @@ instance DesugarToExp AExp where
                  in D.ExpListCompr desugaredExp desugaredQuals
             AExpLeftSection exp' op ->
                 let desugaredExp = desugarToExp exp'
-                    desugaredOp = desugarToIdent op
+                    desugaredOp = desugarOperator op
                  in D.ExpLeftSection desugaredExp desugaredOp
             AExpRightSection op exp' ->
-                let desugaredOp = desugarToIdent op
+                let desugaredOp = desugarOperator op
                     desugaredExp = desugarToExp exp'
                  in D.ExpRightSection desugaredOp desugaredExp
             AExpRecordConstr name binds ->
@@ -209,14 +221,13 @@ desugarToAlt alt =
             let desugaredPat = desugarToPattern pat
                 desugaredExp = desugarToExp exp'
                 desugaredDecls = concatMap desugarToAssignment decls
-                expWithDecls = alt $> withDecls desugaredDecls desugaredExp
-             in D.Alt desugaredPat expWithDecls
+                expWithDecls = exp' $> withDecls desugaredDecls desugaredExp
+             in D.AltSimple desugaredPat expWithDecls
         AltGuarded pat gdpats decls ->
             let desugaredPat = desugarToPattern pat
                 desugaredDecls = concatMap desugarToAssignment decls
-                rhs = desugarGdPats gdpats
-                expWithDecls = alt $> withDecls desugaredDecls rhs
-             in D.Alt desugaredPat expWithDecls
+                rhs = fmap desugarGdPat gdpats
+             in D.AltGuarded desugaredPat rhs desugaredDecls
 
 -- | Desugar expression to bindings
 desugarToBinding :: WithLocation FBind -> WithLocation D.Binding
@@ -256,6 +267,30 @@ desugarQual stmt =
             let desugaredExp = desugarToExp exp'
              in D.StmtExp desugaredExp
 
+-- | Desugar guards
+desugarGuard :: WithLocation Guard -> WithLocation D.Stmt
+desugarGuard stmt =
+    stmt $>
+    case getValue stmt of
+        GuardPattern pat exp' ->
+            let desugaredPat = desugarToPattern pat
+                desugaredExp = desugarToExp exp'
+             in D.StmtPattern desugaredPat desugaredExp
+        GuardLet decls ->
+            let desugaredDecls = concatMap desugarToAssignment decls
+             in D.StmtLet desugaredDecls
+        GuardExpr exp' ->
+            let desugaredExp = desugarToExp exp'
+             in D.StmtExp desugaredExp
+
+-- | Desugar GdPat
+desugarGdPat :: WithLocation GdPat -> WithLocation D.GuardedExp
+desugarGdPat gdPat
+    | GdPat guards exp' <- getValue gdPat =
+        let desugaredGuards = fmap desugarGuard guards
+            desugaredExp = desugarToExp exp'
+         in gdPat $> D.GuardedExp desugaredGuards desugaredExp
+
 -- | Desugar fixty and type declarations
 desugarGenDecl ::
        (WithLocation D.Ident -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
@@ -288,45 +323,55 @@ desugarFunLHS (FunLHSNested lhs pats) =
      in (ident, f NE.:| (rest ++ NE.toList (fmap desugarToPattern pats)))
 
 -- | Desugar guarded patterns
-desugarGdPats :: NE.NonEmpty (WithLocation GdPat) -> WithLocation D.Exp
-desugarGdPats (first NE.:| rest) =
-    let desugaredRest =
-            case rest of
-                [] -> undefinedExp
-                (s:others) -> desugarGdPats (s NE.:| others)
-        (GdPat guards exp') = getValue first
-        desugaredExp = desugarToExp exp'
-     in desugarGuards guards desugaredExp desugaredRest
+-- desugarGdPats :: NE.NonEmpty (WithLocation GdPat) -> WithLocation D.Exp
+-- desugarGdPats (first NE.:| rest) =
+--     let desugaredRest =
+--             case rest of
+--                 [] -> undefinedExp
+--                 (s:others) -> desugarGdPats (s NE.:| others)
+--         (GdPat guards exp') = getValue first
+--         desugaredExp = desugarToExp exp'
+--      in desugarGuards guards desugaredExp desugaredRest
 
 -- | Desugar guards
-desugarGuards ::
-       NE.NonEmpty (WithLocation Guard)
-    -> WithLocation D.Exp
-    -> WithLocation D.Exp
-    -> WithLocation D.Exp
-desugarGuards (first NE.:| rest) success failure =
-    let desugaredRest =
-            case rest of
-                [] -> success
-                s:others -> desugarGuards (s NE.:| others) success failure
-     in first $>
-        case getValue first of
-            GuardPattern pat exp' ->
-                let desugaredPat = desugarToPattern pat
-                    desugaredExp = desugarToExp exp'
-                    alt = D.Alt desugaredPat desugaredRest <$ first
-                    altFailure = first $> D.Alt wildcardPattern failure
-                 in D.ExpCase desugaredExp (alt NE.:| [altFailure])
-            GuardLet decls ->
-                let desugaredDecls = concatMap desugarToAssignment decls
-                 in withDecls desugaredDecls desugaredRest
-            GuardExpr exp' ->
-                let desugaredExp = desugarToExp exp'
-                    altSuccess = exp' $> D.Alt truePattern desugaredRest
-                    altFailure = exp' $> D.Alt falsePattern failure
-                 in D.ExpCase desugaredExp (altSuccess NE.:| [altFailure])
+-- desugarGuards ::
+--        NE.NonEmpty (WithLocation Guard)
+--     -> WithLocation D.Exp
+--     -> WithLocation D.Exp
+--     -> WithLocation D.Exp
+-- desugarGuards (first NE.:| rest) success failure =
+--     let desugaredRest =
+--             case rest of
+--                 [] -> success
+--                 s:others -> desugarGuards (s NE.:| others) success failure
+--      in first $>
+--         case getValue first of
+--             GuardPattern pat exp' ->
+--                 let desugaredPat = desugarToPattern pat
+--                     desugaredExp = desugarToExp exp'
+--                     alt = first $> D.AltSimple desugaredPat desugaredRest
+--                     altFailure = first $> D.AltSimple wildcardPattern failure
+--                  in D.ExpCase desugaredExp (alt NE.:| [altFailure])
+--             GuardLet decls ->
+--                 let desugaredDecls = concatMap desugarToAssignment decls
+--                  in withDecls desugaredDecls desugaredRest
+--             GuardExpr exp' ->
+--                 let desugaredExp = desugarToExp exp'
+--                     altSuccess = exp' $> D.AltSimple truePattern desugaredRest
+--                     altFailure = exp' $> D.AltSimple falsePattern failure
+--                  in D.ExpCase desugaredExp (altSuccess NE.:| [altFailure])
 
 -- | Make let block
 withDecls :: [WithLocation D.Assignment] -> WithLocation D.Exp -> D.Exp
 withDecls [] = getValue
 withDecls decls = D.ExpLet decls
+
+-- | Wrap operator to an expression
+desugarOperator :: WithLocation QOp -> WithLocation D.Exp
+desugarOperator op =
+    let desugared = desugarToIdent op
+        wrapper =
+            case getValue op of
+                Left _ -> D.ExpVar
+                Right _ -> D.ExpConstr
+     in op $> wrapper desugared
