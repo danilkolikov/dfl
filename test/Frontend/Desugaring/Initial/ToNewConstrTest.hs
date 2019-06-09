@@ -8,7 +8,7 @@ Test suite for desugaring of objects to NewConstr-s
 -}
 module Frontend.Desugaring.Initial.ToNewConstrTest
     ( testSuite
-    , getNewConstrExamples
+    , getNewConstrExample
     ) where
 
 import Test.Hspec
@@ -22,9 +22,9 @@ import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Utils.RandomSelector
 
-getNewConstrExamples ::
+getNewConstrExample ::
        RandomSelector (WithLocation NewConstr, WithLocation D.NewConstr)
-getNewConstrExamples =
+getNewConstrExample =
     selectFromRandom
         [ do (nameEx, nameRes) <- getIdentExample
              (typeEx, typeRes) <- getTypeExample
@@ -46,4 +46,4 @@ testSuite =
     hspec $
     describe "desugarToNewConstr" $
     it "should desugar NewConstr" $
-    checkDesugaring 10 3 desugarToNewConstr getNewConstrExamples
+    checkDesugaring 10 3 desugarToNewConstr getNewConstrExample

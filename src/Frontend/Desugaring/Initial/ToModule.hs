@@ -8,6 +8,12 @@ Desugaring of AST nodes to objects, representing Module-s.
 -}
 module Frontend.Desugaring.Initial.ToModule
     ( desugarToModule
+    , desugarExport
+    , desugarImpDecl
+    , desugarImport
+    , desugarToImpExp
+    , desugarExports
+    , desugarImpSpec
     ) where
 
 import Data.Functor (($>))
@@ -32,9 +38,7 @@ desugarToModule md =
                 (getValue body)
         ModuleImplicit body ->
             bodyToDecls
-                (D.Module
-                     (makeIdent dEFAULT_MODULE_NAME)
-                     D.ImpExpAll)
+                (D.Module (makeIdent dEFAULT_MODULE_NAME) D.ImpExpAll)
                 (getValue body)
 
 -- Helper functions
@@ -45,14 +49,12 @@ bodyToDecls wrap (Body impDecls topDecls) =
 
 desugarExport :: WithLocation Export -> WithLocation D.Export
 desugarExport export =
-    (case getValue export of
-         ExportFunction qVar -> D.ExportFunction (desugarToIdent qVar)
-         ExportDataOrClass name funcs ->
-             D.ExportDataOrClass
-                 (desugarToIdent name)
-                 (desugarToImpExp $ getValue funcs)
-         ExportModule name -> D.ExportModule (desugarToIdent name)) <$
-    export
+    export $>
+    case getValue export of
+        ExportFunction qVar -> D.ExportFunction (desugarToIdent qVar)
+        ExportDataOrClass name funcs ->
+            D.ExportDataOrClass (desugarToIdent name) (desugarToImpExp funcs)
+        ExportModule name -> D.ExportModule (desugarToIdent name)
 
 desugarExports ::
        Maybe [WithLocation Export] -> D.ImpExpList (WithLocation D.Export)
@@ -66,16 +68,7 @@ desugarImpDecl impDecl =
     impDecl $>
     case getValue impDecl of
         ImpDecl qual name as impSpec ->
-            let (hiding, imports) =
-                    case impSpec of
-                        Nothing -> (False, D.ImpExpAll)
-                        Just (WithLocation (ImpSpec flag imps) _) ->
-                            ( flag
-                            , case imps of
-                                  [] -> D.ImpExpNothing
-                                  f:rest ->
-                                      D.ImpExpSome
-                                          (fmap desugarImport (f NE.:| rest)))
+            let (hiding, imports) = desugarImpSpec impSpec
              in D.ImpDecl
                     qual
                     (desugarToIdent name)
@@ -83,17 +76,28 @@ desugarImpDecl impDecl =
                     hiding
                     imports
 
+desugarImpSpec :: Maybe (WithLocation ImpSpec) -> (Bool, D.ImpExpList (WithLocation D.Import))
+desugarImpSpec impSpec =
+    case impSpec of
+        Nothing -> (False, D.ImpExpAll)
+        Just (WithLocation (ImpSpec flag imps) _) ->
+            ( flag
+            , case imps of
+                  [] -> D.ImpExpNothing
+                  f:rest -> D.ImpExpSome (fmap desugarImport (f NE.:| rest)))
+
 desugarImport :: WithLocation Import -> WithLocation D.Import
 desugarImport import' =
     import' $>
-    (case getValue import' of
-         ImportFunction name -> D.ImportFunction (desugarToIdent name)
-         ImportDataOrClass name meths ->
-             D.ImportDataOrClass
-                 (desugarToIdent name)
-                 (desugarToImpExp $ getValue meths))
+    case getValue import' of
+        ImportFunction name -> D.ImportFunction (desugarToIdent name)
+        ImportDataOrClass name meths ->
+            D.ImportDataOrClass (desugarToIdent name) (desugarToImpExp meths)
 
-desugarToImpExp :: ImpExpList -> D.ImpExpList (WithLocation D.Ident)
-desugarToImpExp ImpExpNothing = D.ImpExpNothing
-desugarToImpExp (ImpExpSome names) = D.ImpExpSome (fmap desugarToIdent names)
-desugarToImpExp ImpExpAll = D.ImpExpAll
+desugarToImpExp ::
+       WithLocation ImpExpList -> D.ImpExpList (WithLocation D.Ident)
+desugarToImpExp list
+    | ImpExpNothing <- getValue list = D.ImpExpNothing
+    | ImpExpSome names <- getValue list =
+        D.ImpExpSome (fmap desugarToIdent names)
+    | otherwise = D.ImpExpAll

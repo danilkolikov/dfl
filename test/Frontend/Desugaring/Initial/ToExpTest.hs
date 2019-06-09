@@ -11,6 +11,7 @@ module Frontend.Desugaring.Initial.ToExpTest
     , getExpExample
     , getAssignmentExample
     , getFunLHSExample
+    , getGenDeclExample
     ) where
 
 import Test.Hspec
@@ -280,20 +281,8 @@ getAssignmentExample ::
        RandomSelector (WithLocation Decl, [WithLocation D.Assignment])
 getAssignmentExample =
     selectFromRandom
-        [ do loc <- getRandomSourceLocation
-             let wrap = (`WithLocation` loc)
-                 genDecl = GenDeclFixity undefined undefined undefined
-             return (wrap $ DeclGenDecl $ wrap genDecl, [])
-        , do (varsEx, varsRes) <- randomNonEmpty 2 getIdentExample
-             (contextEx, contextRes) <- randomList 2 getConstraintExample
-             (typeEx, typeRes) <- getTypeExample
-             loc <- getRandomSourceLocation
-             let wrap = (`WithLocation` loc)
-                 ex = wrap $ GenDeclTypeSig varsEx contextEx typeEx
-                 processSingle var =
-                     wrap $ D.AssignmentType var contextRes typeRes
-             return
-                 (wrap $ DeclGenDecl ex, map processSingle (NE.toList varsRes))
+        [ do (genDeclEx, genDeclRes) <- getGenDeclExample D.AssignmentType
+             return (genDeclEx $> DeclGenDecl genDeclEx, genDeclRes)
         , do (patEx, patRes) <- getPatternExample
              (rhsEx, rhsRes) <- getExpExample
              loc <- getRandomSourceLocation
@@ -308,6 +297,25 @@ getAssignmentExample =
              return
                  ( wrap $ DeclFunction (wrap $ Left lhsEx) rhsEx
                  , [wrap $ D.AssignmentName nameRes patsRes rhsRes])
+        ]
+
+getGenDeclExample ::
+       (WithLocation D.Ident -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
+    -> RandomSelector (WithLocation GenDecl, [WithLocation a])
+getGenDeclExample wrapResult =
+    selectFromRandom
+        [ do loc <- getRandomSourceLocation
+             let wrap = (`WithLocation` loc)
+                 genDecl = GenDeclFixity undefined undefined undefined
+             return (wrap genDecl, [])
+        , do (varsEx, varsRes) <- randomNonEmpty 2 getIdentExample
+             (contextEx, contextRes) <- randomList 2 getConstraintExample
+             (typeEx, typeRes) <- getTypeExample
+             loc <- getRandomSourceLocation
+             let wrap = (`WithLocation` loc)
+                 ex = wrap $ GenDeclTypeSig varsEx contextEx typeEx
+                 processSingle var = wrap $ wrapResult var contextRes typeRes
+             return (ex, map processSingle (NE.toList varsRes))
         ]
 
 getFunLHSExample ::
