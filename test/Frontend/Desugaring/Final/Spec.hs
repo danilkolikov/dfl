@@ -13,9 +13,11 @@ module Frontend.Desugaring.Final.Spec
 import qualified Frontend.Desugaring.Final.DataTypeDesugaringTest as DataType
 import qualified Frontend.Desugaring.Final.ProcessorTest as Processor
 import qualified Frontend.Desugaring.Final.TypeSynonymDesugaringTest as TypeSynonym
+import qualified Frontend.Desugaring.Final.RecordDesugaringTest as RecordDesugaring
 
 testSuite :: IO ()
 testSuite = do
     Processor.testSuite
     TypeSynonym.testSuite
     DataType.testSuite
+    RecordDesugaring.testSuite

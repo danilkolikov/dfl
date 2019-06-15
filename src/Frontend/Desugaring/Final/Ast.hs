@@ -8,6 +8,7 @@ Final desugared version of AST of DFL.
 -}
 module Frontend.Desugaring.Final.Ast
     ( Ident(..)
+    , IdentEnvironment(..)
     , Const(..)
     , Module(..)
     , ImpExpList(..)
@@ -40,6 +41,7 @@ import Frontend.Desugaring.Initial.Ast
     ( Const(..)
     , Export(..)
     , Ident(..)
+    , IdentEnvironment(..)
     , ImpDecl(..)
     , ImpExpList(..)
     , Import(..)

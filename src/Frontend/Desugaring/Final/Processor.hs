@@ -14,21 +14,19 @@ import qualified Control.Monad.Trans.State as S (StateT, get, modify, runStateT)
 import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
+import Frontend.Desugaring.Final.RecordDesugaring (RecordDesugaringError)
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Errors which may happen during desugaring
 data DesugaringError
     = DesugaringErrorNameConflict (WithLocation Ident)
                                   (WithLocation Ident) -- ^ Collision between two defined names
-    | DesugaringErrorUnknownField (WithLocation Ident) -- ^ Unknown field
-    | DesugaringErrorUnknownConstructor (WithLocation Ident) -- ^ Unknown constructor
-    | DesugaringErrorDuplicateField (WithLocation Ident)
-                                    (WithLocation Ident) -- ^ Some field is used twice in a binding
-    | DesugaringErrorMissingConstructor [WithLocation Ident] -- ^ No constructors including these fields
+    | DesugaringErrorRecord RecordDesugaringError -- ^ Error which happened during record desugaring
     | DesugaringErrorDuplicatedTypeDeclaration (WithLocation Ident) -- ^ Expression has multiple type declarations
     | DesugaringErrorMissingExpressionDefinition (WithLocation Ident) -- ^ Definition of expression is missing
     | DesugaringErrorDifferentNumberOfArguments (WithLocation Ident) -- ^ Declarations of a function have differnt number of arguments
-    | DesugaringErrorIdentifierIsAlreadyDefined (WithLocation Ident) (WithLocation Ident) -- ^ Such identifier is already defined
+    | DesugaringErrorIdentifierIsAlreadyDefined (WithLocation Ident)
+                                                (WithLocation Ident) -- ^ Such identifier is already defined
     deriving (Show, Eq)
 
 -- | Type for a context of defined names
@@ -124,7 +122,7 @@ generateNewIdent = do
     state <- S.get
     let counter = getCurrentIdentCounter state
     S.modify $ \s -> s {getCurrentIdentCounter = counter + 1}
-    return . IdentGenerated $ counter
+    return . IdentGenerated IdentEnvironmentDesugaring $ counter
 
 -- | Generate new identifier with dummy location
 generateNewIdent' :: DesugaringProcessor (WithLocation Ident)
@@ -143,24 +141,6 @@ collectHashMap get (f:rest) = do
         case cur of
             Just (key, val) -> HM.insert key val hashMap
             Nothing -> hashMap
-
--- | Function finds a data type by a specified field
-findDataTypeByField :: WithLocation Ident -> DesugaringProcessor DataType
-findDataTypeByField name = do
-    state <- S.get
-    let fields = getDataTypeFields state
-    case HM.lookup (getValue name) fields of
-        Just dataType -> return dataType
-        Nothing -> raiseError $ DesugaringErrorUnknownField name
-
--- | Function finds a data type by a specified constructor
-findDataTypeByConstructor :: WithLocation Ident -> DesugaringProcessor DataType
-findDataTypeByConstructor name = do
-    state <- S.get
-    let constructors = getDataTypeConstructors state
-    case HM.lookup (getValue name) constructors of
-        Just dataType -> return dataType
-        Nothing -> raiseError $ DesugaringErrorUnknownConstructor name
 
 -- | Function raises a DesugaringError
 raiseError :: DesugaringError -> DesugaringProcessor a

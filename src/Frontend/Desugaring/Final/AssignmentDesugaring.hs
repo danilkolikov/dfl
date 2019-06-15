@@ -10,6 +10,7 @@ module Frontend.Desugaring.Final.AssignmentDesugaring
     ( desugarExpressions
     , desugarTopLevelAssignments
     , desugarAssignments
+    , resolveRecords
     ) where
 
 import Control.Monad (unless)
@@ -20,25 +21,45 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (isJust)
 
-import Frontend.Desugaring.Final.Ast
+import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
 import Frontend.Desugaring.Final.PatternDesugaring
 import Frontend.Desugaring.Final.Processor
+import qualified Frontend.Desugaring.Final.RecordDesugaring as RD
+    ( desugarAssignment
+    , runRecordDesugaringProcessor
+    )
+import qualified Frontend.Desugaring.Final.ResolvedAst as R
 import Frontend.Desugaring.Final.Util
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Desugar list of top level declarations to expressions
 desugarExpressions ::
-       (WithLocation I.Exp -> DesugaringProcessor (WithLocation Exp))
+       (WithLocation R.Exp -> DesugaringProcessor (WithLocation Exp))
     -> [WithLocation I.TopDecl]
     -> DesugaringProcessor Expressions
-desugarExpressions desugarExp =
-    desugarTopLevelAssignments desugarExp . collectAssignments
+desugarExpressions desugarExp topDecls = do
+    let assignments = collectAssignments topDecls
+    resolvedAssignments <- resolveRecords assignments
+    desugarTopLevelAssignments desugarExp resolvedAssignments
+
+-- | Resolve records in assignments
+resolveRecords :: [WithLocation I.Assignment] -> DesugaringProcessor [WithLocation R.Assignment]
+resolveRecords assignments = do
+  state <- S.get
+  let resolvedAssignments =
+          RD.runRecordDesugaringProcessor
+              (mapM RD.desugarAssignment assignments)
+              (getDataTypeFields state)
+              (getDataTypeConstructors state)
+  case resolvedAssignments of
+    Left err -> raiseError $ DesugaringErrorRecord err
+    Right res -> return res
 
 -- | Desugars assignments and defines functions
 desugarTopLevelAssignments ::
-       (WithLocation I.Exp -> DesugaringProcessor (WithLocation Exp))
-    -> [WithLocation I.Assignment]
+       (WithLocation R.Exp -> DesugaringProcessor (WithLocation Exp))
+    -> [WithLocation R.Assignment]
     -> DesugaringProcessor Expressions
 desugarTopLevelAssignments desugarExp assignments = do
     desugared <- desugarAssignments desugarExp assignments
@@ -56,8 +77,8 @@ collectAssignments (t:rest) =
 
 -- | Desugar list of assignments to expressions
 desugarAssignments ::
-       (WithLocation I.Exp -> DesugaringProcessor (WithLocation Exp))
-    -> [WithLocation I.Assignment]
+       (WithLocation R.Exp -> DesugaringProcessor (WithLocation Exp))
+    -> [WithLocation R.Assignment]
     -> DesugaringProcessor Expressions
 desugarAssignments desugarExp assignments = do
     (grouped, patterns) <- groupAssignments assignments
@@ -77,7 +98,7 @@ desugarAssignments desugarExp assignments = do
     desugaredGroups <- mapM desugarGroup (HM.toList grouped)
     let desugarSinglePattern (singlePattern, exp')
           -- Special case of a function without arguments
-            | (I.PatternVar name Nothing) <- getValue singlePattern = do
+            | (R.PatternVar name Nothing) <- getValue singlePattern = do
                 desugaredExp <- lift $ desugarExp exp'
                 let expression = Expression name desugaredExp Nothing
                 S.modify $ HM.insert (getValue name) expression
@@ -112,38 +133,31 @@ desugarAssignments desugarExp assignments = do
     (_, finalScope) <- S.runStateT processAllPatterns scope
     return finalScope
 
-patternWithoutVariables :: WithLocation I.Pattern -> WithLocation I.Pattern
+patternWithoutVariables :: WithLocation R.Pattern -> WithLocation R.Pattern
 patternWithoutVariables pat =
     case getValue pat of
-        I.PatternWildcard -> pat
-        I.PatternConst _ -> pat
-        I.PatternVar _ Nothing -> withDummyLocation I.PatternWildcard
-        I.PatternVar _ (Just p) -> patternWithoutVariables p
-        I.PatternConstr name args ->
-            I.PatternConstr name (map patternWithoutVariables args) <$ pat
-        I.PatternRecord name bindings ->
-            let processBinding binding =
-                    case getValue binding of
-                        I.PatternBinding name' p ->
-                            I.PatternBinding name' (patternWithoutVariables p) <$
-                            binding
-             in I.PatternRecord name (map processBinding bindings) <$ pat
+        R.PatternWildcard -> pat
+        R.PatternConst _ -> pat
+        R.PatternVar _ Nothing -> withDummyLocation R.PatternWildcard
+        R.PatternVar _ (Just p) -> patternWithoutVariables p
+        R.PatternConstr name args ->
+            R.PatternConstr name (map patternWithoutVariables args) <$ pat
 
 preparePatterns ::
-       WithLocation I.Pattern
-    -> DesugaringProcessor [(WithLocation I.Pattern, Maybe (WithLocation Ident))]
+       WithLocation R.Pattern
+    -> DesugaringProcessor [(WithLocation R.Pattern, Maybe (WithLocation Ident))]
 preparePatterns pat =
     case getValue pat of
-        I.PatternWildcard -> return [(pat, Nothing)]
-        I.PatternConst _ -> return [(pat, Nothing)]
-        I.PatternVar name Nothing -> return [(pat, Just name)]
-        I.PatternVar name (Just p) -> do
+        R.PatternWildcard -> return [(pat, Nothing)]
+        R.PatternConst _ -> return [(pat, Nothing)]
+        R.PatternVar name Nothing -> return [(pat, Just name)]
+        R.PatternVar name (Just p) -> do
             preparedRest <- preparePatterns p
             return $
-                ( I.PatternVar name (Just $ patternWithoutVariables p) <$ pat
+                ( R.PatternVar name (Just $ patternWithoutVariables p) <$ pat
                 , Just name) :
                 preparedRest
-        I.PatternConstr name args -> do
+        R.PatternConstr name args -> do
             withVariables <- mapM preparePatterns args
             let withoutVariables = map patternWithoutVariables args
                 prepared = zip withVariables withoutVariables
@@ -154,7 +168,7 @@ preparePatterns pat =
                         argWithVariables = fst arg
                         restWithoutVariables = map snd rest
                         resPatterns =
-                            [ (I.PatternConstr name newArgs <$ pat, var)
+                            [ (R.PatternConstr name newArgs <$ pat, var)
                             | (argPat, var) <- argWithVariables
                             , let newArgs =
                                       prevWithoutVariables ++
@@ -164,24 +178,21 @@ preparePatterns pat =
                 res = makePatterns [] prepared
                 filtered = filter (isJust . snd) res
             return filtered
-        I.PatternRecord name bindings -> do
-            resolvedPattern <- resolvePatternBinding name bindings
-            preparePatterns (resolvedPattern <$ pat)
 
 data AssignmentsGroup =
     AssignmentsGroup (WithLocation Ident)
-                     [(NE.NonEmpty (WithLocation I.Pattern), WithLocation I.Exp)]
+                     [(NE.NonEmpty (WithLocation R.Pattern), WithLocation R.Exp)]
                      (Maybe TypeSignature)
 
 groupAssignments ::
-       [WithLocation I.Assignment]
+       [WithLocation R.Assignment]
     -> DesugaringProcessor ( HM.HashMap Ident AssignmentsGroup
-                           , [(WithLocation I.Pattern, WithLocation I.Exp)])
+                           , [(WithLocation R.Pattern, WithLocation R.Exp)])
 groupAssignments [] = return (HM.empty, [])
 groupAssignments (f:rest) = do
     (groupedRest, patterns) <- groupAssignments rest
     case getValue f of
-        I.AssignmentName name pats exp' ->
+        R.AssignmentName name pats exp' ->
             let name' = getValue name
                 res = (pats, exp')
                 assignment =
@@ -190,10 +201,10 @@ groupAssignments (f:rest) = do
                         Just (AssignmentsGroup _ assignments type') ->
                             AssignmentsGroup name (res : assignments) type'
              in return (HM.insert name' assignment groupedRest, patterns)
-        I.AssignmentPattern pattern' exp' ->
+        R.AssignmentPattern pattern' exp' ->
             let res = (pattern', exp')
              in return (groupedRest, res : patterns)
-        I.AssignmentType name context type' -> do
+        R.AssignmentType name context type' -> do
             let name' = getValue name
                 typeSignature =
                     TypeSignature (map desugarConstraint context) type'
@@ -216,7 +227,7 @@ groupAssignments (f:rest) = do
 
 mergeExpressions ::
        WithLocation Ident
-    -> NE.NonEmpty (NE.NonEmpty (WithLocation I.Pattern), WithLocation Exp)
+    -> NE.NonEmpty (NE.NonEmpty (WithLocation R.Pattern), WithLocation Exp)
     -> DesugaringProcessor (WithLocation Exp)
 mergeExpressions name nonEmpty@((patterns, _) NE.:| rest) = do
     let nPatterns = NE.length patterns

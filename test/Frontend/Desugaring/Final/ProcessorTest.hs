@@ -140,7 +140,7 @@ testSuite =
                 (replicateM 5 generateNewIdent)
                 emptyDesugaringState `shouldBe`
             Right
-                ( [IdentGenerated i | i <- [0 .. 4]]
+                ( [IdentGenerated IdentEnvironmentDesugaring i | i <- [0 .. 4]]
                 , emptyDesugaringState {getCurrentIdentCounter = 5})
         describe "collectHashMap" $
             it "collects items to a hash map" $ do
@@ -155,5 +155,7 @@ testSuite =
                     emptyDesugaringState `shouldBe`
                     Right
                         ( HM.fromList
-                              [(IdentGenerated 0, 2), (IdentGenerated 1, 4)]
+                              [ (IdentGenerated IdentEnvironmentDesugaring 0, 2)
+                              , (IdentGenerated IdentEnvironmentDesugaring 1, 4)
+                              ]
                         , emptyDesugaringState {getCurrentIdentCounter = 2})

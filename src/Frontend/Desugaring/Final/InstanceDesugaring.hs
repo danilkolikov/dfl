@@ -11,7 +11,10 @@ module Frontend.Desugaring.Final.InstanceDesugaring where
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 
-import Frontend.Desugaring.Final.AssignmentDesugaring (desugarAssignments)
+import Frontend.Desugaring.Final.AssignmentDesugaring
+    ( desugarAssignments
+    , resolveRecords
+    )
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.ExpressionDesugaring (desugarExp)
 import Frontend.Desugaring.Final.Processor
@@ -38,8 +41,9 @@ desugarInstance (I.TopDeclInstance context className inst methods) = do
                              in I.AssignmentPattern pat exp'
                         (f:rest) -> I.AssignmentName name (f NE.:| rest) exp'
         assignments = map makeAssignment methods
+    resolvedAssignments <- resolveRecords assignments
     -- We don't need to define top-level functions here
-    desugaredMethods <- desugarAssignments desugarExp assignments
+    desugaredMethods <- desugarAssignments desugarExp resolvedAssignments
     return . Just $
         ( getValue name
         , Instance desugaredContext className name params desugaredMethods)

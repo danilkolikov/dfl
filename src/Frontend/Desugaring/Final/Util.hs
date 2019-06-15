@@ -9,7 +9,6 @@ Utility functions for the final step of desugaring
 module Frontend.Desugaring.Final.Util where
 
 import Frontend.Desugaring.Final.Ast
-import Frontend.Desugaring.Final.Processor hiding (getDataTypeConstructors)
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
@@ -48,16 +47,6 @@ undefinedExp = makeExp uNDEFINED_NAME
 -- | Make constructors
 makeConstr :: EntityName -> WithLocation Exp
 makeConstr = withDummyLocation . ExpConstr . withDummyLocation . IdentNamed
-
-lookupConstructor ::
-       WithLocation Ident -> DataType -> DesugaringProcessor Constructor
-lookupConstructor name dataType =
-    case lookup (getValue name) (getDataTypeConstructors dataType) of
-        Just c -> return c
-        Nothing -> raiseError $ DesugaringErrorUnknownConstructor name
-
-getConstructors :: DataType -> [Constructor]
-getConstructors = map snd . getDataTypeConstructors
 
 makeTuple :: Int -> WithLocation Ident
 makeTuple = withDummyLocation . IdentParametrised tUPLE_NAME

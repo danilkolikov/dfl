@@ -13,6 +13,7 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 
 import Frontend.Desugaring.Final.AssignmentDesugaring
     ( desugarTopLevelAssignments
+    , resolveRecords
     )
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.ExpressionDesugaring (desugarExp)
@@ -41,8 +42,10 @@ desugarClass (I.TopDeclClass context name param methods) = do
                 I.ClassAssignmentType name' context' type' ->
                     I.AssignmentType name' context' type'
         assignments = map makeAssignment methods
+    resolvedAssignments <- resolveRecords assignments
     -- We need to define top-level functions
-    desugaredMethods <- desugarTopLevelAssignments desugarExp assignments
+    desugaredMethods <-
+        desugarTopLevelAssignments desugarExp resolvedAssignments
     return . Just $
         (getValue name, Class desugaredContext name param desugaredMethods)
 desugarClass _ = return Nothing

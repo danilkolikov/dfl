@@ -35,6 +35,8 @@ library:
   - Frontend.Desugaring.Final.ModuleDesugaring
   - Frontend.Desugaring.Final.PatternDesugaring
   - Frontend.Desugaring.Final.Processor
+  - Frontend.Desugaring.Final.RecordDesugaring
+  - Frontend.Desugaring.Final.ResolvedAst
   - Frontend.Desugaring.Final.TypeSynonymDesugaring
   - Frontend.Desugaring.Initial.Ast
   - Frontend.Desugaring.Initial.ToClassAssignment

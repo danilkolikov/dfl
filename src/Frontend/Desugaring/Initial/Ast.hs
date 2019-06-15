@@ -18,12 +18,21 @@ import GHC.Generics (Generic)
 import Frontend.Syntax.EntityName (EntityName)
 import Frontend.Syntax.Position (WithLocation)
 
+-- | Sets of generated identifiers
+data IdentEnvironment
+    = IdentEnvironmentRecordDesugaring
+    | IdentEnvironmentDesugaring
+    deriving (Show, Eq, Generic)
+
+instance Hashable IdentEnvironment
+
 -- | Identifiers in AST
 data Ident
     = IdentNamed EntityName -- ^ Name
     | IdentParametrised EntityName
                         Int -- ^ Name with a parameter. E.G. - tuples with different number of arguments
-    | IdentGenerated Int -- ^ Automatically generated name
+    | IdentGenerated IdentEnvironment
+                     Int -- ^ Automatically generated name
     deriving (Show, Eq, Generic)
 
 instance Hashable Ident
