@@ -30,8 +30,9 @@ module Frontend.Desugaring.Final.Ast
     , Type(..)
     , Expression(..)
     , Expressions
+    , Method(..)
+    , Methods
     , Exp(..)
-    , Pattern(..)
     ) where
 
 import Data.HashMap.Lazy (HashMap)
@@ -109,7 +110,8 @@ data Class = Class
     { getClassContext :: [WithLocation SimpleConstraint] -- ^ Context of a type class
     , getClassName :: WithLocation Ident -- ^ Name of a type class
     , getClassParam :: WithLocation Ident -- ^ Parameter of a type class
-    , getClassMethods :: Expressions -- ^ Methods of a type class
+    , getClassMethods :: Methods -- ^ Methods of a type class
+    , getClassDefaultMethods :: Expressions -- ^ Methods with a default implementation
     } deriving (Show, Eq)
 
 -- | Map of classes
@@ -143,6 +145,15 @@ data Expression = Expression
 -- | Map of expressions
 type Expressions = HashMap Ident Expression
 
+-- | Definition of a class method
+data Method = Method
+    { getMethodName :: WithLocation Ident -- ^ Name of a method
+    , getMethodType :: TypeSignature -- ^ Type signature
+    } deriving (Show, Eq)
+
+-- | Map of methods
+type Methods = HashMap Ident Method
+
 -- | Expression
 data Exp
     = ExpAbstraction (WithLocation Ident)
@@ -150,7 +161,8 @@ data Exp
     | ExpLet Expressions
              (WithLocation Exp) -- ^ Let-abstraction
     | ExpCase (WithLocation Ident)
-              (WithLocation Pattern)
+              (WithLocation Ident)
+              [WithLocation Ident]
               (WithLocation Exp)
               (WithLocation Ident) -- ^ Case expression
     | ExpApplication (WithLocation Exp)
@@ -158,10 +170,4 @@ data Exp
     | ExpVar (WithLocation Ident) -- ^ Variable
     | ExpConstr (WithLocation Ident) -- ^ Constructor
     | ExpConst (WithLocation Const) -- ^ Constant
-    deriving (Show, Eq)
-
--- | Pattern
-data Pattern =
-    PatternConstr (WithLocation Ident)
-                  [WithLocation Ident] -- ^ Application of a constructor
     deriving (Show, Eq)

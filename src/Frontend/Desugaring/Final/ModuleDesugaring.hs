@@ -10,11 +10,12 @@ module Frontend.Desugaring.Final.ModuleDesugaring
     ( desugarModule
     ) where
 
-import Frontend.Desugaring.Final.AssignmentDesugaring (desugarExpressions)
+import Frontend.Desugaring.Final.AssignmentDesugaring
+    ( desugarTopLevelAssignments
+    )
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.ClassDesugaring (desugarClasses)
 import Frontend.Desugaring.Final.DataTypeDesugaring (desugarDataTypes)
-import Frontend.Desugaring.Final.ExpressionDesugaring (desugarExp)
 import Frontend.Desugaring.Final.InstanceDesugaring (desugarInstances)
 import Frontend.Desugaring.Final.Processor
 import Frontend.Desugaring.Final.TypeSynonymDesugaring (desugarTypeSynonyms)
@@ -27,7 +28,7 @@ desugarModule (I.Module name exports imports decls) = do
     typeSynonyms <- desugarTypeSynonyms decls
     classes <- desugarClasses decls
     instances <- desugarInstances decls
-    exprs <- desugarExpressions desugarExp decls
+    exprs <- desugarTopLevelAssignments decls
     return
         Module
             { getModuleName = name

@@ -20,8 +20,8 @@ import Frontend.Syntax.Position (WithLocation)
 
 -- | Sets of generated identifiers
 data IdentEnvironment
-    = IdentEnvironmentRecordDesugaring
-    | IdentEnvironmentDesugaring
+    = IdentEnvironmentRecordDesugaring -- ^ Identifiers, generated during record desugaring
+    | IdentEnvironmentExpressionDesugaring -- ^ Identifiers, generated during expression desugaring
     deriving (Show, Eq, Generic)
 
 instance Hashable IdentEnvironment

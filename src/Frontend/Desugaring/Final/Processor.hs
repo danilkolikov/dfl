@@ -14,19 +14,18 @@ import qualified Control.Monad.Trans.State as S (StateT, get, modify, runStateT)
 import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
+import Frontend.Desugaring.Final.ExpressionDesugaringBase
+    ( ExpressionDesugaringError
+    )
 import Frontend.Desugaring.Final.RecordDesugaring (RecordDesugaringError)
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Errors which may happen during desugaring
 data DesugaringError
     = DesugaringErrorNameConflict (WithLocation Ident)
                                   (WithLocation Ident) -- ^ Collision between two defined names
     | DesugaringErrorRecord RecordDesugaringError -- ^ Error which happened during record desugaring
-    | DesugaringErrorDuplicatedTypeDeclaration (WithLocation Ident) -- ^ Expression has multiple type declarations
-    | DesugaringErrorMissingExpressionDefinition (WithLocation Ident) -- ^ Definition of expression is missing
-    | DesugaringErrorDifferentNumberOfArguments (WithLocation Ident) -- ^ Declarations of a function have differnt number of arguments
-    | DesugaringErrorIdentifierIsAlreadyDefined (WithLocation Ident)
-                                                (WithLocation Ident) -- ^ Such identifier is already defined
+    | DesugaringErrorExpression ExpressionDesugaringError -- ^ Error which happened during expression desugaring
     deriving (Show, Eq)
 
 -- | Type for a context of defined names
@@ -39,7 +38,6 @@ data DesugaringState = DesugaringState
     , getDefinedFunctionNames :: DefinedNames -- ^ Defined functions
     , getDataTypeFields :: HM.HashMap Ident DataType -- ^ Map from the name of a field to a corresponding data type
     , getDataTypeConstructors :: HM.HashMap Ident DataType -- ^ Map from the name of a constructor to a corresponding data type
-    , getCurrentIdentCounter :: Int -- ^ Counter of generated names
     } deriving (Show, Eq)
 
 -- | Empty state of desugaring processor
@@ -51,7 +49,6 @@ emptyDesugaringState =
         , getDefinedFunctionNames = HM.empty
         , getDataTypeFields = HM.empty
         , getDataTypeConstructors = HM.empty
-        , getCurrentIdentCounter = 0
         }
 
 -- | Type for objects which do desugaring
@@ -115,18 +112,6 @@ defineDataTypeConstructor name dataType = do
     let constructors = getDataTypeConstructors state
         newConstructors = HM.insert (getValue name) dataType constructors
     S.modify $ \s -> s {getDataTypeConstructors = newConstructors}
-
--- | Generate new identifier
-generateNewIdent :: DesugaringProcessor Ident
-generateNewIdent = do
-    state <- S.get
-    let counter = getCurrentIdentCounter state
-    S.modify $ \s -> s {getCurrentIdentCounter = counter + 1}
-    return . IdentGenerated IdentEnvironmentDesugaring $ counter
-
--- | Generate new identifier with dummy location
-generateNewIdent' :: DesugaringProcessor (WithLocation Ident)
-generateNewIdent' = withDummyLocation <$> generateNewIdent
 
 -- | Collect a hash map of objects, returned by processors
 collectHashMap ::

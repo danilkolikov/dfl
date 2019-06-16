@@ -31,13 +31,17 @@ library:
   - Frontend.Desugaring.Final.ClassDesugaring
   - Frontend.Desugaring.Final.DataTypeDesugaring
   - Frontend.Desugaring.Final.ExpressionDesugaring
+  - Frontend.Desugaring.Final.ExpressionDesugaringAssignment
+  - Frontend.Desugaring.Final.ExpressionDesugaringBase
+  - Frontend.Desugaring.Final.ExpressionDesugaringCase
+  - Frontend.Desugaring.Final.ExpressionDesugaringStmt
   - Frontend.Desugaring.Final.InstanceDesugaring
   - Frontend.Desugaring.Final.ModuleDesugaring
-  - Frontend.Desugaring.Final.PatternDesugaring
   - Frontend.Desugaring.Final.Processor
   - Frontend.Desugaring.Final.RecordDesugaring
   - Frontend.Desugaring.Final.ResolvedAst
   - Frontend.Desugaring.Final.TypeSynonymDesugaring
+  - Frontend.Desugaring.Final.Util
   - Frontend.Desugaring.Initial.Ast
   - Frontend.Desugaring.Initial.ToClassAssignment
   - Frontend.Desugaring.Initial.ToConst

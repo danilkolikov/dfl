@@ -8,15 +8,8 @@ Final desugaring of classes
 -}
 module Frontend.Desugaring.Final.ClassDesugaring where
 
-import Data.Functor (($>))
-import qualified Data.List.NonEmpty as NE (NonEmpty(..))
-
-import Frontend.Desugaring.Final.AssignmentDesugaring
-    ( desugarTopLevelAssignments
-    , resolveRecords
-    )
+import Frontend.Desugaring.Final.AssignmentDesugaring (desugarClassAssignments)
 import Frontend.Desugaring.Final.Ast
-import Frontend.Desugaring.Final.ExpressionDesugaring (desugarExp)
 import Frontend.Desugaring.Final.Processor
 import Frontend.Desugaring.Final.Util
 import qualified Frontend.Desugaring.Initial.Ast as I
@@ -30,22 +23,13 @@ desugarClasses = collectHashMap desugarClass
 desugarClass :: I.TopDecl -> DesugaringProcessor (Maybe (Ident, Class))
 desugarClass (I.TopDeclClass context name param methods) = do
     let desugaredContext = map desugarSimpleClass context
-        makeAssignment classAssignment =
-            classAssignment $>
-            case getValue classAssignment of
-                I.ClassAssignmentName name' pats exp' ->
-                    case pats of
-                        [] ->
-                            let pat = name' $> I.PatternVar name Nothing
-                             in I.AssignmentPattern pat exp'
-                        (f:rest) -> I.AssignmentName name (f NE.:| rest) exp'
-                I.ClassAssignmentType name' context' type' ->
-                    I.AssignmentType name' context' type'
-        assignments = map makeAssignment methods
-    resolvedAssignments <- resolveRecords assignments
-    -- We need to define top-level functions
-    desugaredMethods <-
-        desugarTopLevelAssignments desugarExp resolvedAssignments
+    (desugaredMethods, desugaredExpressions) <- desugarClassAssignments methods
     return . Just $
-        (getValue name, Class desugaredContext name param desugaredMethods)
+        ( getValue name
+        , Class
+              desugaredContext
+              name
+              param
+              desugaredMethods
+              desugaredExpressions)
 desugarClass _ = return Nothing

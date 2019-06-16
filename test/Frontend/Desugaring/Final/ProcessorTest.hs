@@ -12,7 +12,6 @@ module Frontend.Desugaring.Final.ProcessorTest
 
 import Test.Hspec
 
-import Control.Monad (replicateM)
 import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
@@ -134,28 +133,30 @@ testSuite =
                           { getDataTypeConstructors =
                                 HM.singleton constructorName dataType
                           })
-        describe "generateNewIdent" $
-            it "generates new idents" $
-            runDesugaringProcessor
-                (replicateM 5 generateNewIdent)
-                emptyDesugaringState `shouldBe`
-            Right
-                ( [IdentGenerated IdentEnvironmentDesugaring i | i <- [0 .. 4]]
-                , emptyDesugaringState {getCurrentIdentCounter = 5})
         describe "collectHashMap" $
             it "collects items to a hash map" $ do
                 let collector :: Int -> DesugaringProcessor (Maybe (Ident, Int))
                     collector x =
+                        return $
                         if even x
-                            then (\ident -> Just (ident, x)) <$>
-                                 generateNewIdent
-                            else return Nothing
+                            then Just
+                                     ( IdentGenerated
+                                           IdentEnvironmentExpressionDesugaring
+                                           x
+                                     , x)
+                            else Nothing
                 runDesugaringProcessor
                     (collectHashMap collector (map withDummyLocation [1 .. 4]))
                     emptyDesugaringState `shouldBe`
                     Right
                         ( HM.fromList
-                              [ (IdentGenerated IdentEnvironmentDesugaring 0, 2)
-                              , (IdentGenerated IdentEnvironmentDesugaring 1, 4)
+                              [ ( IdentGenerated
+                                      IdentEnvironmentExpressionDesugaring
+                                      2
+                                , 2)
+                              , ( IdentGenerated
+                                      IdentEnvironmentExpressionDesugaring
+                                      4
+                                , 4)
                               ]
-                        , emptyDesugaringState {getCurrentIdentCounter = 2})
+                        , emptyDesugaringState)
