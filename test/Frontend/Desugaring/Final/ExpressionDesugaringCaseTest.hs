@@ -61,21 +61,27 @@ testSuite =
             it "desugars vars" $ do
                 let var1 = withDummyLocation $ IdentNamed ["var1"]
                     pattern1 = withDummyLocation $ R.PatternVar var1 Nothing
-                    exp1 = withDummyLocation $ ExpAbstraction var1 success
+                    caseVar = withDummyLocation (ExpVar caseIdent)
+                    exp1 =
+                        withDummyLocation $
+                        ExpApplication
+                            (withDummyLocation $ ExpAbstraction var1 success)
+                            (caseVar NE.:| [])
                 runExpressionDesugaringState (desugarPattern' pattern1) 0 `shouldBe`
                     (exp1, 0)
                 let var2 = withDummyLocation $ IdentNamed ["var2"]
                     pattern2 =
                         withDummyLocation $ R.PatternVar var2 (Just pattern1)
+                    var2Inner =
+                        withDummyLocation $
+                        ExpApplication
+                            (withDummyLocation $ ExpAbstraction var2 success)
+                            (caseVar NE.:| [])
                     exp2 =
                         withDummyLocation $
-                        ExpAbstraction
-                            var1
-                            (withDummyLocation $
-                             ExpApplication
-                                 (withDummyLocation $
-                                  ExpAbstraction var2 success)
-                                 (withDummyLocation (ExpVar caseIdent) NE.:| []))
+                        ExpApplication
+                            (withDummyLocation $ ExpAbstraction var1 var2Inner)
+                            (caseVar NE.:| [])
                 runExpressionDesugaringState (desugarPattern' pattern2) 0 `shouldBe`
                     (exp2, 0)
             it "desugars wildcard" $ do

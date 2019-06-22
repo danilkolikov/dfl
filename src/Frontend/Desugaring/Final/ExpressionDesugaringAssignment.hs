@@ -30,16 +30,12 @@ desugarPreparedAssignments ::
        [WithLocation PreparedAssignment]
     -> ExpressionDesugaringProcessor Expressions
 desugarPreparedAssignments assignments = do
-    (grouped, patterns) <- groupAssignments assignments
-    desugaredGroups <- mapM desugarGroup (HM.toList grouped)
-    patternExprs <- desugarAllPatterns patterns
-    let (methods, expressions) = partitionEithers desugaredGroups
-        expressionsMap = HM.fromList expressions
+    (methods, expressions) <- desugarPreparedAssignmentsWithMethods assignments
     unless (null methods) $
         raiseError $
         ExpressionDesugaringErrorMissingExpressionDefinition
-            (getMethodName . snd $ head methods)
-    addExpressions expressionsMap patternExprs
+            (getMethodName . snd . head . HM.toList $ methods)
+    return expressions
 
 -- | Desugar a list of prepared assignments into Methods and Expressions
 desugarPreparedAssignmentsWithMethods ::

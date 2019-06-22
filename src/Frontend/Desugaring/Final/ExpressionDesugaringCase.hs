@@ -12,6 +12,7 @@ import Control.Monad (replicateM)
 import Control.Monad.Trans.Class (lift)
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE
+import Data.Maybe (fromMaybe)
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.ExpressionDesugaringBase
@@ -64,8 +65,9 @@ desugarPatternsToAbstraction' nPatterns patterns = do
                     let tupleExp = withDummyLocation $ ExpVar tupleIdent
                      in withDummyLocation $ ExpApplication tupleExp varExps
     case' <- desugarCase' Nothing combinedExpr (fmap makeAlt patterns)
-    let wrapToAbstraction ident exp' = ExpAbstraction ident (withDummyLocation exp')
-        wrapped = foldr wrapToAbstraction case' newIdents 
+    let wrapToAbstraction ident exp' =
+            ExpAbstraction ident (withDummyLocation exp')
+        wrapped = foldr wrapToAbstraction case' newIdents
     return wrapped
 
 -- | Desugar a case statement to an expression
@@ -174,15 +176,15 @@ desugarPattern ::
     -> ExpressionDesugaringState (WithLocation Exp)
 desugarPattern caseIdent elseIdent success patter =
     case getValue patter of
-        R.PatternVar name Nothing ->
-            return . withDummyLocation $ ExpAbstraction name success
-        R.PatternVar name (Just asPattern) ->
-            let abstraction = withDummyLocation $ ExpAbstraction name success
+        R.PatternVar name pattern' ->
+            let innerPattern =
+                    fromMaybe (withDummyLocation R.PatternWildcard) pattern'
+                abstraction = withDummyLocation $ ExpAbstraction name success
                 var = withDummyLocation $ ExpVar caseIdent
                 newSuccess =
                     withDummyLocation $
                     ExpApplication abstraction (var NE.:| [])
-             in desugarPattern caseIdent elseIdent newSuccess asPattern
+             in desugarPattern caseIdent elseIdent newSuccess innerPattern
         R.PatternWildcard -> return success
         R.PatternConst c -> do
             let application =
