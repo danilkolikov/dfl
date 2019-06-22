@@ -63,7 +63,10 @@ desugarPatternsToAbstraction' nPatterns patterns = do
                 _ ->
                     let tupleExp = withDummyLocation $ ExpVar tupleIdent
                      in withDummyLocation $ ExpApplication tupleExp varExps
-    desugarCase' Nothing combinedExpr (fmap makeAlt patterns)
+    case' <- desugarCase' Nothing combinedExpr (fmap makeAlt patterns)
+    let wrapToAbstraction ident exp' = ExpAbstraction ident (withDummyLocation exp')
+        wrapped = foldr wrapToAbstraction case' newIdents 
+    return wrapped
 
 -- | Desugar a case statement to an expression
 desugarCase' ::

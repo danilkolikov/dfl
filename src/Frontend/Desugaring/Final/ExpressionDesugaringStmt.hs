@@ -59,13 +59,16 @@ desugarDoStmt stmt exp' =
                     withDummyLocation $
                     ExpApplication failFunction (failArg NE.:| [])
                 altFail = withDummyLocation $ PreparedAltSimple failPat failExp
-            abstraction <- desugarAltsToAbstraction (altPat NE.:| [altFail])
-            let expression = Expression newIdent abstraction Nothing
+            abstraction <-
+                desugarAltsToAbstraction (altPat NE.:| [altFail])
+            let expression =
+                    Expression newIdent abstraction Nothing
+                expressionFunc = withDummyLocation $ ExpVar newIdent
                 decls = HM.singleton (getValue newIdent) expression
                 bindFunction = makeExp bIND_NAME
                 bindApplication =
                     withDummyLocation $
-                    ExpApplication bindFunction (inner NE.:| [abstraction])
+                    ExpApplication bindFunction (inner NE.:| [expressionFunc])
             return $ ExpLet decls bindApplication
 
 -- | Desugar a list comprehension statement
@@ -105,9 +108,10 @@ desugarListComprehensionStmt exp' qual =
                     withDummyLocation $ PreparedAltSimple failPat emptyList
             abstraction <- desugarAltsToAbstraction (altPat NE.:| [altFail])
             let expression = Expression newIdent abstraction Nothing
+                expressionFunc = withDummyLocation $ ExpVar newIdent
                 decls = HM.singleton (getValue newIdent) expression
                 function = makeExp cONCAT_MAP_NAME
                 application =
                     withDummyLocation $
-                    ExpApplication function (inner NE.:| [abstraction])
+                    ExpApplication function (expressionFunc NE.:| [inner])
             return $ ExpLet decls application

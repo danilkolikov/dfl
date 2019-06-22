@@ -269,3 +269,65 @@ testSuite =
                         ExpApplication abstraction1 (undefinedExp NE.:| [])
                 runExpressionDesugaringState (desugarAlt' alt1) 0 `shouldBe`
                     (application1, 1)
+        describe "desugarPatternsToAbstraction'" $ do
+            let pattern1 = makeRPattern ["True"]
+                pattern2 = makeRPattern ["True"]
+                pattern3 = withDummyLocation R.PatternWildcard
+                pattern4 = withDummyLocation R.PatternWildcard
+                exp1 = makeExp ["x"]
+                exp2 = makeExp ["y"]
+                arg1 = (pattern1 NE.:| [pattern2], exp1)
+                arg2 = (pattern3 NE.:| [pattern4], exp2)
+                args = arg1 NE.:| [arg2]
+                ident0 = makeGeneratedIdent 0
+                ident1 = makeGeneratedIdent 1
+                ident2 = makeGeneratedIdent 2
+                ident3 = makeGeneratedIdent 3
+                ident4 = makeGeneratedIdent 4
+                ident5 = makeGeneratedIdent 5
+                ident6 = makeGeneratedIdent 6
+                ident7 = makeGeneratedIdent 7
+                ident8 = makeGeneratedIdent 8
+                tuple = withDummyLocation $ IdentParametrised ["(,)"] 2
+                true = makeIdent ["True"]
+                case1inner =
+                    withDummyLocation $ ExpCase ident8 true [] exp1 ident6
+                case1 =
+                    withDummyLocation $ ExpCase ident7 true [] case1inner ident6
+                tupleCase1 =
+                    withDummyLocation $
+                    ExpCase ident2 tuple [ident7, ident8] case1 ident6
+                abstraction1 =
+                    withDummyLocation $ ExpAbstraction ident6 tupleCase1
+                tupleCase2 =
+                    withDummyLocation $
+                    ExpCase ident2 tuple [ident4, ident5] exp2 ident3
+                abstraction2 =
+                    withDummyLocation $ ExpAbstraction ident3 tupleCase2
+                application2 =
+                    withDummyLocation $
+                    ExpApplication abstraction2 (undefinedExp NE.:| [])
+                application1 =
+                    withDummyLocation $
+                    ExpApplication abstraction1 (application2 NE.:| [])
+                caseAbstraction =
+                    withDummyLocation $ ExpAbstraction ident2 application1
+                tupleExp =
+                    withDummyLocation $
+                    ExpApplication
+                        (withDummyLocation $ ExpVar tuple)
+                        (withDummyLocation (ExpVar ident0) NE.:|
+                         [withDummyLocation $ ExpVar ident1])
+                tupleApplication =
+                    withDummyLocation $
+                    ExpApplication caseAbstraction (tupleExp NE.:| [])
+                res =
+                    ExpAbstraction
+                        ident0
+                        (withDummyLocation $
+                         ExpAbstraction ident1 tupleApplication)
+            it "desugars patterns to abstraction" $
+                runExpressionDesugaringState
+                    (desugarPatternsToAbstraction' 2 args)
+                    0 `shouldBe`
+                (res, 9)
