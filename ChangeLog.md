@@ -8,3 +8,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and ChangeLog
 - Lexer
 - Parser
+- Desugaring of AST to the kernel language

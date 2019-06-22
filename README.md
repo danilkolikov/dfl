@@ -1,4 +1,5 @@
 ![GitHub](https://img.shields.io/github/license/danilkolikov/dfl.svg)
+[![Build Status](https://travis-ci.com/danilkolikov/dfl.svg?branch=master)](https://travis-ci.com/danilkolikov/dfl)
 
 # DFL
 
