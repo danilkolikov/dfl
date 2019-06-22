@@ -48,6 +48,10 @@ iGNORING_BIND_NAME = [">>"]
 bIND_NAME :: EntityName
 bIND_NAME = [">>="]
 
+-- | Operator "=="
+eQUAL_NAME :: EntityName
+eQUAL_NAME = ["=="]
+
 -- Functions
 -- | Function "negate"
 nEGATE_NAME :: EntityName
@@ -56,6 +60,10 @@ nEGATE_NAME = ["negate"]
 -- | Function "undefined"
 uNDEFINED_NAME :: EntityName
 uNDEFINED_NAME = ["undefined"]
+
+-- | Function "fail"
+fAIL_NAME :: EntityName
+fAIL_NAME = ["fail"]
 
 -- | Function "enumFrom"
 eNUM_FROM_NAME :: EntityName

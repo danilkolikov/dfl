@@ -1,37 +1,17 @@
 {- |
 Module      :  Frontend.Desugaring.Spec
-Description :  Tests for desugaring of DFL grammar
+Description :  Tests for desugaring of DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Test suite for desugaring of DFL grammar
+Test suite for desugaring of DFL
 -}
-module Frontend.Desugaring.Spec
-    ( testSuite
-    ) where
+module Frontend.Desugaring.Spec where
 
-import qualified Frontend.Desugaring.ToConstTest as ToConst
-import qualified Frontend.Desugaring.ToConstrTest as ToConstr
-import qualified Frontend.Desugaring.ToConstraintTest as ToConstraint
-import qualified Frontend.Desugaring.ToExpTest as ToExp
-import qualified Frontend.Desugaring.ToIdentTest as ToIdent
-import qualified Frontend.Desugaring.ToInstTest as ToInst
-import qualified Frontend.Desugaring.ToNewConstrTest as ToNewConstr
-import qualified Frontend.Desugaring.ToPatternTest as ToPattern
-import qualified Frontend.Desugaring.ToSimpleClassTest as ToSimpleClass
-import qualified Frontend.Desugaring.ToSimpleTypeTest as ToSimpleType
-import qualified Frontend.Desugaring.ToTypeTest as ToType
+import qualified Frontend.Desugaring.Initial.Spec as Initial
+import qualified Frontend.Desugaring.Final.Spec as Final
 
 testSuite :: IO ()
 testSuite = do
-    ToIdent.testSuite
-    ToConst.testSuite
-    ToType.testSuite
-    ToConstraint.testSuite
-    ToInst.testSuite
-    ToSimpleClass.testSuite
-    ToSimpleType.testSuite
-    ToConstr.testSuite
-    ToNewConstr.testSuite
-    ToPattern.testSuite
-    ToExp.testSuite
+    Initial.testSuite
+    Final.testSuite

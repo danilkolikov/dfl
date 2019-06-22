@@ -21,8 +21,8 @@ import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
 import Frontend.Syntax.Stream (TokenStream)
 import Frontend.Syntax.Token
 import Frontend.Syntax.Utils.AstExamples (WithExamples(..))
-import Frontend.Syntax.Utils.RandomSelector
 import Frontend.Syntax.Utils.Tokenisable
+import Frontend.Utils.RandomSelector
 
 testSuite :: IO ()
 testSuite =
@@ -228,6 +228,6 @@ testSuite =
         -> Expectation
     shouldParseAllExamples' n pxy =
         mapM_ (shouldParseExamples pxy) $
-        evalRandomSelector (getExamples n) 42 5
+        evalRandomSelector (getExamples n) 42 3
     defaultLocation :: a -> WithLocation a
     defaultLocation x = WithLocation x (sourceLocation 1 1 1 1) -- Fake location
