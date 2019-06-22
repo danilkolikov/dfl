@@ -59,6 +59,8 @@ library:
   - Frontend.Desugaring.Initial.ToTopDecl
   - Frontend.Desugaring.Initial.ToType
   - Frontend.Desugaring.Initial.Util
+  - Frontend.Desugaring.Processor
+  - Frontend.Processor
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
