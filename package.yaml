@@ -41,7 +41,7 @@ library:
   - Frontend.Desugaring.Final.RecordDesugaring
   - Frontend.Desugaring.Final.ResolvedAst
   - Frontend.Desugaring.Final.TypeSynonymDesugaring
-  - Frontend.Desugaring.Final.Util
+  - Frontend.Desugaring.Final.Utils
   - Frontend.Desugaring.Initial.Ast
   - Frontend.Desugaring.Initial.ToClassAssignment
   - Frontend.Desugaring.Initial.ToConst
@@ -58,7 +58,7 @@ library:
   - Frontend.Desugaring.Initial.ToSimpleType
   - Frontend.Desugaring.Initial.ToTopDecl
   - Frontend.Desugaring.Initial.ToType
-  - Frontend.Desugaring.Initial.Util
+  - Frontend.Desugaring.Initial.Utils
   - Frontend.Desugaring.Processor
   - Frontend.Processor
   - Frontend.Syntax.Analyser

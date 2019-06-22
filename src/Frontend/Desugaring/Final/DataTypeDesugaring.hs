@@ -16,7 +16,7 @@ import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.Processor
-import Frontend.Desugaring.Final.Util (desugarConstraint)
+import Frontend.Desugaring.Final.Utils (desugarConstraint)
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Syntax.Position (WithLocation(..))
 

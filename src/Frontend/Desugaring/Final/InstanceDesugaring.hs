@@ -13,7 +13,7 @@ import Frontend.Desugaring.Final.AssignmentDesugaring
     )
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.Processor
-import Frontend.Desugaring.Final.Util
+import Frontend.Desugaring.Final.Utils
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Syntax.Position (WithLocation(..))
 

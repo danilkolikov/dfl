@@ -19,7 +19,7 @@ import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
 import Frontend.Desugaring.Final.ExpressionDesugaringBase
 import Frontend.Desugaring.Final.ExpressionDesugaringCase
 import qualified Frontend.Desugaring.Final.ResolvedAst as R
-import Frontend.Desugaring.Final.Util
+import Frontend.Desugaring.Final.Utils
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 

@@ -22,7 +22,7 @@ import Frontend.Desugaring.Final.ExpressionDesugaringCase
     )
 import Frontend.Desugaring.Final.ExpressionDesugaringStmt
 import qualified Frontend.Desugaring.Final.ResolvedAst as R
-import Frontend.Desugaring.Final.Util
+import Frontend.Desugaring.Final.Utils
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Desugar a list of assignments to Expressions

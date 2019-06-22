@@ -29,7 +29,7 @@ import Frontend.Desugaring.Initial.ToPattern
     ( DesugarToPattern(..)
     , desugarToPatternBinding
     )
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))

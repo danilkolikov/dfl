@@ -18,7 +18,7 @@ import Frontend.Desugaring.Final.Ast hiding (getDataTypeConstructors)
 import Frontend.Desugaring.Final.ExpressionDesugaringAssignment
 import Frontend.Desugaring.Final.ExpressionDesugaringBase
 import qualified Frontend.Desugaring.Final.ResolvedAst as R
-import Frontend.Desugaring.Final.Util
+import Frontend.Desugaring.Final.Utils
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 testSuite :: IO ()

@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Desugaring.Final.Util
+Module      :  Frontend.Desugaring.Final.Utils
 Description :  Utility functions for desugaring
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Utility functions for the final step of desugaring
 -}
-module Frontend.Desugaring.Final.Util where
+module Frontend.Desugaring.Final.Utils where
 
 import Frontend.Desugaring.Final.Ast
 import qualified Frontend.Desugaring.Final.ResolvedAst as R

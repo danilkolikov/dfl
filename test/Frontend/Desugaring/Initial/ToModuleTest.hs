@@ -27,7 +27,7 @@ import Frontend.Desugaring.Initial.ToModule
     , desugarToModule
     )
 import Frontend.Desugaring.Initial.ToTopDeclTest (getTopDeclExample)
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))

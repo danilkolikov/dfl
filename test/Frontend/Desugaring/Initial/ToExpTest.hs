@@ -39,7 +39,7 @@ import Frontend.Desugaring.Initial.ToExp
 import Frontend.Desugaring.Initial.ToIdentTest (IdentExample, getIdentExample)
 import Frontend.Desugaring.Initial.ToPatternTest (getPatternExample)
 import Frontend.Desugaring.Initial.ToTypeTest (getTypeExample)
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))

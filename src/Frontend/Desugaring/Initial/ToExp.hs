@@ -32,7 +32,7 @@ import Frontend.Desugaring.Initial.ToConstraint (desugarToConstraint)
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.ToPattern (desugarToPattern)
 import Frontend.Desugaring.Initial.ToType (desugarToType)
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))

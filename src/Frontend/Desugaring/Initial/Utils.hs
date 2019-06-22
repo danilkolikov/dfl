@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Desugaring.Initial.Util
+Module      :  Frontend.Desugaring.Initial.Utils
 Description :  Utility functions for desugaring
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Utility functions for the initial step of desugaring
 -}
-module Frontend.Desugaring.Initial.Util where
+module Frontend.Desugaring.Initial.Utils where
 
 import Frontend.Desugaring.Initial.Ast
 import Frontend.Syntax.EntityName

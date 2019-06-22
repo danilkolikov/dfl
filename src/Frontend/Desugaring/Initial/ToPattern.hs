@@ -17,7 +17,7 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..), toList)
 import Frontend.Desugaring.Initial.Ast
 import Frontend.Desugaring.Initial.ToConst (desugarToConst)
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast (APat(..), FPat(..), LPat(..), Pat(..))
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))

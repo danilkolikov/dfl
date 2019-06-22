@@ -17,7 +17,7 @@ import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.TestUtils
 import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
 import Frontend.Desugaring.Initial.ToInst (desugarToInst)
-import Frontend.Desugaring.Initial.Util
+import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
