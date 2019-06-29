@@ -11,7 +11,9 @@ module Frontend.Inference.Spec
     ) where
 
 import qualified Frontend.Inference.DependencyResolverTest as DependencyResolver
+import qualified Frontend.Inference.UnificationTest as Unification
 
 testSuite :: IO ()
 testSuite = do
     DependencyResolver.testSuite
+    Unification.testSuite

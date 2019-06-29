@@ -60,7 +60,10 @@ library:
   - Frontend.Desugaring.Initial.ToType
   - Frontend.Desugaring.Initial.Utils
   - Frontend.Desugaring.Processor
+  - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.DependencyResolver
+  - Frontend.Inference.Substitution
+  - Frontend.Inference.Unification
   - Frontend.Processor
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast

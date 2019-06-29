@@ -80,12 +80,7 @@ testSuite =
                         ]
                 nodes = map node ["b", "c", "d", "e", "f", "a"]
                 reachable =
-                    makeComponents
-                        [ ["b", "d"]
-                        , ["c"]
-                        , ["e", "f"]
-                        , ["a"]
-                        ]
+                    makeComponents [["b", "d"], ["c"], ["e", "f"], ["a"]]
             it "finds reachable nodes" $
                 runDependencyResolver (findReachableNodes nodes) graph `shouldBe`
                 Right reachable
@@ -102,10 +97,10 @@ testSuite =
                     ]
             comps =
                 makeComponents [["e", "f", "g"], ["h"], ["a", "b", "c", "d"]]
-        describe "stronglyConnectedComponents" $ do
+        describe "stronglyConnectedComponents" $
             it "finds stronlgy connected components" $
-                runDependencyResolver stronglyConnectedComponents graph `shouldBe`
-                Right comps
+            runDependencyResolver stronglyConnectedComponents graph `shouldBe`
+            Right comps
         describe "condenseGraph" $ do
             let componentsGraph =
                     makeGraph
@@ -120,12 +115,10 @@ testSuite =
                 Right condensed
         let sorted =
                 makeComponents [["a", "b", "c", "d"], ["h"], ["e", "f", "g"]]
-        describe "topologicalSortOfComponents" $ do
-            it "topologically sorts components" $ do
-                runDependencyResolver
-                    (topologicalSortOfComponents comps)
-                    graph `shouldBe`
-                    Right sorted
-        describe "getDependencyGroups" $ do
+        describe "topologicalSortOfComponents" $
+            it "topologically sorts components" $
+            runDependencyResolver (topologicalSortOfComponents comps) graph `shouldBe`
+            Right sorted
+        describe "getDependencyGroups" $
             it "finds and orders dependency groups" $
-                getDependencyGroups graph `shouldBe` Right sorted
+            getDependencyGroups graph `shouldBe` Right sorted
