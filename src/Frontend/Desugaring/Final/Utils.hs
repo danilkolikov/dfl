@@ -8,6 +8,9 @@ Utility functions for the final step of desugaring
 -}
 module Frontend.Desugaring.Final.Utils where
 
+import Data.Functor (($>))
+import qualified Data.List.NonEmpty as NE
+
 import Frontend.Desugaring.Final.Ast
 import qualified Frontend.Desugaring.Final.ResolvedAst as R
 import qualified Frontend.Desugaring.Initial.Ast as I
@@ -18,14 +21,17 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 desugarConstraint :: WithLocation I.Constraint -> WithLocation Constraint
 desugarConstraint c
     | (I.Constraint name params paramArgs) <- getValue c =
-        Constraint name params paramArgs <$ c
+        c $>
+        case paramArgs of
+            [] -> ConstraintParam name params
+            (s:rest) -> ConstraintType name params (s NE.:| rest)
 
 -- | Desugar a simple class
 desugarSimpleClass ::
        WithLocation I.SimpleClass -> WithLocation SimpleConstraint
 desugarSimpleClass c
     | (I.SimpleClass name params) <- getValue c =
-        SimpleConstraint name params <$ c
+        c $> SimpleConstraint name params
 
 -- | Make custom pattern constructor
 makeIdent :: EntityName -> WithLocation Ident

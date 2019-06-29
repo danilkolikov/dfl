@@ -60,13 +60,18 @@ instance AstCheckable TopDecl where
     checkAst (TopDeclInstance _ _ inst decls) = checkAst inst >> checkAst decls
     checkAst (TopDeclClass _ _ _ decls) = checkAst decls
     checkAst (TopDeclDecl decl) = checkAst decl
-    checkAst _ = correct
+    checkAst (TopDeclType simpleType _) = checkAst simpleType
+    checkAst (TopDeclData _ simpleType _ _) = checkAst simpleType
+    checkAst (TopDeclNewType _ simpleType _ _) = checkAst simpleType
 
 instance AstCheckable Inst where
     checkAst (InstNamed _ ts) = checkDifferentTyVars ts
     checkAst (InstTuple f s rest) = checkDifferentTyVars (f : s : rest)
     checkAst (InstFunction from to) = checkDifferentTyVars [from, to]
     checkAst _ = correct
+
+instance AstCheckable SimpleType where
+    checkAst (SimpleType _ vars) = checkDifferentTyVars vars
 
 instance AstCheckable Decl where
     checkAst DeclGenDecl {} = correct

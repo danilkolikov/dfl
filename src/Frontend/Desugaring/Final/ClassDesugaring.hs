@@ -23,13 +23,12 @@ desugarClasses = collectHashMap desugarClass
 desugarClass :: I.TopDecl -> DesugaringProcessor (Maybe (Ident, Class))
 desugarClass (I.TopDeclClass context name param methods) = do
     let desugaredContext = map desugarSimpleClass context
-    (desugaredMethods, desugaredExpressions) <- desugarClassAssignments methods
+    desugaredMethods <- desugarClassAssignments methods
     return . Just $
         ( getValue name
         , Class
               desugaredContext
               name
               param
-              desugaredMethods
-              desugaredExpressions)
+              desugaredMethods)
 desugarClass _ = return Nothing

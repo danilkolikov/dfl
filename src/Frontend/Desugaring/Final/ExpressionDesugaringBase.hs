@@ -20,7 +20,8 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 -- | Errors which may happen during desugaring of expressions
 data ExpressionDesugaringError
     = ExpressionDesugaringErrorDuplicatedTypeDeclaration (WithLocation Ident) -- ^ Expression has multiple type declarations
-    | ExpressionDesugaringErrorMissingExpressionDefinition (WithLocation Ident) -- ^ Definition of expression is missing
+    | ExpressionDesugaringErrorMissingExpressionDefinition (WithLocation Ident) -- ^ Definition of an expression is missing
+    | ExpressionDesugaringErrorMissingMethodType (WithLocation Ident) -- ^ Definition of a method is missing a tupe signature
     | ExpressionDesugaringErrorDifferentNumberOfArguments (WithLocation Ident) -- ^ Declarations of a function have differnt number of arguments
     | ExpressionDesugaringErrorIdentifierIsAlreadyDefined (WithLocation Ident)
                                                           (WithLocation Ident) -- ^ Such identifier is already defined

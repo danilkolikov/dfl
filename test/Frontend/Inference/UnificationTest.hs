@@ -23,7 +23,7 @@ testSuite =
     hspec $ do
         let ident = IdentNamed . return
             var = AlgebraicExpVar . ident
-            func name args = AlgebraicExpFunc (ident name) args
+            func name = AlgebraicExpFunc (ident name)
         describe "unifyVar" $ do
             it "raises error when the variable is not free" $ do
                 let variable = ident "x"

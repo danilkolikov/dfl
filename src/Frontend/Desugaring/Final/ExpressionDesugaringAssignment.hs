@@ -31,11 +31,31 @@ desugarPreparedAssignments ::
     -> ExpressionDesugaringProcessor Expressions
 desugarPreparedAssignments assignments = do
     (methods, expressions) <- desugarPreparedAssignmentsWithMethods assignments
-    unless (null methods) $
+    let methodsWithoutImplementation =
+            filter
+                (\Method {getMethodDefault = def} -> def == Nothing)
+                (map snd $ HM.toList methods)
+    unless (null methodsWithoutImplementation) $
         raiseError $
         ExpressionDesugaringErrorMissingExpressionDefinition
-            (getMethodName . snd . head . HM.toList $ methods)
+            (getMethodName . head $ methodsWithoutImplementation)
     return expressions
+
+-- | Desugar a list of prepared assignments into Methods
+desugarPreparedMethods ::
+  [WithLocation PreparedAssignment]
+  -> ExpressionDesugaringProcessor Methods
+desugarPreparedMethods assignments = do
+    (methods, expressions) <- desugarPreparedAssignmentsWithMethods assignments
+    let expressionsWithoutSignature =
+            filter
+                (\Expression {getExpressionType = sig} -> sig == Nothing)
+                (map snd $ HM.toList expressions)
+    unless (null expressionsWithoutSignature) $
+        raiseError $
+        ExpressionDesugaringErrorMissingMethodType
+            (getExpressionName . head $ expressionsWithoutSignature)
+    return methods
 
 -- | Desugar a list of prepared assignments into Methods and Expressions
 desugarPreparedAssignmentsWithMethods ::
@@ -45,7 +65,7 @@ desugarPreparedAssignmentsWithMethods assignments = do
     (grouped, patterns) <- groupAssignments assignments
     desugaredGroups <- mapM desugarGroup (HM.toList grouped)
     patternExprs <- desugarAllPatterns patterns
-    let (methods, expressions) = partitionEithers desugaredGroups
+    let (methods, expressions) = partitionEithers (concat desugaredGroups)
         expressionsMap = HM.fromList expressions
         methodsMap = HM.fromList methods
     finalExpressions <- addExpressions expressionsMap patternExprs
@@ -103,14 +123,25 @@ groupAssignments (f:rest) = do
 -- | Desugar single group of assignments
 desugarGroup ::
        (Ident, AssignmentsGroup)
-    -> ExpressionDesugaringProcessor (Either (Ident, Method) (Ident, Expression))
+    -> ExpressionDesugaringProcessor [Either (Ident, Method) (Ident, Expression)]
 desugarGroup (groupName, AssignmentsGroup name exps type') =
     case (exps, type') of
         ([], Nothing) -> error "Such combination is impossible"
-        ([], Just signature) -> return $ Left (groupName, Method name signature)
+        ([], Just signature) ->
+            return $ [Left (groupName, Method name signature Nothing)]
         (e:rest, _) -> do
             mergedExp <- mergeExpressions name (e NE.:| rest)
-            return $ Right (groupName, Expression name mergedExp type')
+            -- It can be either expression, or method with default implementation
+            let expression = Right (groupName, Expression name mergedExp type')
+            return $
+                case type' of
+                    Nothing -> [expression]
+                    Just signature ->
+                        let method =
+                                Left
+                                    ( groupName
+                                    , Method name signature (Just mergedExp))
+                         in [method, method]
 
 -- | Merge multilple expressions into one
 mergeExpressions ::

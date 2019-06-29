@@ -93,11 +93,15 @@ data Constructor = Constructor
     } deriving (Show, Eq)
 
 -- | Type constraint
-data Constraint = Constraint
-    { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
-    , getConstraintType :: WithLocation Ident -- ^ Name of a constrained type
-    , getConstraintTypeArgs :: [WithLocation Type] -- ^ Optional arguments of a type
-    } deriving (Show, Eq)
+data Constraint
+    = ConstraintParam { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
+                      , getConstraintParam :: WithLocation Ident -- ^ Constrained parameter
+                       } -- ^ Constrained parameter
+    | ConstraintType { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
+                     , getConstraintType :: WithLocation Ident -- ^ Name of a constrained type
+                     , getConstraintParams :: NonEmpty (WithLocation Type) -- ^ Parameters of a type
+                      } -- ^ Constrained type
+    deriving (Show, Eq)
 
 -- | Simple constraint
 data SimpleConstraint = SimpleConstraint
@@ -111,7 +115,6 @@ data Class = Class
     , getClassName :: WithLocation Ident -- ^ Name of a type class
     , getClassParam :: WithLocation Ident -- ^ Parameter of a type class
     , getClassMethods :: Methods -- ^ Methods of a type class
-    , getClassDefaultMethods :: Expressions -- ^ Methods with a default implementation
     } deriving (Show, Eq)
 
 -- | Map of classes
@@ -149,6 +152,7 @@ type Expressions = HashMap Ident Expression
 data Method = Method
     { getMethodName :: WithLocation Ident -- ^ Name of a method
     , getMethodType :: TypeSignature -- ^ Type signature
+    , getMethodDefault :: Maybe (WithLocation Exp) -- ^ Optional default implementation
     } deriving (Show, Eq)
 
 -- | Map of methods

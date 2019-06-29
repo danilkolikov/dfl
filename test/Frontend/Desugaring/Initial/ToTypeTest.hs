@@ -86,11 +86,10 @@ instance WithTypeExamples Type where
             [ do (typesEx, typesRes) <- randomNonEmpty 3 getTypeExample
                  location <- getRandomSourceLocation
                  let type' = Type typesEx
-                     func = makeTypeConstr fUNCTION_NAME
                      (fRes NE.:| [sRes, tRes]) = typesRes
-                     rightFunc = D.TypeApplication func (sRes NE.:| [tRes])
+                     rightFunc = D.TypeFunction sRes tRes
                      rightFunc' = WithLocation rightFunc location
-                     resFunc = D.TypeApplication func (fRes NE.:| [rightFunc'])
+                     resFunc = D.TypeFunction fRes rightFunc'
                  return
                      ( WithLocation type' location
                      , WithLocation resFunc location)

@@ -62,6 +62,13 @@ library:
   - Frontend.Desugaring.Processor
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.DependencyResolver
+  - Frontend.Inference.Kind.Ast
+  - Frontend.Inference.Kind.DependencyGroup
+  - Frontend.Inference.Kind.Kind
+  - Frontend.Inference.Kind.KindMapping
+  - Frontend.Inference.Kind.Processor
+  - Frontend.Inference.Kind.ProcessorBase
+  - Frontend.Inference.Kind.WithDependencies
   - Frontend.Inference.Substitution
   - Frontend.Inference.Unification
   - Frontend.Processor

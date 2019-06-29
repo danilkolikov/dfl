@@ -27,17 +27,13 @@ class DesugarToType a where
 instance DesugarToType Type where
     desugarToType type'
         | Type (f NE.:| rest) <- getValue type' =
-            let func = makeTypeConstr fUNCTION_NAME
-                desugaredFirst = desugarToType f
+            let desugaredFirst = desugarToType f
              in case rest of
                     [] -> desugaredFirst
                     t:ts ->
                         let restType = type' $> Type (t NE.:| ts)
                             desugaredRest = desugarToType restType
-                         in type' $>
-                            D.TypeApplication
-                                func
-                                (desugaredFirst NE.:| [desugaredRest])
+                         in type' $> D.TypeFunction desugaredFirst desugaredRest
 
 instance DesugarToType BType where
     desugarToType bType
