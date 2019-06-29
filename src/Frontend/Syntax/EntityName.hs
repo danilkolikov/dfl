@@ -35,6 +35,10 @@ fUNCTION_NAME = ["->"]
 tUPLE_NAME :: EntityName
 tUPLE_NAME = ["(,)"]
 
+-- | Kind symbol
+sTAR_NAME :: EntityName
+sTAR_NAME = ["*"]
+
 -- Operators
 -- | Operator ":"
 cOLON_NAME :: EntityName

@@ -22,6 +22,9 @@ import Frontend.Syntax.Position (WithLocation)
 data IdentEnvironment
     = IdentEnvironmentRecordDesugaring -- ^ Identifiers, generated during record desugaring
     | IdentEnvironmentExpressionDesugaring -- ^ Identifiers, generated during expression desugaring
+    | IdentEnvironmentDependencyResolution -- ^ Identifiers, generated during dependency resolution
+    | IdentEnvironmentDependencyGroupResolution -- ^ Identifiers, generated during resolution of dependency groups
+    | IdentEnvironmentKindInference -- ^ Identifiers, generated during type inference
     deriving (Show, Eq, Generic)
 
 instance Hashable IdentEnvironment
@@ -159,6 +162,8 @@ data SimpleClass =
 data Type
     = TypeApplication (WithLocation Type)
                       (NonEmpty (WithLocation Type)) -- ^ Application of a type constructor
+    | TypeFunction (WithLocation Type)
+                   (WithLocation Type) -- ^ Function type
     | TypeVar (WithLocation Ident) -- ^ Type variable
     | TypeConstr (WithLocation Ident) -- ^ Type constructor
     deriving (Show, Eq)

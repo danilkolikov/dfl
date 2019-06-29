@@ -73,3 +73,11 @@ testSuite =
         it "doesn't raise error when the last statement in do is an expression" $ do
             let stmt = withDummyLocation $ StmtExp exp'
             checkAst (LExpDo (stmt NE.:| [])) `shouldBe` Right ()
+        it "raises error when a type declaration has 2 same variables" $ do
+            let simpleType = SimpleType undefined [tyVar "x" 0, tyVar "x" 1]
+            checkAst simpleType `shouldBe`
+                Left (AstCheckerErrorSameTyVar (tyVar "x" 0) (tyVar "x" 1))
+        it
+            "doesn't raise error when all variables in the type declaration are different" $ do
+            let simpleType = SimpleType undefined [tyVar "x" 0, tyVar "y" 1]
+            checkAst simpleType `shouldBe` Right ()

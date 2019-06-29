@@ -31,12 +31,13 @@ desugarAssignments ::
 desugarAssignments assignments =
     mapM desugarAssignment assignments >>= desugarPreparedAssignments
 
--- | Desugar a list of assignments to Methods and Expressions
-desugarAssignmentsWithMethods ::
+-- | Desugar a list of assignments to Methods
+desugarMethods ::
        [WithLocation R.Assignment]
-    -> ExpressionDesugaringProcessor (Methods, Expressions)
-desugarAssignmentsWithMethods assignments =
-    mapM desugarAssignment assignments >>= desugarPreparedAssignmentsWithMethods
+    -> ExpressionDesugaringProcessor Methods
+desugarMethods assignments =
+    mapM desugarAssignment assignments >>= desugarPreparedMethods
+
 
 -- | Desugar a single assignment
 desugarAssignment ::

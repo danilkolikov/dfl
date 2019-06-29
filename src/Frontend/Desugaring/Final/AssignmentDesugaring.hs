@@ -47,7 +47,7 @@ desugarTopLevelAssignments topDecls = do
 -- | Desugar a list of class assignments to expressions and methods
 desugarClassAssignments ::
        [WithLocation I.ClassAssignment]
-    -> DesugaringProcessor (Methods, Expressions)
+    -> DesugaringProcessor Methods
 desugarClassAssignments classAssignments = do
     let makeAssignment classAssignment =
             classAssignment $>
@@ -65,11 +65,10 @@ desugarClassAssignments classAssignments = do
     -- We need to collect method definitions as well
     desugared <-
         wrapExpressionDesugaring $
-        ED.desugarAssignmentsWithMethods resolvedAssignments
+        ED.desugarMethods resolvedAssignments
     -- All methods and functions declared in a class are top level
-    let methods = map (getMethodName . snd) $ HM.toList (fst desugared)
-        functions = map (getExpressionName . snd) $ HM.toList (snd desugared)
-    mapM_ defineFunctionName (functions ++ methods)
+    let methods = map (getMethodName . snd) $ HM.toList desugared
+    mapM_ defineFunctionName methods
     return desugared
 
 -- | Desugar a list of instance assignments to expressions
