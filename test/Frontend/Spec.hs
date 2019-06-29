@@ -9,9 +9,11 @@ Test suite for the frontend of DFL
 module Frontend.Spec where
 
 import qualified Frontend.Desugaring.Spec as Desugaring
+import qualified Frontend.Inference.Spec as Inference
 import qualified Frontend.Syntax.Spec as Syntax
 
 testSuite :: IO ()
 testSuite = do
-    Syntax.testSuite
     Desugaring.testSuite
+    Inference.testSuite
+    Syntax.testSuite

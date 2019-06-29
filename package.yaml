@@ -24,7 +24,7 @@ library:
   - megaparsec >= 7.0.4
   - parser-combinators >= 1.0.1
   - transformers >= 0.5.6.2
-  - unordered-containers >= 0.2.9.0
+  - unordered-containers >= 0.2.10.0
   exposed-modules:
   - Frontend.Desugaring.Final.AssignmentDesugaring
   - Frontend.Desugaring.Final.Ast
@@ -60,6 +60,7 @@ library:
   - Frontend.Desugaring.Initial.ToType
   - Frontend.Desugaring.Initial.Utils
   - Frontend.Desugaring.Processor
+  - Frontend.Inference.DependencyResolver
   - Frontend.Processor
   - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
@@ -90,7 +91,7 @@ tests:
     - megaparsec >= 7.0.4
     - random >= 1.1
     - transformers >= 0.5.6.2
-    - unordered-containers >= 0.2.9.0
+    - unordered-containers >= 0.2.10.0
 
 executables:
   dfl-exe:
