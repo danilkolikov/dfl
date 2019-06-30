@@ -15,7 +15,7 @@ module Frontend.Syntax.Lexer
     , whitespace
     ) where
 
-import Control.Applicative ((<$>), (<|>), empty, liftA2)
+import Control.Applicative ((<$>), empty, liftA2)
 import Control.Monad.Combinators (between, choice, many, sepBy, skipMany)
 import Data.Char (isDigit, isLower, isSpace, isUpper)
 import Data.Functor ((<$))
@@ -115,8 +115,11 @@ instance Lexable Keyword where
 instance Lexable IntT where
     lexer =
         IntT <$>
-        ((char '0' *> choice [char' 'o' *> L.octal, char' 'x' *> L.hexadecimal]) <|>
-         L.decimal)
+        safeChoice
+            [ char '0' *> char' 'o' *> L.octal
+            , char '0' *> char' 'x' *> L.hexadecimal
+            , L.decimal
+            ]
 
 instance Lexable FloatT where
     lexer = FloatT <$> L.float
@@ -154,7 +157,8 @@ graphicLexer extra =
     "graphic character"
 
 stringCharLexer :: Char -> Lexer Char
-stringCharLexer c = (graphicLexer c <|> escapedCharLexer) <?> "string character"
+stringCharLexer c =
+    safeChoice [graphicLexer c, escapedCharLexer] <?> "string character"
 
 instance Lexable CharT where
     lexer = CharT <$> between (char '\'') (char '\'') (stringCharLexer '"')
@@ -191,7 +195,7 @@ instance Lexable ConSym where
 
 instance Lexable Name where
     lexer =
-        choice
+        safeChoice
             [ NameVarId <$> lexer
             , NameConId <$> lexer
             , NameVarSym <$> lexer
@@ -200,12 +204,12 @@ instance Lexable Name where
 
 instance Lexable Token where
     lexer =
-        choice
-            [ TokenOperator <$> try lexer
-            , TokenKeyword <$> try lexer
+        safeChoice
+            [ TokenOperator <$> lexer
+            , TokenKeyword <$> lexer
             , TokenSpecial <$> lexer
-            , TokenFloat <$> try lexer
-            , TokenInteger <$> try lexer
+            , TokenFloat <$> lexer
+            , TokenInteger <$> lexer
             , TokenChar <$> lexer
             , TokenString <$> lexer
             , liftA2 TokenName moduleLexer lexer
@@ -227,7 +231,7 @@ whitespace = L.space space1 lineComment blockComment
 
 -- | Lexer for a program. It reads token while EOF is not reached
 programLexer :: Lexer [WithLocation Token]
-programLexer = many (try $ readSingle)
+programLexer = many (try readSingle)
   where
     readSingle :: Lexer (WithLocation Token)
     readSingle = do
@@ -241,7 +245,12 @@ programLexer = many (try $ readSingle)
 sourceLexer :: Lexer [WithLocation Token]
 sourceLexer = do
     program <- programLexer
+    whitespace
     eof' <- lexer
     case restoreMissingTokens program of
         Left lexerError -> customFailure lexerError
         Right result -> return $ result ++ [eof']
+
+-- | Safely select the first successful lexer
+safeChoice :: [Lexer a] -> Lexer a
+safeChoice = choice . map try

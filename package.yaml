@@ -26,6 +26,13 @@ library:
   - transformers >= 0.5.6.2
   - unordered-containers >= 0.2.10.0
   exposed-modules:
+  - Compiler.Base
+  - Compiler.DebugOutput
+  - Compiler.Environment
+  - Compiler.Error
+  - Compiler.Monad
+  - Compiler.Output
+  - Compiler.Processor
   - Frontend.Desugaring.Final.AssignmentDesugaring
   - Frontend.Desugaring.Final.Ast
   - Frontend.Desugaring.Final.ClassDesugaring
@@ -69,10 +76,9 @@ library:
   - Frontend.Inference.Kind.Processor
   - Frontend.Inference.Kind.ProcessorBase
   - Frontend.Inference.Kind.WithDependencies
+  - Frontend.Inference.Processor
   - Frontend.Inference.Substitution
   - Frontend.Inference.Unification
-  - Frontend.Processor
-  - Frontend.Syntax.Analyser
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
   - Frontend.Syntax.EntityName
@@ -82,6 +88,7 @@ library:
   - Frontend.Syntax.NamedEntity
   - Frontend.Syntax.Parser
   - Frontend.Syntax.Position
+  - Frontend.Syntax.Processor
   - Frontend.Syntax.Stream
   - Frontend.Syntax.Token
 
@@ -113,3 +120,4 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - dfl
+    - optparse-applicative >= 0.14.3.0

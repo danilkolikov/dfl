@@ -9,7 +9,9 @@ Module with functions for desugaring of AST
 module Frontend.Desugaring.Processor
     ( desugarParsedModule
     , DesugaringError(..)
+    , DesugaringOutput(..)
     , DesugaringState(..)
+    , emptyDesugaringState
     ) where
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -19,15 +21,19 @@ import Frontend.Desugaring.Initial.ToModule (desugarToModule)
 import qualified Frontend.Syntax.Ast as A
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
+-- | Result of desugaring
+data DesugaringOutput = DesugaringOutput
+    { getDesugaredOutputAst :: F.Module -- ^ Desugared AST
+    , getDesugaredOutputState :: DesugaringState -- ^ State of desugaring
+    } deriving (Eq, Show)
+
 -- | Desugar parsed module
 desugarParsedModule ::
-       A.Module
-    -> DesugaringState
-    -> Either DesugaringError (F.Module, DesugaringState)
+       A.Module -> DesugaringState -> Either DesugaringError DesugaringOutput
 desugarParsedModule parsedModule state =
     let initialModule = desugarToModule (withDummyLocation parsedModule)
         result =
             runDesugaringProcessor
                 (desugarModule $ getValue initialModule)
                 state
-     in result
+     in uncurry DesugaringOutput <$> result

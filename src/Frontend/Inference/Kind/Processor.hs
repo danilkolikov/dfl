@@ -29,6 +29,7 @@ data KindInferenceError
     = KindInferenceErrorDependencyResolution DependencyResolverError -- ^ Error happened during dependency resolution
     | KindInferenceErrorDependencyGroupResolution DependencyGroupResolvingError -- ^ Error happened during resolution of a single group
     | KindInferenceErrorUnification UnificationError -- ^ Error happened during unification
+    deriving (Eq, Show)
 
 -- | Type of the processor of kind inference
 type KindInferenceProcessor a
@@ -39,31 +40,32 @@ inferKinds ::
        F.DataTypes
     -> F.TypeSynonyms
     -> F.Classes
-    -> Either KindInferenceError GroupResolverState
-inferKinds dataTypes typeSynonyms classes =
+    -> KindInferenceState
+    -> Either KindInferenceError KindInferenceState
+inferKinds dataTypes typeSynonyms classes initialState =
     let environment =
             Environment
                 { getDataTypes = dataTypes
                 , getTypeSynonyms = typeSynonyms
                 , getClasses = classes
                 }
-     in runExcept (runReaderT inferKinds' environment)
+     in runExcept (runReaderT (inferKinds' initialState) environment)
 
 -- | Infer kinds of data types, type synonyms and classes
-inferKinds' :: KindInferenceProcessor GroupResolverState
-inferKinds' = do
+inferKinds' :: KindInferenceState -> KindInferenceProcessor KindInferenceState
+inferKinds' initialState = do
     env <- ask
     let dependencyGraph = getModuleDependencyGraph env
         dependencyGroups = getDependencyGroups dependencyGraph
     groups <- lift . except $ wrapDependencyResolverError dependencyGroups
     let inferGroups = mapM_ (inferSingleGroup . HS.toList) groups
         inferredGroups =
-            runExcept (execStateT (runReaderT inferGroups env) mempty)
+            runExcept (execStateT (runReaderT inferGroups env) initialState)
     lift $ except inferredGroups
 
 -- | Processor of kind inference of a single dependency group
 type SingleGroupInferenceProcessor a
-     = ReaderT Environment (StateT GroupResolverState (Except KindInferenceError)) a
+     = ReaderT Environment (StateT KindInferenceState (Except KindInferenceError)) a
 
 -- | Infer kinds of a single dependency group
 inferSingleGroup :: [Ident] -> SingleGroupInferenceProcessor ()

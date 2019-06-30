@@ -1,47 +1,58 @@
 {- |
-Module      :  Frontend.Syntax.AnalyserTest
-Description :  Tests for the Syntax Analyser of DFL
+Module      :  Frontend.Syntax.ProcessorTest
+Description :  Tests for the syntax processor of DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Test suite for the syntax analyser of DFL
+Test suite for the syntax processor of DFL
 -}
-module Frontend.Syntax.AnalyserTest where
+module Frontend.Syntax.ProcessorTest where
 
 import Test.Hspec
 
+import Data.Bifunctor (bimap, first)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
-import Frontend.Syntax.Analyser
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
+import Frontend.Syntax.Processor
 import Frontend.Syntax.Token
+
+data SyntaxError
+    = SyntaxErrorLexer LexicalError
+    | SyntaxErrorParser ParserError
+    | SyntaxErrorFixity FixityResolutionError
+    deriving (Eq, Show)
 
 testSuite :: IO ()
 testSuite =
     hspec $ do
+        let runSyntaxAnalyser content = do
+                tokens <- first SyntaxErrorLexer $ lexicalAnalysis "" content
+                ast <- first SyntaxErrorParser $ parsing "" tokens
+                bimap SyntaxErrorFixity getFixityResolutionOutputAst $
+                    fixityResolution HM.empty ast
         describe "syntaxAnalyser" $ do
             it "fails on an empty program" $
-                runSyntaxAnalyser "" (AnalyserState "" HM.empty) `shouldBe`
+                runSyntaxAnalyser "" `shouldBe`
                 Left
-                    (SyntaxErrorParser
+                    (SyntaxErrorParser $
+                     ParserErrorParser
                          (sourceLocation 1 1 1 1)
                          (Just (TokenEOF EOF))
                          ["KeywordModule", "SpecialLCurly"])
             it "parses programs" $ do
-                let state = AnalyserState "" HM.empty
-                runSyntaxAnalyser "module Foo.Bar where" state `shouldBe`
+                runSyntaxAnalyser "module Foo.Bar where" `shouldBe`
                     Right
-                        ( ModuleExplicit
-                              (WithLocation
-                                   (Qualified [ConId "Foo"] (ConId "Bar"))
-                                   (sourceLocation 1 8 1 15))
-                              Nothing
-                              (WithLocation
-                                   (Body [] [])
-                                   (sourceLocation 1 21 1 21))
-                        , state)
-                runSyntaxAnalyser "x = 1" state `shouldBe`
+                        (ModuleExplicit
+                             (WithLocation
+                                  (Qualified [ConId "Foo"] (ConId "Bar"))
+                                  (sourceLocation 1 8 1 15))
+                             Nothing
+                             (WithLocation
+                                  (Body [] [])
+                                  (sourceLocation 1 21 1 21)))
+                runSyntaxAnalyser "x = 1" `shouldBe`
                     (let xVar =
                              WithLocation
                                  (FuncLabelId $ VarId "x")
@@ -98,4 +109,4 @@ testSuite =
                                                  (sourceLocation 1 1 1 6)
                                            ])
                                       (sourceLocation 1 1 1 6))
-                      in Right (res, state))
+                      in Right res)

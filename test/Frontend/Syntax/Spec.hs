@@ -8,12 +8,12 @@ Test suite for the syntax analyser of DFL.
 -}
 module Frontend.Syntax.Spec where
 
-import qualified Frontend.Syntax.AnalyserTest as Analyser
 import qualified Frontend.Syntax.AstCheckerTest as AstChecker
 import qualified Frontend.Syntax.FixityResolutionTest as FixityResolution
 import qualified Frontend.Syntax.LayoutTest as Layout
 import qualified Frontend.Syntax.LexerTest as Lexer
 import qualified Frontend.Syntax.ParserTest as Parser
+import qualified Frontend.Syntax.ProcessorTest as Processor
 
 testSuite :: IO ()
 testSuite = do
@@ -22,4 +22,4 @@ testSuite = do
     Parser.testSuite
     FixityResolution.testSuite
     AstChecker.testSuite
-    Analyser.testSuite
+    Processor.testSuite
