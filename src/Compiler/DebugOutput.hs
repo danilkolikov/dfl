@@ -8,9 +8,15 @@ Debug output of the DFL compiler
 -}
 module Compiler.DebugOutput where
 
-import Frontend.Syntax.Processor (TokenStream(..), Module, FixityResolutionOutput(..))
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
 import Frontend.Inference.Processor (KindInferenceState(..))
+import Frontend.Syntax.Processor
+    ( FixityResolutionOutput(..)
+    , Module
+    , TokenStream(..)
+    )
+
+import Compiler.Prettify.TokenStream (prettifyTokenStream)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -22,7 +28,7 @@ data DebugOutput = DebugOutput
 data DebugOutputType
     = DebugOutputTypeLexems -- ^ List of lexems
     | DebugOutputTypeAst -- ^ Abstract syntax tree
-    | DebugOutputTypeFixityResolution  -- ^ AST and fixity of operators
+    | DebugOutputTypeFixityResolution -- ^ AST and fixity of operators
     | DebugOutputTypeDesugaredAst -- ^ Desugared AST
     | DebugOutputTypeInferredKinds -- ^ Inferred kind information
 
@@ -31,16 +37,16 @@ class HasDebugOutput a where
     getDebugOutput :: a -> DebugOutput -- ^ Convert object to the debug output
 
 instance HasDebugOutput TokenStream where
-  getDebugOutput a = DebugOutput (show a) DebugOutputTypeLexems
+    getDebugOutput a = DebugOutput (prettifyTokenStream a) DebugOutputTypeLexems
 
 instance HasDebugOutput Module where
-  getDebugOutput a = DebugOutput (show a) DebugOutputTypeAst
+    getDebugOutput a = DebugOutput (show a) DebugOutputTypeAst
 
 instance HasDebugOutput FixityResolutionOutput where
-  getDebugOutput a = DebugOutput (show a) DebugOutputTypeFixityResolution
+    getDebugOutput a = DebugOutput (show a) DebugOutputTypeFixityResolution
 
 instance HasDebugOutput DesugaringOutput where
-  getDebugOutput a = DebugOutput (show a) DebugOutputTypeDesugaredAst
+    getDebugOutput a = DebugOutput (show a) DebugOutputTypeDesugaredAst
 
 instance HasDebugOutput KindInferenceState where
-  getDebugOutput a = DebugOutput (show a) DebugOutputTypeInferredKinds
+    getDebugOutput a = DebugOutput (show a) DebugOutputTypeInferredKinds
