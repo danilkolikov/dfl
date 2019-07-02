@@ -16,6 +16,7 @@ import Frontend.Syntax.Processor
     , TokenStream(..)
     )
 
+import Compiler.Prettify.Ast (prettifyAst)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
 
 -- | Debug output of a step
@@ -40,7 +41,7 @@ instance HasDebugOutput TokenStream where
     getDebugOutput a = DebugOutput (prettifyTokenStream a) DebugOutputTypeLexems
 
 instance HasDebugOutput Module where
-    getDebugOutput a = DebugOutput (show a) DebugOutputTypeAst
+    getDebugOutput a = DebugOutput (prettifyAst a) DebugOutputTypeAst
 
 instance HasDebugOutput FixityResolutionOutput where
     getDebugOutput a = DebugOutput (show a) DebugOutputTypeFixityResolution
