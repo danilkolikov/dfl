@@ -17,6 +17,7 @@ import Frontend.Syntax.Processor
     )
 
 import Compiler.Prettify.Ast (prettifyAst)
+import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
 
@@ -51,7 +52,8 @@ instance HasDebugOutput FixityResolutionOutput where
             DebugOutputTypeFixityResolution
 
 instance HasDebugOutput DesugaringOutput where
-    getDebugOutput a = DebugOutput (show a) DebugOutputTypeDesugaredAst
+    getDebugOutput a =
+        DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
 instance HasDebugOutput KindInferenceState where
     getDebugOutput a = DebugOutput (show a) DebugOutputTypeInferredKinds

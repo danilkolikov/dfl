@@ -9,7 +9,6 @@ Functions for pretty printing of FixityResolutionOutput
 module Compiler.Prettify.FixityResolutionOutput where
 
 import qualified Data.HashMap.Lazy as HM
-import Data.List (intercalate)
 
 import Compiler.Prettify.Ast
 import Compiler.Prettify.Utils
@@ -36,9 +35,6 @@ prettifyOperators = unlines . map (uncurry prettifyOperator) . HM.toList
 prettifyOperator :: EntityName -> InfixOperator -> String
 prettifyOperator name infixOp =
     unwords [prettifyEntityName name, "-", prettifyInfixOperator infixOp]
-
-prettifyEntityName :: EntityName -> String
-prettifyEntityName = intercalate "."
 
 prettifyInfixOperator :: InfixOperator -> String
 prettifyInfixOperator (InfixOperator _ fixity prec) =

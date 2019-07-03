@@ -23,8 +23,8 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Result of desugaring
 data DesugaringOutput = DesugaringOutput
-    { getDesugaredOutputAst :: F.Module -- ^ Desugared AST
-    , getDesugaredOutputState :: DesugaringState -- ^ State of desugaring
+    { getDesugaringOutputAst :: F.Module -- ^ Desugared AST
+    , getDesugaringOutputState :: DesugaringState -- ^ State of desugaring
     } deriving (Eq, Show)
 
 -- | Desugar parsed module

@@ -26,6 +26,12 @@ runPrettyPrinter printer = unlines . NE.toList . runReader printer
 singleLine :: String -> PrettyPrinter
 singleLine = return . singleLine'
 
+emptyLine :: PrettyPrinter
+emptyLine = singleLine ""
+
+newLine :: PrettyPrinter
+newLine = singleLine "\n"
+
 -- | Make single line
 singleLine' :: String -> Lines
 singleLine' line = line NE.:| []
@@ -61,6 +67,10 @@ joinLines' t = foldl1 join t
 joinPrinters :: [PrettyPrinter] -> PrettyPrinter
 joinPrinters printers =
     sequence (intersperse (singleLine " ") printers) >>= joinLines
+
+-- | Join results on multiple lines
+multiplePrinters :: [PrettyPrinter] -> PrettyPrinter
+multiplePrinters printers = sequence printers >>= multipleLines
 
 -- | Run printer with increased indentation
 withIndent :: PrettyPrinter -> PrettyPrinter

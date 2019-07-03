@@ -8,12 +8,14 @@ Functions for pretty-printing of AST
 -}
 module Compiler.Prettify.Ast where
 
+import qualified Data.HashMap.Lazy as HM
 import Data.List (intersperse)
 import qualified Data.List.NonEmpty as NE (toList)
 import Data.Maybe (fromJust)
 
 import Compiler.Prettify.PrettyPrinter
 import Compiler.Prettify.Utils
+import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token
@@ -27,7 +29,7 @@ prettifyAst :: (PrettyPrintable a) => a -> String
 prettifyAst a = runPrettyPrinter (prettyPrint a) 4
 
 instance (PrettyPrintable a) => PrettyPrintable (Maybe a) where
-    prettyPrint Nothing = singleLine ""
+    prettyPrint Nothing = emptyLine
     prettyPrint (Just x) = prettyPrint x
 
 instance (PrettyPrintable a, PrettyPrintable b) =>
@@ -59,7 +61,7 @@ instance PrettyPrintable Special where
     prettyPrint special = singleLine [fromJust $ lookup special inversedSpecial]
 
 instance PrettyPrintable EOF where
-    prettyPrint _ = singleLine ""
+    prettyPrint _ = emptyLine
 
 instance PrettyPrintable ConId where
     prettyPrint (ConId name) = singleLine name
@@ -97,7 +99,7 @@ instance PrettyPrintable Module where
                 [ prettyPrint KeywordModule
                 , prettyPrint name
                 , case exports of
-                      Nothing -> singleLine ""
+                      Nothing -> emptyLine
                       Just ex -> inParens $ sepByComma ex
                 , prettyPrint KeywordWhere
                 ]
@@ -113,7 +115,7 @@ instance PrettyPrintable Body where
 
 instance PrettyPrintable ImpExpList where
     prettyPrint ImpExpAll = inParens (prettyPrint OperatorDDot)
-    prettyPrint ImpExpNothing = inParens (singleLine "")
+    prettyPrint ImpExpNothing = inParens (emptyLine)
     prettyPrint (ImpExpSome lst) = inParens $ sepByComma $ NE.toList lst
 
 instance PrettyPrintable Export where
@@ -133,7 +135,7 @@ instance PrettyPrintable ImpDecl where
                   else ""
             , prettyPrint name
             , case as of
-                  Nothing -> singleLine ""
+                  Nothing -> emptyLine
                   Just t -> joinPrinters [singleLine "as", prettyPrint t]
             , prettyPrint spec
             ]
@@ -164,39 +166,39 @@ instance PrettyPrintable TopDecl where
     prettyPrint (TopDeclData context name constrs deriving') =
         joinPrinters
             [ prettyPrint KeywordData
-            , prettyPrint (InContext context)
+            , inContext context
             , prettyPrint name
             , case constrs of
-                  [] -> singleLine ""
+                  [] -> emptyLine
                   xs ->
                       joinPrinters
                           [prettyPrint OperatorEq, sepBy OperatorBar xs]
-            , prettyPrint (InDeriving deriving')
+            , inDeriving deriving'
             ]
     prettyPrint (TopDeclNewType context name constr deriving') =
         joinPrinters
             [ prettyPrint KeywordNewType
-            , prettyPrint (InContext context)
+            , inContext context
             , prettyPrint name
             , prettyPrint OperatorEq
             , prettyPrint constr
-            , prettyPrint (InDeriving deriving')
+            , inDeriving deriving'
             ]
     prettyPrint (TopDeclClass context name param where') =
         joinPrinters
             [ prettyPrint KeywordClass
-            , prettyPrint (InContext context)
+            , inContext context
             , prettyPrint name
             , prettyPrint param
-            , prettyPrint (InWhere where')
+            , inWhere where'
             ]
     prettyPrint (TopDeclInstance context name inst where') =
         joinPrinters
             [ prettyPrint KeywordInstance
-            , prettyPrint (InContext context)
+            , inContext context
             , prettyPrint name
             , prettyPrint inst
-            , prettyPrint (InWhere where')
+            , inWhere where'
             ]
     prettyPrint (TopDeclDecl decl) = prettyPrint decl
 
@@ -219,7 +221,7 @@ instance PrettyPrintable GenDecl where
         joinPrinters
             [ sepByComma (NE.toList vars)
             , prettyPrint OperatorQDot
-            , prettyPrint (InContext context)
+            , inContext context
             , prettyPrint type'
             ]
     prettyPrint (GenDeclFixity fixity prec ops) =
@@ -235,7 +237,7 @@ instance PrettyPrintable Type where
     prettyPrint (Type args) = sepBy OperatorRArrow (NE.toList args)
 
 instance PrettyPrintable BType where
-    prettyPrint (BType args) = prettyPrint (NotSep $ NE.toList args)
+    prettyPrint (BType args) = notSep $ NE.toList args
 
 instance PrettyPrintable AType where
     prettyPrint (ATypeConstructor name) = prettyPrint name
@@ -246,8 +248,8 @@ instance PrettyPrintable AType where
 
 instance PrettyPrintable GTyCon where
     prettyPrint (GTyConNamed name) = prettyPrint name
-    prettyPrint GTyConUnit = inParens $ singleLine ""
-    prettyPrint GTyConList = inBrackets $ singleLine ""
+    prettyPrint GTyConUnit = inParens $ emptyLine
+    prettyPrint GTyConList = inBrackets $ emptyLine
     prettyPrint GTyConFunction = inParens $ prettyPrint OperatorRArrow
     prettyPrint (GTyConTuple n) = inParens (singleLine $ replicate (n - 1) ',')
 
@@ -257,9 +259,7 @@ instance PrettyPrintable Class where
     prettyPrint (ClassApplied name var args) =
         joinPrinters
             [ prettyPrint name
-            , inParens $
-              joinPrinters
-                  [prettyPrint var, prettyPrint (NotSep (NE.toList args))]
+            , inParens $ joinPrinters [prettyPrint var, notSep (NE.toList args)]
             ]
 
 instance PrettyPrintable SimpleClass where
@@ -268,11 +268,11 @@ instance PrettyPrintable SimpleClass where
 
 instance PrettyPrintable SimpleType where
     prettyPrint (SimpleType name vars) =
-        joinPrinters [prettyPrint name, prettyPrint (NotSep vars)]
+        joinPrinters [prettyPrint name, notSep vars]
 
 instance PrettyPrintable Constr where
     prettyPrint (ConstrSimple name args) =
-        joinPrinters [prettyPrint name, prettyPrint (NotSep args)]
+        joinPrinters [prettyPrint name, notSep args]
     prettyPrint (ConstrInfix l op r) =
         joinPrinters [prettyPrint l, prettyPrint op, prettyPrint r]
     prettyPrint (ConstrRecord name fields) =
@@ -306,32 +306,24 @@ instance PrettyPrintable DClass where
 instance PrettyPrintable Inst where
     prettyPrint (InstNamed name []) = prettyPrint name
     prettyPrint (InstNamed name args) =
-        inParens $ joinPrinters [prettyPrint name, prettyPrint (NotSep args)]
+        inParens $ joinPrinters [prettyPrint name, notSep args]
     prettyPrint (InstTuple f s rest) = inParens $ sepByComma $ f : s : rest
     prettyPrint (InstList arg) = inBrackets $ prettyPrint arg
     prettyPrint (InstFunction fr to) = inParens $ sepBy OperatorRArrow [fr, to]
 
 instance PrettyPrintable FunLHS where
     prettyPrint (FunLHSSimple name pats) =
-        joinPrinters [prettyPrint name, prettyPrint (NotSep $ NE.toList pats)]
+        joinPrinters [prettyPrint name, notSep $ NE.toList pats]
     prettyPrint (FunLHSInfix l name r) =
         joinPrinters [prettyPrint l, prettyPrint name, prettyPrint r]
     prettyPrint (FunLHSNested f pats) =
-        joinPrinters
-            [inParens $ prettyPrint f, prettyPrint (NotSep $ NE.toList pats)]
+        joinPrinters [inParens $ prettyPrint f, notSep $ NE.toList pats]
 
 instance PrettyPrintable RHS where
     prettyPrint (RHSSimple e where') =
-        joinPrinters
-            [ prettyPrint OperatorEq
-            , prettyPrint e
-            , prettyPrint (InWhere where')
-            ]
+        joinPrinters [prettyPrint OperatorEq, prettyPrint e, inWhere where']
     prettyPrint (RHSGuarded gdrhs where') =
-        joinPrinters
-            [ prettyPrint (NotSep $ NE.toList gdrhs)
-            , prettyPrint (InWhere where')
-            ]
+        joinPrinters [notSep $ NE.toList gdrhs, inWhere where']
 
 instance PrettyPrintable GdRHS where
     prettyPrint (GdRHS guards e) =
@@ -355,7 +347,7 @@ instance PrettyPrintable Exp where
         joinPrinters
             [ prettyPrint e
             , prettyPrint OperatorQDot
-            , prettyPrint (InContext context)
+            , inContext context
             , prettyPrint type'
             ]
     prettyPrint (ExpSimple e) = prettyPrint e
@@ -371,7 +363,7 @@ instance PrettyPrintable LExp where
     prettyPrint (LExpAbstraction pats e) =
         joinPrinters
             [ prettyPrint OperatorBackslash
-            , prettyPrint (NotSep $ NE.toList pats)
+            , notSep $ NE.toList pats
             , prettyPrint OperatorRArrow
             , prettyPrint e
             ]
@@ -401,7 +393,7 @@ instance PrettyPrintable LExp where
     prettyPrint (LExpDo stmts) =
         joinPrinters
             [prettyPrint KeywordDo, inCurly $ sepBySemicolon $ NE.toList stmts]
-    prettyPrint (LExpApplication args) = prettyPrint $ NotSep $ NE.toList args
+    prettyPrint (LExpApplication args) = inParens . notSep $ NE.toList args
 
 instance PrettyPrintable AExp where
     prettyPrint (AExpVariable name) = prettyPrint name
@@ -415,7 +407,7 @@ instance PrettyPrintable AExp where
         joinPrinters
             [ prettyPrint f
             , case s of
-                  Nothing -> singleLine ""
+                  Nothing -> emptyLine
                   Just ts ->
                       joinPrinters [prettyPrint SpecialComma, prettyPrint ts]
             , prettyPrint OperatorDDot
@@ -451,14 +443,10 @@ instance PrettyPrintable Alt where
             [ prettyPrint pat
             , prettyPrint OperatorRArrow
             , prettyPrint e
-            , prettyPrint (InWhere where')
+            , inWhere where'
             ]
     prettyPrint (AltGuarded pat gds where') =
-        joinPrinters
-            [ prettyPrint pat
-            , prettyPrint (NotSep $ NE.toList gds)
-            , prettyPrint (InWhere where')
-            ]
+        joinPrinters [prettyPrint pat, notSep $ NE.toList gds, inWhere where']
 
 instance PrettyPrintable GdPat where
     prettyPrint (GdPat guards e) =
@@ -490,14 +478,14 @@ instance PrettyPrintable LPat where
     prettyPrint (LPatSimple pat) = prettyPrint pat
     prettyPrint (LPatNegated n) = joinPrinters [singleLine "-", prettyPrint n]
     prettyPrint (LPatConstructor name args) =
-        joinPrinters [prettyPrint name, prettyPrint (NotSep $ NE.toList args)]
+        inParens $ joinPrinters [prettyPrint name, notSep $ NE.toList args]
 
 instance PrettyPrintable APat where
     prettyPrint (APatVariable var as) =
         joinPrinters
             [ prettyPrint var
             , case as of
-                  Nothing -> singleLine ""
+                  Nothing -> emptyLine
                   Just ts ->
                       joinPrinters [prettyPrint OperatorAt, prettyPrint ts]
             ]
@@ -515,8 +503,8 @@ instance PrettyPrintable FPat where
         joinPrinters [prettyPrint var, prettyPrint OperatorEq, prettyPrint pat]
 
 instance PrettyPrintable GCon where
-    prettyPrint GConUnit = inParens (singleLine "")
-    prettyPrint GConList = inBrackets (singleLine "")
+    prettyPrint GConUnit = inParens (emptyLine)
+    prettyPrint GConList = inBrackets (emptyLine)
     prettyPrint (GConTuple n) = inParens $ singleLine $ replicate (n - 1) ','
     prettyPrint (GConNamed wl) = prettyPrint wl
 
@@ -533,6 +521,232 @@ instance (PrettyPrintable a, PrettyPrintable b) =>
 instance PrettyPrintable GConSym where
     prettyPrint GConSymColon = singleLine ":"
     prettyPrint (GConSymOp sym) = prettyPrint sym
+
+-- Desugared ast
+instance PrettyPrintable F.Ident where
+    prettyPrint = singleLine . prettifyIdent
+
+instance PrettyPrintable F.Const where
+    prettyPrint cnst =
+        singleLine $
+        case cnst of
+            F.ConstInt i -> show i
+            F.ConstFloat f -> show f
+            F.ConstChar c -> show c
+            F.ConstString s -> show s
+
+instance PrettyPrintable F.Export where
+    prettyPrint export =
+        case export of
+            F.ExportFunction name -> prettyPrint name
+            F.ExportModule name -> prettyPrint name
+            F.ExportDataOrClass name list ->
+                joinPrinters [prettyPrint name, prettyPrint list]
+
+instance (PrettyPrintable a) => PrettyPrintable (F.ImpExpList a) where
+    prettyPrint list =
+        case list of
+            F.ImpExpNothing -> singleLine "()"
+            F.ImpExpAll -> singleLine "(..)"
+            F.ImpExpSome elems -> inParens . sepByComma . NE.toList $ elems
+
+instance PrettyPrintable F.ImpDecl where
+    prettyPrint (F.ImpDecl qualified name asName hiding list) =
+        joinPrinters
+            [ singleLine "import"
+            , singleLine $
+              if qualified
+                  then "qualified"
+                  else ""
+            , prettyPrint name
+            , case asName of
+                  Nothing -> emptyLine
+                  Just synonym ->
+                      joinPrinters [singleLine "as", prettyPrint synonym]
+            , singleLine $
+              if hiding
+                  then "hiding"
+                  else ""
+            , prettyPrint list
+            ]
+
+instance PrettyPrintable F.Import where
+    prettyPrint imp =
+        case imp of
+            F.ImportFunction name -> prettyPrint name
+            F.ImportDataOrClass name list ->
+                joinPrinters [prettyPrint name, prettyPrint list]
+
+instance PrettyPrintable F.Type where
+    prettyPrint type' =
+        case type' of
+            F.TypeVar name -> prettyPrint name
+            F.TypeConstr name -> prettyPrint name
+            F.TypeFunction from to ->
+                joinPrinters [prettyPrint from, singleLine "->", prettyPrint to]
+            F.TypeApplication func args ->
+                inParens $ notSep (func : NE.toList args)
+
+printIndentedMap :: (PrettyPrintable a) => HM.HashMap b a -> PrettyPrinter
+printIndentedMap =
+    withIndent . multiplePrinters . map (prettyPrint . snd) . HM.toList
+
+instance PrettyPrintable F.Exp where
+    prettyPrint exp' =
+        case exp' of
+            F.ExpVar name -> prettyPrint name
+            F.ExpConst c -> prettyPrint c
+            F.ExpConstr name -> prettyPrint name
+            F.ExpAbstraction ident inner ->
+                joinPrinters
+                    [ prettyPrint OperatorBackslash
+                    , prettyPrint ident
+                    , prettyPrint OperatorRArrow
+                    , prettyPrint inner
+                    ]
+            F.ExpApplication func args ->
+                inParens . notSep $ func : NE.toList args
+            F.ExpLet decls inner ->
+                joinPrinters
+                    [ prettyPrint KeywordLet
+                    , newLine
+                    , printIndentedMap decls
+                    , newLine
+                    , prettyPrint KeywordIn
+                    , prettyPrint inner
+                    ]
+            F.ExpCase var name args ifSuccess ifFail ->
+                joinPrinters
+                    [ prettyPrint KeywordCase
+                    , prettyPrint var
+                    , prettyPrint KeywordOf
+                    , newLine
+                    , withIndent $
+                      multiplePrinters
+                          [ joinPrinters
+                                [ notSep $ name : args
+                                , prettyPrint OperatorRArrow
+                                , prettyPrint ifSuccess
+                                ]
+                          , joinPrinters
+                                [ prettyPrint KeywordUnderscore
+                                , prettyPrint OperatorRArrow
+                                , prettyPrint ifFail
+                                ]
+                          ]
+                    ]
+
+instance PrettyPrintable F.Expression where
+    prettyPrint (F.Expression name body Nothing) =
+        joinPrinters
+            [prettyPrint name, prettyPrint OperatorEq, prettyPrint body]
+    prettyPrint (F.Expression name body (Just sig)) =
+        multiplePrinters
+            [ joinPrinters
+                  [prettyPrint name, prettyPrint OperatorQDot, prettyPrint sig]
+            , prettyPrint (F.Expression name body Nothing)
+            ]
+
+instance PrettyPrintable F.Method where
+    prettyPrint (F.Method name type' Nothing) =
+        joinPrinters
+            [prettyPrint name, prettyPrint OperatorQDot, prettyPrint type']
+    prettyPrint (F.Method name type' (Just body)) =
+        multiplePrinters
+            [ prettyPrint (F.Method name type' Nothing)
+            , joinPrinters
+                  [prettyPrint name, prettyPrint OperatorEq, prettyPrint body]
+            ]
+
+instance PrettyPrintable F.TypeSignature where
+    prettyPrint (F.TypeSignature context type') =
+        joinPrinters [inContext context, prettyPrint type']
+
+instance PrettyPrintable F.Constraint where
+    prettyPrint constraint =
+        case constraint of
+            F.ConstraintParam class' param -> notSep [class', param]
+            F.ConstraintType class' type' params ->
+                joinPrinters
+                    [ prettyPrint class'
+                    , inParens $
+                      joinPrinters
+                          [prettyPrint type', notSep $ NE.toList params]
+                    ]
+
+instance PrettyPrintable F.SimpleConstraint where
+    prettyPrint (F.SimpleConstraint class' param) = notSep [class', param]
+
+instance PrettyPrintable F.Instance where
+    prettyPrint (F.Instance context class' type' args methods) =
+        joinPrinters
+            [ prettyPrint KeywordInstance
+            , inContext context
+            , prettyPrint class'
+            , prettyPrint type'
+            , notSep args
+            , newLine
+            , printIndentedMap methods
+            ]
+
+instance PrettyPrintable F.Class where
+    prettyPrint (F.Class context class' param methods) =
+        joinPrinters
+            [ prettyPrint KeywordClass
+            , inContext context
+            , prettyPrint class'
+            , prettyPrint param
+            , newLine
+            , printIndentedMap methods
+            ]
+
+instance PrettyPrintable F.Constructor where
+    prettyPrint (F.Constructor name args fields) =
+        joinPrinters [prettyPrint name, notSep args, singleLine $ show fields]
+
+instance PrettyPrintable F.DataType where
+    prettyPrint (F.DataType context name params deriving' constructors isNewType) =
+        joinPrinters
+            [ prettyPrint $
+              if isNewType
+                  then KeywordNewType
+                  else KeywordData
+            , inContext context
+            , prettyPrint name
+            , notSep params
+            , inDeriving deriving'
+            , newLine
+            , printIndentedMap (HM.fromList constructors)
+            ]
+
+instance PrettyPrintable F.TypeSynonym where
+    prettyPrint (F.TypeSynonym name params type') =
+        joinPrinters
+            [ prettyPrint KeywordType
+            , prettyPrint name
+            , notSep params
+            , prettyPrint OperatorEq
+            , prettyPrint type'
+            ]
+
+instance PrettyPrintable F.Module where
+    prettyPrint (F.Module name exports imports typeSynonyms dataTypes classes instances exps) =
+        joinPrinters
+            [ prettyPrint KeywordModule
+            , prettyPrint name
+            , prettyPrint exports
+            , multiplePrinters $ map prettyPrint imports
+            , newLine
+            , printIndentedMap typeSynonyms
+            , newLine
+            , printIndentedMap dataTypes
+            , newLine
+            , printIndentedMap classes
+            , newLine
+            , printIndentedMap instances
+            , newLine
+            , printIndentedMap exps
+            ]
 
 -- Helper functions
 -- | Wrap object in 2 parenthesis
@@ -560,7 +774,7 @@ inBackticks printer =
 
 -- | Separate object by a custom separator
 sepBy :: (PrettyPrintable a, PrettyPrintable b) => a -> [b] -> PrettyPrinter
-sepBy _ [] = singleLine ""
+sepBy _ [] = emptyLine
 sepBy c xs = do
     separator <- prettyPrint c
     elems <- mapM prettyPrint xs
@@ -575,39 +789,30 @@ sepBySemicolon :: (PrettyPrintable a) => [a] -> PrettyPrinter
 sepBySemicolon args = mapM prettyPrint args >>= multipleLines
 
 -- | Not separated list of objects
-newtype NotSep a =
-    NotSep [a]
-
-instance (PrettyPrintable a) => PrettyPrintable (NotSep a) where
-    prettyPrint (NotSep xs) = joinPrinters (map prettyPrint xs)
+notSep :: (PrettyPrintable a) => [a] -> PrettyPrinter
+notSep = joinPrinters . map prettyPrint
 
 -- | Object in a type context
-newtype InContext a =
-    InContext [a]
-
-instance (PrettyPrintable a) => PrettyPrintable (InContext a) where
-    prettyPrint (InContext []) = singleLine ""
-    prettyPrint (InContext [x]) =
-        joinPrinters [prettyPrint x, prettyPrint OperatorBoldRArrow]
-    prettyPrint (InContext xs) =
-        joinPrinters [inParens (sepByComma xs), prettyPrint OperatorBoldRArrow]
+inContext :: (PrettyPrintable a) => [a] -> PrettyPrinter
+inContext list =
+    case list of
+        [] -> emptyLine
+        [x] -> joinPrinters [prettyPrint x, prettyPrint OperatorBoldRArrow]
+        xs ->
+            joinPrinters
+                [inParens (sepByComma xs), prettyPrint OperatorBoldRArrow]
 
 -- | Where block
-newtype InWhere a =
-    InWhere [a]
-
-instance (PrettyPrintable a) => PrettyPrintable (InWhere a) where
-    prettyPrint (InWhere []) = singleLine ""
-    prettyPrint (InWhere xs) =
-        joinPrinters [prettyPrint KeywordWhere, inCurly (sepBySemicolon xs)]
+inWhere :: (PrettyPrintable a) => [a] -> PrettyPrinter
+inWhere [] = emptyLine
+inWhere xs =
+    joinPrinters [prettyPrint KeywordWhere, inCurly (sepBySemicolon xs)]
 
 -- | Expression in a deriving block
-newtype InDeriving a =
-    InDeriving [a]
-
-instance (PrettyPrintable a) => PrettyPrintable (InDeriving a) where
-    prettyPrint (InDeriving []) = singleLine ""
-    prettyPrint (InDeriving [x]) =
-        joinPrinters [prettyPrint KeywordDeriving, prettyPrint x]
-    prettyPrint (InDeriving xs) =
-        joinPrinters [prettyPrint KeywordDeriving, inParens (sepByComma xs)]
+inDeriving :: (PrettyPrintable a) => [a] -> PrettyPrinter
+inDeriving list =
+    case list of
+        [] -> emptyLine
+        [x] -> joinPrinters [prettyPrint KeywordDeriving, prettyPrint x]
+        xs ->
+            joinPrinters [prettyPrint KeywordDeriving, inParens (sepByComma xs)]
