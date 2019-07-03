@@ -17,6 +17,7 @@ import Frontend.Syntax.Processor
     )
 
 import Compiler.Prettify.Ast (prettifyAst)
+import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
 
 -- | Debug output of a step
@@ -44,7 +45,10 @@ instance HasDebugOutput Module where
     getDebugOutput a = DebugOutput (prettifyAst a) DebugOutputTypeAst
 
 instance HasDebugOutput FixityResolutionOutput where
-    getDebugOutput a = DebugOutput (show a) DebugOutputTypeFixityResolution
+    getDebugOutput a =
+        DebugOutput
+            (prettifyFixityResolutionOutput a)
+            DebugOutputTypeFixityResolution
 
 instance HasDebugOutput DesugaringOutput where
     getDebugOutput a = DebugOutput (show a) DebugOutputTypeDesugaredAst

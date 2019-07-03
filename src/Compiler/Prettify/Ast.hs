@@ -13,7 +13,7 @@ import qualified Data.List.NonEmpty as NE (toList)
 import Data.Maybe (fromJust)
 
 import Compiler.Prettify.PrettyPrinter
-import Compiler.Prettify.TokenStream
+import Compiler.Prettify.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token
