@@ -9,6 +9,8 @@ Processors of kind and type inference
 module Frontend.Inference.Processor
     ( InferenceError(..)
     , KindInferenceState(..)
+    , Kind.KindInferenceOutput(..)
+    , Kind.KindInferenceGroupOutput(..)
     , emptyKindInferenceState
     , inferKinds
     ) where
@@ -26,7 +28,7 @@ data InferenceError =
 
 -- | Infer kinds of types in a module
 inferKinds ::
-       Module -> KindInferenceState -> Either InferenceError KindInferenceState
+       Module -> KindInferenceState -> Either InferenceError Kind.KindInferenceOutput
 inferKinds module' state =
     first InferenceErrorKind $
     Kind.inferKinds

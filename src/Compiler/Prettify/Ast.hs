@@ -598,14 +598,20 @@ instance PrettyPrintable F.Exp where
             F.ExpConst c -> prettyPrint c
             F.ExpConstr name -> prettyPrint name
             F.ExpAbstraction ident inner ->
-                joinPrinters
-                    [ prettyPrint OperatorBackslash
-                    , prettyPrint ident
-                    , prettyPrint OperatorRArrow
-                    , prettyPrint inner
+                multiplePrinters
+                    [ joinPrinters
+                          [ prettyPrint OperatorBackslash
+                          , prettyPrint ident
+                          , prettyPrint OperatorRArrow
+                          ]
+                    , withIndent $ prettyPrint inner
                     ]
             F.ExpApplication func args ->
-                inParens . notSep $ func : NE.toList args
+                multiplePrinters
+                    [ prettyPrint func
+                    , withIndent $
+                      multiplePrinters (map (inParens.prettyPrint) $ NE.toList args)
+                    ]
             F.ExpLet decls inner ->
                 joinPrinters
                     [ prettyPrint KeywordLet
@@ -616,11 +622,12 @@ instance PrettyPrintable F.Exp where
                     , prettyPrint inner
                     ]
             F.ExpCase var name args ifSuccess ifFail ->
-                joinPrinters
-                    [ prettyPrint KeywordCase
-                    , prettyPrint var
-                    , prettyPrint KeywordOf
-                    , newLine
+                multiplePrinters
+                    [ joinPrinters
+                          [ prettyPrint KeywordCase
+                          , prettyPrint var
+                          , prettyPrint KeywordOf
+                          ]
                     , withIndent $
                       multiplePrinters
                           [ joinPrinters

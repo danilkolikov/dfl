@@ -32,7 +32,8 @@ compileSourceFile = do
         traceStep $ fixityResolution initialInfixOperators ast
     DesugaringOutput {getDesugaringOutputAst = desugared} <-
         traceStep $ desugarParsedModule resolvedFixity initialDesugaringState
-    inferredKinds <- traceStep $ inferKinds desugared initialKindInferenceState
+    KindInferenceOutput {getKindInferenceOutputState = inferredKinds} <-
+        traceStep $ inferKinds desugared initialKindInferenceState
     writeOutput
         Output
             { getInfixOperators = infixOperators

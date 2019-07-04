@@ -32,6 +32,7 @@ testSuite =
                         [ ("a", ["b", "c", "d"])
                         , ("b", ["a", "e"])
                         , ("d", ["c"])
+                        , ("f", [])
                         ]
                 inversed =
                     makeGraph
@@ -40,6 +41,7 @@ testSuite =
                         , ("c", ["a", "d"])
                         , ("d", ["a"])
                         , ("e", ["b"])
+                        , ("f", [])
                         ]
             it "inverses graphs" $ do
                 inverseGraph graph `shouldBe` inversed

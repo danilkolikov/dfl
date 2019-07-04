@@ -9,7 +9,7 @@ Debug output of the DFL compiler
 module Compiler.DebugOutput where
 
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import Frontend.Inference.Processor (KindInferenceState(..))
+import Frontend.Inference.Processor (KindInferenceOutput(..))
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
     , Module
@@ -55,5 +55,5 @@ instance HasDebugOutput DesugaringOutput where
     getDebugOutput a =
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
-instance HasDebugOutput KindInferenceState where
+instance HasDebugOutput KindInferenceOutput where
     getDebugOutput a = DebugOutput (show a) DebugOutputTypeInferredKinds
