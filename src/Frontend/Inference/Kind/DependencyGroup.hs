@@ -22,7 +22,6 @@ import Data.Maybe (fromMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Kind.Ast
-import Frontend.Inference.Kind.Kind
 import Frontend.Inference.Kind.ProcessorBase
 import qualified Frontend.Syntax.Position as P
 

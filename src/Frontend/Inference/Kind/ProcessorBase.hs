@@ -12,7 +12,6 @@ import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Kind.Ast
-import Frontend.Inference.Kind.Kind
 import qualified Frontend.Syntax.Position as P
 
 -- | Environment of kind inference

@@ -10,6 +10,7 @@ module Frontend.Inference.Kind.Ast
     ( F.Ident(..)
     , F.IdentEnvironment(..)
     , WithKind(..)
+    , Kind(..)
     , KindSubstitutable(..)
     , TypeSynonym(..)
     , TypeSynonyms

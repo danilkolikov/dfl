@@ -18,6 +18,7 @@ import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Compiler.Base (Compiler(..), getSourceFileName)
 import Compiler.DebugOutput (DebugOutput(..), DebugOutputType(..))
 import Compiler.Environment (Environment)
+import Compiler.Prettify.Output (prettifyOutput)
 
 -- | Monad, encapsulation compilation of a single source file
 newtype CompilerMonad a = CompilerMonad
@@ -47,7 +48,7 @@ instance Compiler CompilerMonad where
         liftIO $ writeFile fileName value
     writeOutput output = do
         fileName <- getOutputFileName "out"
-        liftIO $ writeFile fileName (show output)
+        liftIO $ writeFile fileName (prettifyOutput output)
 
 -- | Get name of an output file
 getOutputFileName :: (Compiler m) => String -> m String

@@ -19,7 +19,6 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Kind.Ast
 import Frontend.Inference.Kind.DependencyGroup
-import Frontend.Inference.Kind.Kind
 import Frontend.Inference.Kind.KindMapping
 import Frontend.Inference.Kind.ProcessorBase
 import Frontend.Inference.Kind.WithDependencies

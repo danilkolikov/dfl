@@ -20,6 +20,7 @@ import Compiler.Prettify.Ast (prettifyAst)
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
+import Compiler.Prettify.KindInferenceOutput (prettifyKindInferenceOutput)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -56,4 +57,4 @@ instance HasDebugOutput DesugaringOutput where
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
 instance HasDebugOutput KindInferenceOutput where
-    getDebugOutput a = DebugOutput (show a) DebugOutputTypeInferredKinds
+    getDebugOutput a = DebugOutput (prettifyKindInferenceOutput a) DebugOutputTypeInferredKinds
