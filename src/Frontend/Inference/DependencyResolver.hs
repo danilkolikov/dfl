@@ -35,7 +35,9 @@ inverseGraph = inverseGraph' . HM.toList
                 case HM.lookup node graph of
                     Nothing -> HM.insert node (HS.singleton name) graph
                     Just edges -> HM.insert node (HS.insert name edges) graph
-         in HS.foldr inverse inversedRest dependencies
+         in if null dependencies
+                then HM.insert name dependencies inversedRest
+                else HS.foldr inverse inversedRest dependencies
 
 -- | Errors which can be encountered during dependency resolution
 newtype DependencyResolverError =
@@ -138,7 +140,7 @@ getSortedStrongConComp :: DependencyResolver [HS.HashSet Ident]
 getSortedStrongConComp =
     stronglyConnectedComponents >>= topologicalSortOfComponents
 
--- | Find dependency groups in the provided graph and topologically sort them 
+-- | Find dependency groups in the provided graph and topologically sort them
 getDependencyGroups ::
        DependencyGraph -> Either DependencyResolverError [HS.HashSet Ident]
 getDependencyGroups = runDependencyResolver getSortedStrongConComp

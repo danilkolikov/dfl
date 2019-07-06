@@ -9,6 +9,7 @@ Fixity resolution of expressions in DFL. Follows algorithms, defined in
 -}
 module Frontend.Syntax.FixityResolution
     ( InfixOperator(..)
+    , InfixOperators
     , minusInfixOperator
     , defaultInfixOperator
     , FixityResolutionError(..)
@@ -92,8 +93,11 @@ data FixityResolutionError
     | FixityResolutionErrorCannotResolve SourceLocation -- ^ Can't resolve fixity of an expression
     deriving (Show, Eq)
 
+-- | Map of infix operators
+type InfixOperators = HM.HashMap EntityName InfixOperator
+
 -- | State of a fixity resolver is a stack of scopes of defined operators
-type ResolverState = [HM.HashMap EntityName InfixOperator]
+type ResolverState = [InfixOperators]
 
 -- | Function looks up a specified operator in a stack.
 --   It starts from the top layer, and if this operator is undefined,

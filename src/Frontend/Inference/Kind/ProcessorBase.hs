@@ -12,12 +12,11 @@ import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Kind.Ast
-import Frontend.Inference.Kind.Kind
 import qualified Frontend.Syntax.Position as P
 
 -- | Environment of kind inference
 data Environment = Environment
-    { getTypeSynonyms :: F.TypeSynonyms  -- ^ Defined type synonyms
+    { getTypeSynonyms :: F.TypeSynonyms -- ^ Defined type synonyms
     , getDataTypes :: F.DataTypes -- ^ Defined data types
     , getClasses :: F.Classes -- ^ Defined classes
     }
@@ -37,14 +36,12 @@ data TypeSynonymKindMapping = TypeSynonymKindMapping
     , getTypeSynonymKindMappingParams :: IdentToKindMapping
     }
 
-
 -- | Mapping of variables of a class
 data ClassKindMapping = ClassKindMapping
     { getClassKindMappingParam :: WithKind Ident
     , getClassKindMappingMethods :: HM.HashMap Ident ( F.Method
                                                      , IdentToKindMapping)
     }
-
 
 -- | Mapping of variables of a dependency group
 data KindMappings = KindMappings
@@ -62,28 +59,31 @@ instance Semigroup KindMappings where
 instance Monoid KindMappings where
     mempty = KindMappings mempty mempty mempty
 
-
 -- | Structure with inferred kinds of a dependency group
-data GroupResolverState = GroupResolverState
+data KindInferenceState = KindInferenceState
     { getResolvedTypeSynonyms :: TypeSynonyms
     , getResolvedDataTypes :: DataTypes
     , getResolvedClasses :: Classes
-    }
+    } deriving (Eq, Show)
 
-instance Semigroup GroupResolverState where
-    (GroupResolverState t1 d1 c1) <> (GroupResolverState t2 d2 c2) =
-        GroupResolverState (t1 <> t2) (d1 <> d2) (c1 <> c2)
+instance Semigroup KindInferenceState where
+    (KindInferenceState t1 d1 c1) <> (KindInferenceState t2 d2 c2) =
+        KindInferenceState (t1 <> t2) (d1 <> d2) (c1 <> c2)
 
-instance Monoid GroupResolverState where
-    mempty = GroupResolverState mempty mempty mempty
+instance Monoid KindInferenceState where
+    mempty = KindInferenceState mempty mempty mempty
     mappend = (<>)
 
-instance KindSubstitutable GroupResolverState where
-    substituteKind sub GroupResolverState { getResolvedTypeSynonyms = typeSynonyms
+-- | Empty kind inference state
+emptyKindInferenceState :: KindInferenceState
+emptyKindInferenceState = mempty
+
+instance KindSubstitutable KindInferenceState where
+    substituteKind sub KindInferenceState { getResolvedTypeSynonyms = typeSynonyms
                                           , getResolvedDataTypes = dataTypes
                                           , getResolvedClasses = classes
                                           } =
-        GroupResolverState
+        KindInferenceState
             { getResolvedTypeSynonyms = HM.map (substituteKind sub) typeSynonyms
             , getResolvedDataTypes = HM.map (substituteKind sub) dataTypes
             , getResolvedClasses = HM.map (substituteKind sub) classes

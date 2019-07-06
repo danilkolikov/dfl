@@ -22,7 +22,6 @@ import Data.Maybe (fromMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Kind.Ast
-import Frontend.Inference.Kind.Kind
 import Frontend.Inference.Kind.ProcessorBase
 import qualified Frontend.Syntax.Position as P
 
@@ -33,10 +32,11 @@ data DependencyGroupResolvingError
     | DependencyGroupResolvingErrorUnknownClass (P.WithLocation Ident) -- ^ Unknown class
     | DependencyGroupResolvingErrorUnusedTypeVariable Ident
                                                       F.TypeSignature -- ^ Class variable isn't used in the type signature
+    deriving (Eq, Show)
 
 -- | Local environment of kind resolution
 data LocalEnvironment = LocalEnvironment
-    { getGroupResolverState :: GroupResolverState -- ^ Types with already resolved kinds
+    { getKindInferenceState :: KindInferenceState -- ^ Types with already resolved kinds
     , getKindMappings :: KindMappings -- ^ Mapping of defined variables to kinds
     , getParamsKindMap :: Maybe IdentToKindMapping -- ^ Mapping of parameters to kinds
     }
@@ -69,14 +69,14 @@ generateNewIdent = do
 -- | Collect equalities between kinds of a single dependency group
 resolveDependencyGroup ::
        [Ident]
-    -> GroupResolverState
+    -> KindInferenceState
     -> KindMappings
     -> Int
-    -> Either DependencyGroupResolvingError (GroupResolverState, KindEqualities)
+    -> Either DependencyGroupResolvingError (KindInferenceState, KindEqualities)
 resolveDependencyGroup group resolverState mappings start =
     let localEnvironment =
             LocalEnvironment
-                { getGroupResolverState = resolverState
+                { getKindInferenceState = resolverState
                 , getKindMappings = mappings
                 , getParamsKindMap = Nothing
                 }
@@ -87,13 +87,13 @@ resolveDependencyGroup group resolverState mappings start =
      in evalState state start
 
 -- | Collect equalities between kinds of a single dependency group
-resolveMultiple :: [Ident] -> LocalResolver GroupResolverState
+resolveMultiple :: [Ident] -> LocalResolver KindInferenceState
 resolveMultiple names = do
     outputs <- mapM resolveSingleIdent names
     return $ mconcat outputs
 
 -- | Collect equalities between kinds of a single object in a dependency group
-resolveSingleIdent :: Ident -> LocalResolver GroupResolverState
+resolveSingleIdent :: Ident -> LocalResolver KindInferenceState
 resolveSingleIdent name = do
     env <- asks getKindMappings
     let maybeProcessSingle getMap resolve update =
@@ -165,7 +165,6 @@ resolveDataType F.DataType { F.getDataTypeParams = params
             , isNewType = newType
             }
 
-
 -- | Collect equalities between kinds in a class
 resolveClass :: F.Class -> ClassKindMapping -> LocalResolver Class
 resolveClass F.Class {F.getClassName = name, F.getClassContext = context}
@@ -188,7 +187,6 @@ resolveClass F.Class {F.getClassName = name, F.getClassContext = context}
             , getClassContext = resolvedContext
             , getClassMethods = resolvedMethods
             }
-
 
 -- | Collect equalities between kinds in a type
 resolveType :: P.WithLocation F.Type -> LocalResolver (WithKind Type)
@@ -222,7 +220,6 @@ resolveType type' = do
                 return (TypeApplication funcResolved argsResolved, resultKind)
     return $ setKind (type' $> res) kind
 
-
 -- | Collect equalities between kinds in a constraint
 resolveConstraint ::
        P.WithLocation F.Constraint -> LocalResolver (P.WithLocation Constraint)
@@ -244,7 +241,6 @@ resolveConstraint constr =
             lift $ tell [(typeKind, expectedKind)]
             return $ ConstraintType class' foundType paramsKinds
 
-
 -- | Collect equalities between kinds in a simple constraint
 resolveSimpleConstraint ::
        P.WithLocation F.SimpleConstraint
@@ -257,7 +253,6 @@ resolveSimpleConstraint constr =
             paramKind <- lookupKindOfVariable param
             lift $ tell [(classParamKind, paramKind)]
             return $ SimpleConstraint class' (setKind param paramKind)
-
 
 -- | Collect equalities between kinds in a constructor
 resolveConstructor :: F.Constructor -> LocalResolver Constructor
@@ -273,7 +268,6 @@ resolveConstructor F.Constructor { F.getConstructorName = name
             , getConstructorFields = fields
             }
 
-
 -- | Collect equalities between kinds in a method
 resolveMethod :: F.Method -> IdentToKindMapping -> LocalResolver Method
 resolveMethod F.Method { F.getMethodName = name
@@ -287,7 +281,6 @@ resolveMethod F.Method { F.getMethodName = name
             , getMethodType = resolvedType
             , getMethodDefault = defaultImp
             }
-
 
 -- | Collect equalities between kinds in a type signature
 resolveTypeSignature ::
@@ -316,7 +309,6 @@ resolveTypeSignature typeSig@F.TypeSignature { F.getTypeSignatureContext = conte
             , getTypeSignatureType = resolvedType
             }
 
-
 -- | Resovle a kind for a variable
 resolveVariable :: P.WithLocation Ident -> LocalResolver (WithKind Ident)
 resolveVariable name = do
@@ -334,7 +326,7 @@ lookupKindOfVariable name = getKind <$> resolveVariable name
 lookupType :: P.WithLocation Ident -> LocalResolver (WithKind Ident)
 lookupType name = do
     prepared <- asks getKindMappings
-    processed <- asks getGroupResolverState
+    processed <- asks getKindInferenceState
     let lookupSingle getName m = getName <$> HM.lookup (P.getValue name) m
         foundName =
             asum
@@ -361,7 +353,7 @@ lookupKindOfType name = getKind <$> lookupType name
 lookupClassVariable :: P.WithLocation Ident -> LocalResolver (WithKind Ident)
 lookupClassVariable name = do
     prepared <- asks getKindMappings
-    processed <- asks getGroupResolverState
+    processed <- asks getKindInferenceState
     let lookupSingle getParam m = getParam <$> HM.lookup (P.getValue name) m
         foundParam =
             asum

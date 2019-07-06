@@ -31,6 +31,11 @@ test:
 stack build     # Build the project
 stack test      # Run tests
 stack haddock   # Build documentation
+
+stack run my_file.dfl         # Run the compiler
+stack run my_file.dfl -- -d   # Run the compiler and produce
+                              # debug output for every step of
+                              # compilation
 ```
 
 ## License
