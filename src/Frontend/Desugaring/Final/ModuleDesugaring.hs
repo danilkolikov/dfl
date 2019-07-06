@@ -10,8 +10,11 @@ module Frontend.Desugaring.Final.ModuleDesugaring
     ( desugarModule
     ) where
 
+import qualified Data.HashMap.Lazy as HM
+
 import Frontend.Desugaring.Final.AssignmentDesugaring
     ( desugarTopLevelAssignments
+    , desugarFieldGetters
     )
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.ClassDesugaring (desugarClasses)
@@ -25,6 +28,7 @@ import qualified Frontend.Desugaring.Initial.Ast as I
 desugarModule :: I.Module -> DesugaringProcessor Module
 desugarModule (I.Module name exports imports decls) = do
     dataTypes <- desugarDataTypes decls
+    getters <- desugarFieldGetters dataTypes
     typeSynonyms <- desugarTypeSynonyms decls
     classes <- desugarClasses decls
     instances <- desugarInstances decls
@@ -38,5 +42,5 @@ desugarModule (I.Module name exports imports decls) = do
             , getModuleDataTypes = dataTypes
             , getModuleClasses = classes
             , getModuleInstances = instances
-            , getModuleExpressions = exprs
+            , getModuleExpressions = HM.union getters exprs
             }

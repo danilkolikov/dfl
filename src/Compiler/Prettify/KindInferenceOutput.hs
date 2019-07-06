@@ -88,7 +88,7 @@ prettifySolution :: Substitution Kind -> String
 prettifySolution =
     let prettifySingle (ident, kind) =
             prettifyIdent ident ++ "::=" ++ prettifyKind kind
-     in unwords . map prettifySingle . HM.toList
+     in unlines . map prettifySingle . HM.toList
 
 withKind :: (a -> String) -> WithKind a -> String
 withKind prettify (WithKind x _ kind) =

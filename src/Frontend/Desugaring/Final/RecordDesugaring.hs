@@ -14,8 +14,9 @@ import Control.Monad.Trans.Except (Except, runExcept, throwE)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import Data.Functor (($>))
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 
 import Frontend.Desugaring.Final.Ast (Constructor(..), DataType(..), DataTypes)
 import Frontend.Desugaring.Final.ResolvedAst
@@ -128,7 +129,8 @@ desugarPattern pat =
             constructor <- lift $ lookupConstructor name dataType
             let prepareBinding binding =
                     case getValue binding of
-                        I.PatternBinding name' pattern' -> (name', const pattern')
+                        I.PatternBinding name' pattern' ->
+                            (name', const pattern')
             resolvedArgs <-
                 lift $
                 resolveBindings
@@ -346,4 +348,56 @@ makeUpdateAlternative fields constructor = do
         constrExp = withDummyLocation $ ExpConstr constr
         pattern' = withDummyLocation $ PatternConstr constr idents
         expr = withDummyLocation $ ExpApplication constrExp (NE.fromList exps)
+    return . withDummyLocation $ AltSimple pattern' expr
+
+-- | Make field getters for a data type
+makeFieldGetters ::
+       DataType -> Either RecordDesugaringError [WithLocation Assignment]
+makeFieldGetters dataType =
+    let constructors = map snd $ getDataTypeConstructors dataType
+        fields =
+            HS.toList . HS.unions . map (HM.keysSet . getConstructorFields) $
+            constructors
+     in runRecordDesugaringExcept $ mapM (makeFieldGetter constructors) fields
+
+-- | Make a single field getter for a data type
+makeFieldGetter ::
+       [Constructor]
+    -> Ident
+    -> RecordDesugaringExcept (WithLocation Assignment)
+makeFieldGetter constructors field = do
+    let requiredConstructors = filterRequiredConstructors [field] constructors
+    alternatives <-
+        mapM
+            (makeGetterAlternative (withDummyLocation field))
+            requiredConstructors
+    let newIdent = makeIdent (-1) -- Hacky way to get a new identifier
+        newExp = withDummyLocation . ExpVar $ newIdent
+        newPattern = withDummyLocation $ PatternVar newIdent Nothing
+        caseExp = withDummyLocation $ ExpCase newExp (NE.fromList alternatives)
+        abstraction =
+            withDummyLocation $ ExpAbstraction (newPattern NE.:| []) caseExp
+        fieldPattern =
+            withDummyLocation $ PatternVar (withDummyLocation field) Nothing
+        assignment =
+            withDummyLocation $ AssignmentPattern fieldPattern abstraction
+    return assignment
+
+-- | Create one alternative in the field getter
+makeGetterAlternative ::
+       WithLocation Ident
+    -> Constructor
+    -> RecordDesugaringExcept (WithLocation Alt)
+makeGetterAlternative field constructor = do
+    let makeMissing _ = (withDummyLocation PatternWildcard, Nothing)
+        preparedField =
+            ( field
+            , \p ->
+                  ( makePattern p
+                  , Just . withDummyLocation . ExpVar $ makeIdent p))
+    resolvedBindings <- resolveBindings constructor makeMissing [preparedField]
+    let (idents, exps) = unzip resolvedBindings
+        constr = getConstructorName constructor
+        [expr] = catMaybes exps
+        pattern' = withDummyLocation $ PatternConstr constr idents
     return . withDummyLocation $ AltSimple pattern' expr

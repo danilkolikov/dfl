@@ -31,7 +31,9 @@ testSuite =
                     makeGraph
                         [ ("a", ["b", "c", "d"])
                         , ("b", ["a", "e"])
+                        , ("c", [])
                         , ("d", ["c"])
+                        , ("e", [])
                         , ("f", [])
                         ]
                 inversed =

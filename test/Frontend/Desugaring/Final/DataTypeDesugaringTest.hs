@@ -78,9 +78,6 @@ testSuite =
                     , emptyDesugaringState
                           { getDefinedTypeNames =
                                 HM.singleton typeName typeName'
-                          , getDefinedFunctionNames =
-                                HM.fromList
-                                    [(getter1, getter1'), (getter2, getter2')]
                           , getDataTypeFields =
                                 HM.fromList [(getter1, res), (getter2, res)]
                           , getDataTypeConstructors =
@@ -122,8 +119,6 @@ testSuite =
                     , emptyDesugaringState
                           { getDefinedTypeNames =
                                 HM.singleton typeName typeName'
-                          , getDefinedFunctionNames =
-                                HM.singleton getter getter'
                           , getDataTypeFields = HM.singleton getter res
                           , getDataTypeConstructors = HM.singleton typeName res
                           })

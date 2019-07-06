@@ -31,13 +31,15 @@ inverseGraph = inverseGraph' . HM.toList
     inverseGraph' [] = HM.empty
     inverseGraph' ((name, dependencies):rest) =
         let inversedRest = inverseGraph' rest
+            restWithNode =
+                if HM.member name inversedRest
+                    then inversedRest
+                    else HM.insert name HS.empty inversedRest
             inverse node graph =
                 case HM.lookup node graph of
                     Nothing -> HM.insert node (HS.singleton name) graph
                     Just edges -> HM.insert node (HS.insert name edges) graph
-         in if null dependencies
-                then HM.insert name dependencies inversedRest
-                else HS.foldr inverse inversedRest dependencies
+         in HS.foldr inverse restWithNode dependencies
 
 -- | Errors which can be encountered during dependency resolution
 newtype DependencyResolverError =
