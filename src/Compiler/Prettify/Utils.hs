@@ -14,6 +14,7 @@ import Data.Tuple (swap)
 import qualified Data.HashMap.Lazy as HM
 import Frontend.Desugaring.Final.Ast
 import Frontend.Syntax.EntityName
+import Frontend.Syntax.Position
 import Frontend.Syntax.Token
 
 inverseMap :: HM.HashMap a b -> [(b, a)]
@@ -30,6 +31,14 @@ inversedOperators = inverseMap operators
 
 prettifyHeader :: String -> String
 prettifyHeader header = unlines [header, replicate (length header) '-']
+
+prettifyLocation :: SourceLocation -> String
+prettifyLocation (SourceLocation start end) =
+    concat [prettifyPosition start, "...", prettifyPosition end]
+
+prettifyPosition :: SourcePosition -> String
+prettifyPosition (SourcePosition line column) =
+    concat ["(", show line, ", ", show column, ")"]
 
 prettifyEntityName :: EntityName -> String
 prettifyEntityName = intercalate "."

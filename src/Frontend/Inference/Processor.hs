@@ -11,6 +11,7 @@ module Frontend.Inference.Processor
     , KindInferenceState(..)
     , Kind.KindInferenceOutput(..)
     , Kind.KindInferenceGroupOutput(..)
+    , Kind.KindInferenceError(..)
     , emptyKindInferenceState
     , inferKinds
     ) where

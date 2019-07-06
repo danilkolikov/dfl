@@ -11,12 +11,16 @@ module Frontend.Desugaring.Processor
     , DesugaringError(..)
     , DesugaringOutput(..)
     , DesugaringState(..)
+    , RecordDesugaringError(..)
+    , ExpressionDesugaringError(..)
     , emptyDesugaringState
     ) where
 
 import qualified Frontend.Desugaring.Final.Ast as F
+import Frontend.Desugaring.Final.ExpressionDesugaringBase
 import Frontend.Desugaring.Final.ModuleDesugaring (desugarModule)
 import Frontend.Desugaring.Final.Processor
+import Frontend.Desugaring.Final.RecordDesugaring
 import Frontend.Desugaring.Initial.ToModule (desugarToModule)
 import qualified Frontend.Syntax.Ast as A
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)

@@ -63,11 +63,3 @@ prettifyName name =
         NameConId (ConId i) -> "constructor " ++ show i
         NameVarSym (VarSym s) -> "operator " ++ show s
         NameConSym (ConSym s) -> "constructor operator" ++ show s
-
-prettifyLocation :: SourceLocation -> String
-prettifyLocation (SourceLocation start end) =
-    concat [prettifyPosition start, "...", prettifyPosition end]
-
-prettifyPosition :: SourcePosition -> String
-prettifyPosition (SourcePosition line column) =
-    concat ["(", show line, ", ", show column, ")"]

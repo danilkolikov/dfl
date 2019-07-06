@@ -18,6 +18,7 @@ import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Compiler.Base (Compiler(..), getSourceFileName)
 import Compiler.DebugOutput (DebugOutput(..), DebugOutputType(..))
 import Compiler.Environment (Environment)
+import Compiler.Prettify.CompilationError (prettifyCompilationError)
 import Compiler.Prettify.Output (prettifyOutput)
 
 -- | Monad, encapsulation compilation of a single source file
@@ -38,7 +39,7 @@ instance Compiler CompilerMonad where
     handleResult res =
         case res of
             Left e -> do
-                liftIO $ print e
+                liftIO . putStrLn . prettifyCompilationError $ e
                 fail "An error was encountered"
             Right r -> return r
     writeDebugOutput DebugOutput { getDebugOutputType = type'
