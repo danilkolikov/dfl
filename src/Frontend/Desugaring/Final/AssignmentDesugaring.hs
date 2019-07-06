@@ -10,6 +10,7 @@ module Frontend.Desugaring.Final.AssignmentDesugaring
     ( desugarTopLevelAssignments
     , desugarClassAssignments
     , desugarInstanceAssignments
+    , desugarFieldGetters
     ) where
 
 import qualified Control.Monad.Trans.State as S (get)
@@ -26,6 +27,7 @@ import Frontend.Desugaring.Final.ExpressionDesugaringBase
 import Frontend.Desugaring.Final.Processor
 import qualified Frontend.Desugaring.Final.RecordDesugaring as RD
     ( desugarAssignment
+    , makeFieldGetters
     , runRecordDesugaringProcessor
     )
 import qualified Frontend.Desugaring.Final.ResolvedAst as R
@@ -44,10 +46,20 @@ desugarTopLevelAssignments topDecls = do
     mapM_ defineFunctionName functions
     return desugared
 
+-- | Desugar field getters of data types
+desugarFieldGetters :: DataTypes -> DesugaringProcessor Expressions
+desugarFieldGetters dataTypes = do
+    let typesList = HM.elems dataTypes
+    resolvedGetters <- mapM resolveFieldGetters typesList
+    desugared <-
+        wrapExpressionDesugaring $ ED.desugarAssignments (concat resolvedGetters)
+    let functions = map (getExpressionName . snd) $ HM.toList desugared
+    mapM_ defineFunctionName functions
+    return desugared
+
 -- | Desugar a list of class assignments to expressions and methods
 desugarClassAssignments ::
-       [WithLocation I.ClassAssignment]
-    -> DesugaringProcessor Methods
+       [WithLocation I.ClassAssignment] -> DesugaringProcessor Methods
 desugarClassAssignments classAssignments = do
     let makeAssignment classAssignment =
             classAssignment $>
@@ -64,8 +76,7 @@ desugarClassAssignments classAssignments = do
     resolvedAssignments <- resolveRecords assignments
     -- We need to collect method definitions as well
     desugared <-
-        wrapExpressionDesugaring $
-        ED.desugarMethods resolvedAssignments
+        wrapExpressionDesugaring $ ED.desugarMethods resolvedAssignments
     -- All methods and functions declared in a class are top level
     let methods = map (getMethodName . snd) $ HM.toList desugared
     mapM_ defineFunctionName methods
@@ -101,6 +112,14 @@ resolveRecords assignments = do
                 (getDataTypeFields state)
                 (getDataTypeConstructors state)
     case resolvedAssignments of
+        Left err -> raiseError $ DesugaringErrorRecord err
+        Right res -> return res
+
+-- | Resolve field getters of a data type
+resolveFieldGetters ::
+       DataType -> DesugaringProcessor [WithLocation R.Assignment]
+resolveFieldGetters dataType =
+    case RD.makeFieldGetters dataType of
         Left err -> raiseError $ DesugaringErrorRecord err
         Right res -> return res
 

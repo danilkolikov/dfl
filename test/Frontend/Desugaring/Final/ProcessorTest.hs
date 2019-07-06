@@ -108,9 +108,7 @@ testSuite =
                 Right
                     ( ()
                     , emptyDesugaringState
-                          { getDefinedFunctionNames =
-                                HM.singleton fieldName fieldName'
-                          , getDataTypeFields = HM.singleton fieldName dataType
+                          { getDataTypeFields = HM.singleton fieldName dataType
                           })
         describe "defineDataTypeConstructor" $ do
             let constructorName = IdentNamed ["Constructor"]

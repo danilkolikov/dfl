@@ -98,7 +98,6 @@ defineFunctionName =
 -- | Define a field of a data type
 defineDataTypeField :: WithLocation Ident -> DataType -> DesugaringProcessor ()
 defineDataTypeField name dataType = do
-    defineFunctionName name
     state <- S.get
     let fields = getDataTypeFields state
         newFields = HM.insert (getValue name) dataType fields

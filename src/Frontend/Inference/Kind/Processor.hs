@@ -73,7 +73,7 @@ inferKinds' initialState = do
     let dependencyGraph = getModuleDependencyGraph env
         dependencyGroups = getDependencyGroups dependencyGraph
     groups <- lift . except $ wrapDependencyResolverError dependencyGroups
-    let inferGroups = mapM (inferSingleGroup . HS.toList) groups
+    let inferGroups = mapM (inferSingleGroup . HS.toList) (reverse groups)
         inferredGroups =
             runExcept (runStateT (runReaderT inferGroups env) initialState)
     (groupOutputs, state) <- lift $ except inferredGroups
