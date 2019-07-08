@@ -78,6 +78,7 @@ library:
   - Frontend.Inference.Kind.WithDependencies
   - Frontend.Inference.Processor
   - Frontend.Inference.Substitution
+  - Frontend.Inference.Type.WithDependencies
   - Frontend.Inference.Unification
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
