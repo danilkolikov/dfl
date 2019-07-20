@@ -8,11 +8,15 @@ Utility functions for pretty printing
 -}
 module Compiler.Prettify.Utils where
 
+import qualified Data.HashMap.Lazy as HM
 import Data.List (intercalate)
+import qualified Data.List.NonEmpty as NE
 import Data.Tuple (swap)
 
-import qualified Data.HashMap.Lazy as HM
-import Frontend.Desugaring.Final.Ast
+import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
+import Frontend.Inference.Kind
+import Frontend.Inference.Sort
+import Frontend.Inference.Type
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
 import Frontend.Syntax.Token
@@ -61,3 +65,36 @@ prettifyIdentEnvironment env =
         IdentEnvironmentTypeVariable -> "type"
         IdentEnvironmentKindVariable -> "kind"
         IdentEnvironmentSortVariable -> "sort"
+
+prettifyForAll :: [(Ident, a)] -> String
+prettifyForAll [] = ""
+prettifyForAll vars =
+    "forall " ++ unwords (map (prettifyIdent . fst) vars) ++ ". "
+
+prettifySort :: Sort -> String
+prettifySort sort =
+    case sort of
+        SortSquare -> "[]"
+        SortVar name -> prettifyIdent name
+        SortFunction from to ->
+            "(" ++ prettifySort from ++ "->" ++ prettifySort to ++ ")"
+
+prettifyKind :: Kind -> String
+prettifyKind kind =
+    case kind of
+        KindStar -> "*"
+        KindVar name -> prettifyIdent name
+        KindFunction from to ->
+            "(" ++ prettifyKind from ++ "->" ++ prettifyKind to ++ ")"
+
+prettifyType :: Type -> String
+prettifyType type' =
+    case type' of
+        TypeVar name -> prettifyIdent name
+        TypeConstr name -> prettifyIdent name
+        TypeFunction from to ->
+            "(" ++ prettifyType from ++ "->" ++ prettifyType to ++ ")"
+        TypeApplication func args ->
+            "(" ++
+            prettifyType func ++
+            " " ++ unwords (map prettifyType $ NE.toList args) ++ ")"

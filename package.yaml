@@ -83,6 +83,9 @@ library:
   - Frontend.Inference.Substitution
   - Frontend.Inference.Type
   - Frontend.Inference.Type.WithDependencies
+  - Frontend.Inference.TypeSynonyms.Dependencies
+  - Frontend.Inference.TypeSynonyms.Expand
+  - Frontend.Inference.TypeSynonyms.Processor
   - Frontend.Inference.Unification
   - Frontend.Inference.Variables
   - Frontend.Syntax.Ast

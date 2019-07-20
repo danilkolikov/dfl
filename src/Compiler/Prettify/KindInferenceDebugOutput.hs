@@ -72,11 +72,6 @@ prettifySignature (name, sig@TypeConstructorSignature { getTypeConstructorSignat
         , prettifySort (getFullSort sig)
         ]
 
-prettifyForAll :: [(Ident, a)] -> String
-prettifyForAll [] = ""
-prettifyForAll vars =
-    "forall " ++ unwords (map (prettifyIdent . fst) vars) ++ ". "
-
 prettifyDependencyGraph :: DependencyGraph -> String
 prettifyDependencyGraph =
     let prettifyNode (node, edges) =
@@ -157,19 +152,3 @@ prettifySubstitution prettifyObject =
     let prettifySingle (ident, object) =
             prettifyIdent ident ++ "::=" ++ prettifyObject object
      in unlines . map prettifySingle . HM.toList
-
-prettifySort :: Sort -> String
-prettifySort sort =
-    case sort of
-        SortSquare -> "[]"
-        SortVar name -> prettifyIdent name
-        SortFunction from to ->
-            "(" ++ prettifySort from ++ "->" ++ prettifySort to ++ ")"
-
-prettifyKind :: Kind -> String
-prettifyKind kind =
-    case kind of
-        KindStar -> "*"
-        KindVar name -> prettifyIdent name
-        KindFunction from to ->
-            "(" ++ prettifyKind from ++ "->" ++ prettifyKind to ++ ")"

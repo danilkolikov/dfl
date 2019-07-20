@@ -18,6 +18,10 @@ import Frontend.Desugaring.Processor
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Kind.Equalities
 import Frontend.Inference.Processor
+import Frontend.Inference.TypeSynonyms.Expand (TypeSynonymsExpandingError(..))
+import Frontend.Inference.TypeSynonyms.Processor
+    ( TypeSynonymsProcessingError(..)
+    )
 import Frontend.Inference.Unification
 import Frontend.Syntax.Position (WithLocation(WithLocation))
 import Frontend.Syntax.Processor
@@ -157,6 +161,9 @@ prettifyInferenceError err =
     case err of
         InferenceErrorKind kindErr ->
             "Kind inference error: " ++ prettifyKindInferenceError kindErr
+        InferenceErrorTypeSynonyms typeSynonymsErr ->
+            "Type synonyms processing error: " ++
+            prettifyTypeSynonymsProcessingError typeSynonymsErr
 
 prettifyKindInferenceError :: KindInferenceError -> String
 prettifyKindInferenceError err =
@@ -199,3 +206,26 @@ prettifyEqualityGenerationError groupError =
         EqualityGenerationErrorUnusedTypeVariable name _ ->
             "Class parameter " ++
             prettifyIdent name ++ " is not used in the type signature"
+
+prettifyTypeSynonymsProcessingError :: TypeSynonymsProcessingError -> String
+prettifyTypeSynonymsProcessingError typeSynonymsErr =
+    case typeSynonymsErr of
+        TypeSynonymsProcessingErrorRecursive name ->
+            "Type synonym " ++
+            prettifyIdent name ++ " is recursive, which is not supported"
+        TypeSynonymsProcessingErrorMutuallyRecursive names ->
+            "Type synonyms " ++
+            intercalate ", " (map prettifyIdent names) ++
+            " are mutually recursive, which is not supported"
+        TypeSynonymsProcessingErrorDependencyResolution dependencyError ->
+            "Dependency resolution error: " ++
+            prettifyDependencyError dependencyError
+        TypeSynonymsProcessingErrorExpanding expandingError ->
+            "Type synonym expanding error: " ++
+            prettifyTypeSynonymsExpandingError expandingError
+
+prettifyTypeSynonymsExpandingError :: TypeSynonymsExpandingError -> String
+prettifyTypeSynonymsExpandingError (TypeSynonymsExpandingErrorwWrongNumberOfArgs name expected got) =
+    "Wrong number of arguments of a type synonym " ++
+    prettifyName name ++
+    ", expected " ++ show expected ++ ", but got " ++ show got

@@ -35,8 +35,11 @@ compileSourceFile = do
     inferredKinds <-
         traceStepWithDebugOutput $
         inferKinds desugared initialKindInferenceState
+    ExpandTypeSynonymsOutput {getExpandTypeSynonymSignatures = expandedTypeSynonyms} <-
+        traceStep $ expandTypeSynonyms desugared inferredKinds
     writeOutput
         Output
             { getInfixOperators = infixOperators
             , getInferredKinds = inferredKinds
+            , getExpandedTypeSynonyms = expandedTypeSynonyms
             }

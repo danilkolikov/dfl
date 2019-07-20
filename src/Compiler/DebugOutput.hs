@@ -9,7 +9,10 @@ Debug output of the DFL compiler
 module Compiler.DebugOutput where
 
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import Frontend.Inference.Processor (KindInferenceDebugOutput(..))
+import Frontend.Inference.Processor
+    ( ExpandTypeSynonymsOutput
+    , KindInferenceDebugOutput(..)
+    )
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
     , Module
@@ -18,9 +21,14 @@ import Frontend.Syntax.Processor
 
 import Compiler.Prettify.Ast (prettifyAst)
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
+import Compiler.Prettify.ExpandTypeSynonymsOutput
+    ( prettifyExpandTypeSynonymsOutput
+    )
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
+import Compiler.Prettify.KindInferenceDebugOutput
+    ( prettifyKindInferenceDebugOutput
+    )
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
-import Compiler.Prettify.KindInferenceDebugOutput (prettifyKindInferenceDebugOutput)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -35,6 +43,7 @@ data DebugOutputType
     | DebugOutputTypeFixityResolution -- ^ AST and fixity of operators
     | DebugOutputTypeDesugaredAst -- ^ Desugared AST
     | DebugOutputTypeInferredKinds -- ^ Inferred kind information
+    | DebugOutputTypeTypeSynonyms -- ^ Expanded type synonyms
 
 -- | Class for types which can be converted to the debug output
 class HasDebugOutput a where
@@ -57,4 +66,13 @@ instance HasDebugOutput DesugaringOutput where
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
 instance HasDebugOutput KindInferenceDebugOutput where
-    getDebugOutput a = DebugOutput (prettifyKindInferenceDebugOutput a) DebugOutputTypeInferredKinds
+    getDebugOutput a =
+        DebugOutput
+            (prettifyKindInferenceDebugOutput a)
+            DebugOutputTypeInferredKinds
+
+instance HasDebugOutput ExpandTypeSynonymsOutput where
+    getDebugOutput a =
+        DebugOutput
+            (prettifyExpandTypeSynonymsOutput a)
+            DebugOutputTypeTypeSynonyms
