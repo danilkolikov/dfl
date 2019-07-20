@@ -9,7 +9,7 @@ Debug output of the DFL compiler
 module Compiler.DebugOutput where
 
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import Frontend.Inference.Processor (KindInferenceOutput(..))
+import Frontend.Inference.Processor (KindInferenceDebugOutput(..))
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
     , Module
@@ -20,7 +20,7 @@ import Compiler.Prettify.Ast (prettifyAst)
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
-import Compiler.Prettify.KindInferenceOutput (prettifyKindInferenceOutput)
+import Compiler.Prettify.KindInferenceDebugOutput (prettifyKindInferenceDebugOutput)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -56,5 +56,5 @@ instance HasDebugOutput DesugaringOutput where
     getDebugOutput a =
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
-instance HasDebugOutput KindInferenceOutput where
-    getDebugOutput a = DebugOutput (prettifyKindInferenceOutput a) DebugOutputTypeInferredKinds
+instance HasDebugOutput KindInferenceDebugOutput where
+    getDebugOutput a = DebugOutput (prettifyKindInferenceDebugOutput a) DebugOutputTypeInferredKinds

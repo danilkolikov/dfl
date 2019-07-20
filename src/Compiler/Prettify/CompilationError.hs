@@ -16,7 +16,7 @@ import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
 import Frontend.Inference.DependencyResolver
-import Frontend.Inference.Kind.DependencyGroup
+import Frontend.Inference.Kind.Equalities
 import Frontend.Inference.Processor
 import Frontend.Inference.Unification
 import Frontend.Syntax.Position (WithLocation(WithLocation))
@@ -166,9 +166,9 @@ prettifyKindInferenceError err =
             prettifyDependencyError dependencyError
         KindInferenceErrorUnification unificationError ->
             "Unification error: " ++ prettifyUnificationError unificationError
-        KindInferenceErrorDependencyGroupResolution groupError ->
+        KindInferenceErrorEqualityGeneration groupError ->
             "Dependency group inference error: " ++
-            prettifyDependencyGroupResolutionError groupError
+            prettifyEqualityGenerationError groupError
 
 prettifyDependencyError :: DependencyResolverError -> String
 prettifyDependencyError dependencyError =
@@ -187,16 +187,15 @@ prettifyUnificationError unificationError =
         UnificationErrorDifferentNumberOfArgs ->
             "Can't unify functions with different number of arguments"
 
-prettifyDependencyGroupResolutionError ::
-       DependencyGroupResolvingError -> String
-prettifyDependencyGroupResolutionError groupError =
+prettifyEqualityGenerationError :: EqualityGenerationError -> String
+prettifyEqualityGenerationError groupError =
     case groupError of
-        DependencyGroupResolvingErrorUnknownVariable name ->
+        EqualityGenerationErrorUnknownVariable name ->
             "Unknown variable " ++ prettifyName name
-        DependencyGroupResolvingErrorUnknownType name ->
+        EqualityGenerationErrorUnknownType name ->
             "Unknown type " ++ prettifyName name
-        DependencyGroupResolvingErrorUnknownClass name ->
+        EqualityGenerationErrorUnknownClass name ->
             "Unkonwn class " ++ prettifyName name
-        DependencyGroupResolvingErrorUnusedTypeVariable name _ ->
+        EqualityGenerationErrorUnusedTypeVariable name _ ->
             "Class parameter " ++
             prettifyIdent name ++ " is not used in the type signature"

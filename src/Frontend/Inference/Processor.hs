@@ -8,11 +8,15 @@ Processors of kind and type inference
 -}
 module Frontend.Inference.Processor
     ( InferenceError(..)
-    , KindInferenceState(..)
-    , Kind.KindInferenceOutput(..)
-    , Kind.KindInferenceGroupOutput(..)
+    , Signatures(..)
+    , Kind.KindInferenceDebugOutput(..)
+    , Kind.KindInferenceGroupDebugOutput(..)
     , Kind.KindInferenceError(..)
-    , emptyKindInferenceState
+    , Equalities(..)
+    , DependencyGroupItem(..)
+    , DependencyGroupItemEmpty
+    , DependencyGroupItemWithSignature
+    , emptySignatures
     , inferKinds
     ) where
 
@@ -29,9 +33,11 @@ data InferenceError =
 
 -- | Infer kinds of types in a module
 inferKinds ::
-       Module -> KindInferenceState -> Either InferenceError Kind.KindInferenceOutput
+       Module
+    -> Signatures
+    -> (Either InferenceError Signatures, Kind.KindInferenceDebugOutput)
 inferKinds module' state =
-    first InferenceErrorKind $
+    first (first InferenceErrorKind) $
     Kind.inferKinds
         (getModuleDataTypes module')
         (getModuleTypeSynonyms module')

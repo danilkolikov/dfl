@@ -8,11 +8,11 @@ Output of the DFL compiler
 -}
 module Compiler.Output where
 
-import Frontend.Inference.Processor (KindInferenceState)
+import Frontend.Inference.Processor (Signatures)
 import Frontend.Syntax.Processor (InfixOperators)
 
 -- | Result of compilation of a source file
 data Output = Output
     { getInfixOperators :: InfixOperators -- ^ Get map of infix operators
-    , getInferredKinds :: KindInferenceState -- ^ Get inferred kinds
+    , getInferredKinds :: Signatures -- ^ Get inferred kinds
     } deriving (Eq, Show)

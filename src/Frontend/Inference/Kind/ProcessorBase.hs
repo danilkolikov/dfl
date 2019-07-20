@@ -11,90 +11,74 @@ module Frontend.Inference.Kind.ProcessorBase where
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Kind.Ast
-import qualified Frontend.Syntax.Position as P
+import Frontend.Inference.Signature
 
--- | Environment of kind inference
+-- | An environment of kind inference
 data Environment = Environment
     { getTypeSynonyms :: F.TypeSynonyms -- ^ Defined type synonyms
     , getDataTypes :: F.DataTypes -- ^ Defined data types
     , getClasses :: F.Classes -- ^ Defined classes
     }
 
--- | Mapping from variables to variables with kinds
-type IdentToKindMapping = HM.HashMap Ident (WithKind Ident)
+-- | A single item of a dependency group
+data DependencyGroupItem a
+    = DependencyGroupItemTypeSynonym F.TypeSynonym
+                                     a -- ^ A type synonym
+    | DependencyGroupItemDataType F.DataType
+                                  a -- ^ A data type
+    | DependencyGroupItemClass F.Class
+                               a -- ^ A class
+    deriving (Eq, Show)
 
--- | Mapping of variables of a data type
-data DataTypeKindMapping = DataTypeKindMapping
-    { getDataTypeKindMappingName :: WithKind Ident
-    , getDataTypeKindMappingParams :: IdentToKindMapping
-    }
+-- | A single item of a dependency group without any additional information
+type DependencyGroupItemEmpty = DependencyGroupItem ()
 
--- | Mapping of variables of a type synonym
-data TypeSynonymKindMapping = TypeSynonymKindMapping
-    { getTypeSynonymKindMappingName :: WithKind Ident
-    , getTypeSynonymKindMappingParams :: IdentToKindMapping
-    }
+-- | A single item of a dependency group with a signature
+type DependencyGroupItemWithSignature
+     = DependencyGroupItem TypeConstructorSignature
 
--- | Mapping of variables of a class
-data ClassKindMapping = ClassKindMapping
-    { getClassKindMappingParam :: WithKind Ident
-    , getClassKindMappingMethods :: HM.HashMap Ident ( F.Method
-                                                     , IdentToKindMapping)
-    }
-
--- | Mapping of variables of a dependency group
-data KindMappings = KindMappings
-    { getDataTypeKindMappings :: HM.HashMap Ident ( F.DataType
-                                                  , DataTypeKindMapping)
-    , getTypeSynonymKindMappings :: HM.HashMap Ident ( F.TypeSynonym
-                                                     , TypeSynonymKindMapping)
-    , getClassKindMappings :: HM.HashMap Ident (F.Class, ClassKindMapping)
-    }
-
-instance Semigroup KindMappings where
-    (KindMappings d1 t1 c1) <> (KindMappings d2 t2 c2) =
-        KindMappings (d1 <> d2) (t1 <> t2) (c1 <> c2)
-
-instance Monoid KindMappings where
-    mempty = KindMappings mempty mempty mempty
-
--- | Structure with inferred kinds of a dependency group
-data KindInferenceState = KindInferenceState
-    { getResolvedTypeSynonyms :: TypeSynonyms
-    , getResolvedDataTypes :: DataTypes
-    , getResolvedClasses :: Classes
+-- | Signatures of entities in a dependency group
+data Signatures = Signatures
+    { getTypeSynonymSignatures :: HM.HashMap F.Ident TypeConstructorSignature -- ^ Signatures of type synonyms
+    , getDataTypeSignatures :: HM.HashMap F.Ident TypeConstructorSignature -- ^ Signatures of data types
+    , getClassSignatures :: HM.HashMap F.Ident TypeConstructorSignature -- ^ Signatures of classes
     } deriving (Eq, Show)
 
-instance Semigroup KindInferenceState where
-    (KindInferenceState t1 d1 c1) <> (KindInferenceState t2 d2 c2) =
-        KindInferenceState (t1 <> t2) (d1 <> d2) (c1 <> c2)
+instance Semigroup Signatures where
+    (Signatures d1 t1 c1) <> (Signatures d2 t2 c2) =
+        Signatures (d1 <> d2) (t1 <> t2) (c1 <> c2)
 
-instance Monoid KindInferenceState where
-    mempty = KindInferenceState mempty mempty mempty
-    mappend = (<>)
+instance Monoid Signatures where
+    mempty = Signatures mempty mempty mempty
 
--- | Empty kind inference state
-emptyKindInferenceState :: KindInferenceState
-emptyKindInferenceState = mempty
+-- | Empty signatures
+emptySignatures :: Signatures
+emptySignatures = mempty
 
-instance KindSubstitutable KindInferenceState where
-    substituteKind sub KindInferenceState { getResolvedTypeSynonyms = typeSynonyms
-                                          , getResolvedDataTypes = dataTypes
-                                          , getResolvedClasses = classes
-                                          } =
-        KindInferenceState
-            { getResolvedTypeSynonyms = HM.map (substituteKind sub) typeSynonyms
-            , getResolvedDataTypes = HM.map (substituteKind sub) dataTypes
-            , getResolvedClasses = HM.map (substituteKind sub) classes
-            }
+instance SortSubstitutable Signatures where
+    substituteSort sub (Signatures t d c) =
+        Signatures
+            (HM.map (substituteSort sub) t)
+            (HM.map (substituteSort sub) d)
+            (HM.map (substituteSort sub) c)
 
--- | Set kind to an object
-setKind :: P.WithLocation a -> Kind -> WithKind a
-setKind (P.WithLocation x loc) = WithKind x loc
+instance KindSubstitutable Signatures where
+    substituteKind sub sorts (Signatures t d c) =
+        Signatures
+            (HM.map (substituteKind sub sorts) t)
+            (HM.map (substituteKind sub sorts) d)
+            (HM.map (substituteKind sub sorts) c)
 
--- | Create mapping from idents to kinds
-createMapping :: [WithKind Ident] -> IdentToKindMapping
-createMapping params =
-    let prepareParam withKind = (getValue withKind, withKind)
-     in HM.fromList $ map prepareParam params
+-- | Equalities between kinds and sorts
+data Equalities = Equalities
+    { getKindEqualities :: [(Kind, Kind)] -- ^ A list of equalities between kinds
+    , getSortEqualities :: [(Sort, Sort)] -- ^ A list of equalities between sorts
+    , getHasSortEqualities :: [(Kind, Sort)] -- ^ A list of statements that a kind has a sort
+    } deriving (Eq, Show)
+
+instance Semigroup Equalities where
+    Equalities k1 s1 m1 <> Equalities k2 s2 m2 =
+        Equalities (k1 <> k2) (s1 <> s2) (m1 <> m2)
+
+instance Monoid Equalities where
+    mempty = Equalities mempty mempty mempty

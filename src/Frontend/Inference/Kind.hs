@@ -1,14 +1,15 @@
 {- |
-Module      :  Frontend.Inference.Kind.Kind
-Description :  Definition of kinds
+Module      :  Frontend.Inference.Kind
+Description :  Definition of a kind
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Module with the definition of kind
+Module with the definition of a kind
 -}
-module Frontend.Inference.Kind.Kind where
+module Frontend.Inference.Kind where
 
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 
 import Data.Maybe (fromMaybe)
 import Frontend.Desugaring.Final.Ast (Ident(..))
@@ -31,6 +32,14 @@ instance Substitutable Kind where
             KindVar ident -> fromMaybe kind (HM.lookup ident sub)
             KindFunction from to ->
                 KindFunction (substitute sub from) (substitute sub to)
+
+instance WithVariables Kind where
+    getFreeVariables kind =
+        case kind of
+            KindStar -> HS.empty
+            KindVar ident -> HS.singleton ident
+            KindFunction from to ->
+                getFreeVariables from `HS.union` getFreeVariables to
 
 instance IsAlgebraicExp Kind where
     toAlgebraicExp kind =

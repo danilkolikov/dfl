@@ -58,5 +58,6 @@ prettifyIdentEnvironment env =
         IdentEnvironmentRecordDesugaring -> "record"
         IdentEnvironmentExpressionDesugaring -> "exp"
         IdentEnvironmentDependencyResolution -> "dep"
-        IdentEnvironmentDependencyGroupResolution -> "depg"
-        IdentEnvironmentKindInference -> "kind"
+        IdentEnvironmentTypeVariable -> "type"
+        IdentEnvironmentKindVariable -> "kind"
+        IdentEnvironmentSortVariable -> "sort"

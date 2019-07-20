@@ -23,8 +23,9 @@ data IdentEnvironment
     = IdentEnvironmentRecordDesugaring -- ^ Identifiers, generated during record desugaring
     | IdentEnvironmentExpressionDesugaring -- ^ Identifiers, generated during expression desugaring
     | IdentEnvironmentDependencyResolution -- ^ Identifiers, generated during dependency resolution
-    | IdentEnvironmentDependencyGroupResolution -- ^ Identifiers, generated during resolution of dependency groups
-    | IdentEnvironmentKindInference -- ^ Identifiers, generated during type inference
+    | IdentEnvironmentTypeVariable -- ^ Identifiers, generated for type variables
+    | IdentEnvironmentKindVariable -- ^ Identifiers, generated for kind variables
+    | IdentEnvironmentSortVariable -- ^ Identifiers, generated for sort variables
     deriving (Show, Eq, Generic)
 
 instance Hashable IdentEnvironment

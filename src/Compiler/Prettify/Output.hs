@@ -10,7 +10,7 @@ module Compiler.Prettify.Output where
 
 import Compiler.Output
 import Compiler.Prettify.FixityResolutionOutput (prettifyOperators)
-import Compiler.Prettify.KindInferenceOutput (prettifyState)
+import Compiler.Prettify.KindInferenceDebugOutput (prettifySignatures)
 import Compiler.Prettify.Utils
 
 prettifyOutput :: Output -> String
@@ -19,5 +19,5 @@ prettifyOutput Output {getInfixOperators = operators, getInferredKinds = kinds} 
         [ prettifyHeader "Infix operators"
         , prettifyOperators operators
         , prettifyHeader "Inferred kinds"
-        , prettifyState kinds
+        , prettifySignatures kinds
         ]

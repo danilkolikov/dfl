@@ -68,18 +68,23 @@ library:
   - Frontend.Desugaring.Initial.Utils
   - Frontend.Desugaring.Processor
   - Frontend.Inference.AlgebraicExp
+  - Frontend.Inference.Constraint
   - Frontend.Inference.DependencyResolver
-  - Frontend.Inference.Kind.Ast
-  - Frontend.Inference.Kind.DependencyGroup
-  - Frontend.Inference.Kind.Kind
-  - Frontend.Inference.Kind.KindMapping
+  - Frontend.Inference.Kind
+  - Frontend.Inference.Kind.DependencyGroupResolver
+  - Frontend.Inference.Kind.Equalities
   - Frontend.Inference.Kind.Processor
   - Frontend.Inference.Kind.ProcessorBase
+  - Frontend.Inference.Kind.Signatures
   - Frontend.Inference.Kind.WithDependencies
   - Frontend.Inference.Processor
+  - Frontend.Inference.Signature
+  - Frontend.Inference.Sort
   - Frontend.Inference.Substitution
+  - Frontend.Inference.Type
   - Frontend.Inference.Type.WithDependencies
   - Frontend.Inference.Unification
+  - Frontend.Inference.Variables
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
   - Frontend.Syntax.EntityName
