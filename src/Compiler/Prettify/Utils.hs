@@ -14,9 +14,8 @@ import qualified Data.List.NonEmpty as NE
 import Data.Tuple (swap)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
-import Frontend.Inference.Kind
-import Frontend.Inference.Sort
-import Frontend.Inference.Type
+import Frontend.Inference.Constraint
+import Frontend.Inference.Signature
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
 import Frontend.Syntax.Token
@@ -98,3 +97,38 @@ prettifyType type' =
             "(" ++
             prettifyType func ++
             " " ++ unwords (map prettifyType $ NE.toList args) ++ ")"
+
+prettifyConstraint :: Constraint -> String
+prettifyConstraint constraint =
+    case constraint of
+        ConstraintVariable class' type' ->
+            unwords [prettifyIdent class', prettifyType type']
+        ConstraintType class' type' args ->
+            unwords
+                [ prettifyIdent class'
+                , "(" ++
+                  unwords
+                      (prettifyIdent type' : map prettifyType (NE.toList args)) ++
+                  ")"
+                ]
+
+prettifyTypeSignature :: (Ident, TypeSignature) -> String
+prettifyTypeSignature (name, sig@TypeSignature { getTypeSignatureKindParams = kindParams
+                                               , getTypeSignatureTypeParams = typeParams
+                                               , getTypeSignatureType = type'
+                                               , getTypeSignatureContext = context
+                                               }) =
+    unwords
+        [ prettifyIdent name
+        , "::" ++ prettifyContext context
+        , prettifyForAll typeParams ++ prettifyType type'
+        , "::"
+        , prettifyForAll kindParams ++ prettifyKind (getFullKind sig)
+        , "::"
+        , prettifySort (getFullSort sig)
+        ]
+
+prettifyContext :: [Constraint] -> String
+prettifyContext [] = ""
+prettifyContext constraints =
+    " (" ++ intercalate ", " (map prettifyConstraint constraints) ++ ") =>"

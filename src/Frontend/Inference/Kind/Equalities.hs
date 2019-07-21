@@ -8,11 +8,11 @@ Functions for generation of equalities between kinds and sorts
 -}
 module Frontend.Inference.Kind.Equalities where
 
-import Control.Monad (unless, void)
+import Control.Monad ((>=>), unless)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.Reader (ReaderT, asks, local, runReaderT)
-import Control.Monad.Trans.Writer.Lazy (WriterT, execWriterT, tell)
+import Control.Monad.Trans.Writer.Lazy (WriterT, execWriterT, runWriterT, tell)
 import Data.Bifunctor (second)
 import Data.Foldable (asum)
 import qualified Data.HashMap.Lazy as HM
@@ -21,11 +21,13 @@ import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.Kind.ProcessorBase
+import Frontend.Inference.Kind.Signatures (createSignature)
 import Frontend.Inference.Signature hiding
     ( Constraint(..)
     , Type(..)
     , TypeSignature(..)
     )
+import qualified Frontend.Inference.Signature as S
 import Frontend.Inference.Substitution
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.Position
@@ -77,52 +79,71 @@ raiseError = lift . lift . throwE
 liftGen :: VariableGenerator a -> EqualityGenerator a
 liftGen = lift . lift . lift
 
--- | Collect equalities between kinds of a single dependency group
-generateEqualitiesForGroup ::
-       [DependencyGroupItemWithSignature]
+-- | Collect equalities between kinds of a single object
+generateEqualitiesForObject ::
+       (WithEqualities a)
+    => a
     -> Signatures
     -> VariableGenerator (Either EqualityGenerationError Equalities)
-generateEqualitiesForGroup group signatures =
+generateEqualitiesForObject object signatures =
     let localEnvironment =
             LocalEnvironment
                 {getSignatures = signatures, getParamsKindMap = HM.empty}
-        localResolver = generateMultipleEqualities group
+        localResolver = generateEqualities object
         writer = runReaderT localResolver localEnvironment
         except = execWriterT writer
      in runExceptT except
 
--- | Collect equalities between kinds of a single dependency group
-generateMultipleEqualities ::
-       [DependencyGroupItemWithSignature] -> EqualityGenerator ()
-generateMultipleEqualities = mapM_ generateEqualities
+-- | Runs the equality generator
+runEqualitiesGenerator ::
+       EqualityGenerator a
+    -> Signatures
+    -> Either EqualityGenerationError (a, Equalities)
+runEqualitiesGenerator generator signatures =
+    let localEnvironment =
+            LocalEnvironment
+                {getSignatures = signatures, getParamsKindMap = HM.empty}
+        writer = runReaderT generator localEnvironment
+        except = runWriterT writer
+        variables = runExceptT except
+     in evalVariableGenerator variables
 
--- | Generate equalities for a group item
-generateEqualities :: DependencyGroupItemWithSignature -> EqualityGenerator ()
-generateEqualities (DependencyGroupItemTypeSynonym typeSynonym signature) = do
-    resultKind <-
+-- | A class of types for which it's posible to generate equalities between
+-- | kinds and sorts
+class WithEqualities a where
+    generateEqualities :: a -> EqualityGenerator () -- ^ Generate equalities for an object
+
+instance (WithEqualities a) => WithEqualities (WithLocation a) where
+    generateEqualities = generateEqualities . getValue
+
+instance (WithEqualities a) => WithEqualities [a] where
+    generateEqualities = mapM_ generateEqualities
+
+instance (WithSort s, WithKindParams s, WithKind s, WithTypeParams s) =>
+         WithEqualities (DependencyGroupItem s) where
+    generateEqualities (DependencyGroupItemTypeSynonym typeSynonym signature) = do
+        resultKind <-
+            withTypeParameters signature $
+            generateTypeEqualities (getTypeSynonymType typeSynonym)
+        writeSignatureEqualities signature resultKind
+    generateEqualities (DependencyGroupItemDataType dataType signature) = do
+        withTypeParameters signature . generateEqualities $
+            getDataTypeContext dataType
+        withTypeParameters signature . generateEqualities . map snd $
+            getDataTypeConstructors dataType
+        writeSignatureEqualities signature KindStar
+    generateEqualities (DependencyGroupItemClass cls signature) = do
+        withTypeParameters signature . generateEqualities $ getClassContext cls
         withTypeParameters signature $
-        generateTypeEqualities (getTypeSynonymType typeSynonym)
-    writeSignatureEqualities signature resultKind
-generateEqualities (DependencyGroupItemDataType dataType signature) = do
-    withTypeParameters signature $
-        mapM_ generateConstraintEqualities (getDataTypeContext dataType)
-    withTypeParameters signature $
-        mapM_
-            (generateConstructorEqualities . snd)
-            (getDataTypeConstructors dataType)
-    writeSignatureEqualities signature KindStar
-generateEqualities (DependencyGroupItemClass cls signature) = do
-    withTypeParameters signature $
-        mapM_ generateSimpleConstraintEqualities (getClassContext cls)
-    withTypeParameters signature $
-        mapM_
-            (generateMethodEqualities . snd)
-            (HM.toList . getClassMethods $ cls)
-    writeSignatureEqualities signature KindStar
+            generateEqualities . map snd . HM.toList . getClassMethods $ cls
+        writeSignatureEqualities signature KindStar
 
 -- | Save equalities, derivable from a type constructor signature
 writeSignatureEqualities ::
-       TypeConstructorSignature -> Kind -> EqualityGenerator ()
+       (WithSort s, WithKindParams s, WithKind s, WithTypeParams s)
+    => s
+    -> Kind
+    -> EqualityGenerator ()
 writeSignatureEqualities signature resultKind = do
     let params = getTypeParams signature
     -- Assign sorts to kind variables
@@ -141,7 +162,7 @@ writeSignatureEqualities signature resultKind = do
 
 -- | Execute the action with the list of parameters
 withTypeParameters ::
-       TypeConstructorSignature -> EqualityGenerator a -> EqualityGenerator a
+       (WithTypeParams s) => s -> EqualityGenerator a -> EqualityGenerator a
 withTypeParameters signature =
     local (defineParameters $ getTypeParams signature)
 
@@ -165,67 +186,76 @@ generateTypeEqualities type' =
             writeKindEqualities [(funcKind, expectedKind)]
             return resultKind
 
--- | Collect equalities between kinds in a constraint
-generateConstraintEqualities :: WithLocation Constraint -> EqualityGenerator ()
-generateConstraintEqualities constr =
-    case getValue constr of
-        ConstraintParam class' param -> do
-            kind <- lookupTypeVariable param
-            classKind <-
-                lookupClassSignature class' >>= specialiseClassSignature
-            writeKindEqualities [(kind, classKind)]
-        ConstraintType class' type' params -> do
-            classKind <-
-                lookupClassSignature class' >>= specialiseClassSignature
-            typeKind <- lookupTypeSignature type' >>= specialiseTypeSignature
-            paramsKinds <- mapM generateTypeEqualities params
-            let expectedKind = foldr KindFunction classKind paramsKinds
-            writeKindEqualities [(typeKind, expectedKind)]
+instance WithEqualities Constraint where
+    generateEqualities constr =
+        case constr of
+            ConstraintParam class' param -> do
+                kind <- lookupTypeVariable param
+                classKind <-
+                    lookupClassSignature class' >>= specialiseClassSignature
+                writeKindEqualities [(kind, classKind)]
+            ConstraintType class' type' params -> do
+                classKind <-
+                    lookupClassSignature class' >>= specialiseClassSignature
+                typeKind <-
+                    lookupTypeSignature type' >>= specialiseTypeSignature
+                paramsKinds <- mapM generateTypeEqualities params
+                let expectedKind = foldr KindFunction classKind paramsKinds
+                writeKindEqualities [(typeKind, expectedKind)]
 
--- | Collect equalities between kinds in a simple constraint
-generateSimpleConstraintEqualities ::
-       WithLocation SimpleConstraint -> EqualityGenerator ()
-generateSimpleConstraintEqualities constr =
-    case getValue constr of
-        SimpleConstraint class' param -> do
-            kind <- lookupTypeVariable param
-            classKind <-
-                lookupClassSignature class' >>= specialiseClassSignature
-            writeKindEqualities [(kind, classKind)]
+instance WithEqualities SimpleConstraint where
+    generateEqualities constr =
+        case constr of
+            SimpleConstraint class' param -> do
+                kind <- lookupTypeVariable param
+                classKind <-
+                    lookupClassSignature class' >>= specialiseClassSignature
+                writeKindEqualities [(kind, classKind)]
 
--- | Collect equalities between kinds in a constructor
-generateConstructorEqualities :: Constructor -> EqualityGenerator ()
-generateConstructorEqualities Constructor {getConstructorArgs = args} = do
-    argKinds <- mapM generateTypeEqualities args
+instance WithEqualities Constructor where
+    generateEqualities Constructor {getConstructorArgs = args} = do
+        argKinds <- mapM generateTypeEqualities args
     -- Kind of every argument is *
-    writeKindEqualities $ map (\k -> (k, KindStar)) argKinds
+        writeKindEqualities $ map (\k -> (k, KindStar)) argKinds
 
--- | Collect equalities between kinds in a method
-generateMethodEqualities :: Method -> EqualityGenerator ()
-generateMethodEqualities Method {getMethodType = type'} =
-    generateTypeSignatureEqualities type'
+instance WithEqualities Method where
+    generateEqualities = generateEqualities . getMethodType
 
--- | Collect equalities between kinds in a type signature
-generateTypeSignatureEqualities :: TypeSignature -> EqualityGenerator ()
-generateTypeSignatureEqualities typeSig@TypeSignature { getTypeSignatureContext = context
-                                                      , getTypeSignatureType = type'
-                                                      } = do
-    paramsMap <- asks getParamsKindMap
-    let freeVariables = getTypeVariables type'
-        definedVariables = HM.keysSet paramsMap
-        unusedVariables = definedVariables `HS.difference` freeVariables
-        newVariables = freeVariables `HS.difference` definedVariables
-        unusedVariablesList = HS.toList unusedVariables
-    unless (null unusedVariablesList) . raiseError $
-        EqualityGenerationErrorUnusedTypeVariable
-            (head unusedVariablesList)
+instance WithEqualities TypeSignature where
+    generateEqualities = addParamsToTypeSignature >=> generateEqualities
+
+-- | A type which stores a type signature and new variables, generated for its params
+data TypeSignatureWithParams =
+    TypeSignatureWithParams TypeSignature
+                            S.TypeConstructorSignature
+
+-- | Generates new kinds for type variables of a signature
+addParamsToTypeSignature ::
+       TypeSignature -> EqualityGenerator TypeSignatureWithParams
+addParamsToTypeSignature sig@TypeSignature {getTypeSignatureType = type'} = do
+    signature <-
+        lift . lift . lift . createSignature . HS.toList . getTypeVariables $
+        type'
+    return $ TypeSignatureWithParams sig signature
+
+instance WithEqualities TypeSignatureWithParams where
+    generateEqualities (TypeSignatureWithParams typeSig params) = do
+        paramsMap <- asks getParamsKindMap
+        let freeVariables = HS.fromList . map fst . S.getTypeParams $ params
+            definedVariables = HM.keysSet paramsMap
+            unusedVariables = definedVariables `HS.difference` freeVariables
+            unusedVariablesList = HS.toList unusedVariables
+        unless (null unusedVariablesList) . raiseError $
+            EqualityGenerationErrorUnusedTypeVariable
+                (head unusedVariablesList)
+                typeSig
+        withTypeParameters params . generateEqualities . getTypeSignatureContext $
             typeSig
-    newParams <- mapM specialiseIdent $ HS.toList newVariables
-    writeHasSortEqualities $ map snd newParams
-    let newParamsMap = map (second fst) newParams
-        withFreeVars = local (defineParameters newParamsMap)
-    withFreeVars $ mapM_ generateConstraintEqualities context
-    void . withFreeVars $ generateTypeEqualities type'
+        resultKind <-
+            withTypeParameters params .
+            generateTypeEqualities . getTypeSignatureType $
+            typeSig
+        writeSignatureEqualities params resultKind
 
 -- | Get variables of a type
 getTypeVariables :: WithLocation Type -> HS.HashSet Ident

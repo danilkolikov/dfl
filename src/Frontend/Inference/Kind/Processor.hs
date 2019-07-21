@@ -21,7 +21,6 @@ import Control.Monad.Trans.State.Lazy
     , runState
     )
 import Data.Bifunctor (first)
-import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
 import Frontend.Desugaring.Final.Ast
@@ -30,9 +29,8 @@ import Frontend.Inference.Kind.DependencyGroupResolver
 import Frontend.Inference.Kind.Equalities
 import Frontend.Inference.Kind.ProcessorBase
 import Frontend.Inference.Kind.Signatures
+import Frontend.Inference.Kind.Solver
 import Frontend.Inference.Kind.WithDependencies
-import Frontend.Inference.Signature
-import Frontend.Inference.Substitution
 import Frontend.Inference.Unification
 import Frontend.Inference.Variables
 
@@ -55,9 +53,7 @@ data KindInferenceDebugOutput = KindInferenceDebugOutput
 data KindInferenceGroupDebugOutput = KindInferenceGroupDebugOutput
     { getKindInferenceGroupDebugOutputIdents :: Maybe [DependencyGroupItemEmpty] -- ^ List of idents in a group
     , getKindInferenceGroupDebugOutputInitialSignatures :: Maybe Signatures -- ^ Initial signatures
-    , getKindInferenceGroupDebugOutputEqualities :: Maybe Equalities -- ^ Equalities between kinds
-    , getKindInferenceGroupDebugOutputKindSubstitution :: Maybe (Substitution Kind) -- ^ Solution for kind equalities
-    , getKindInferenceGroupDebugOutputSortSubstitution :: Maybe (Substitution Sort) -- ^ Solution for sort equalities
+    , getKindInferenceGroupDebugOutputSolverOutput :: Maybe SolverDebugOutput -- ^ Debug output of a solver
     , getKindInferenceGroupDebugOutputSignatures :: Maybe Signatures -- ^ Inferred signatures
     } deriving (Eq, Show)
 
@@ -118,7 +114,10 @@ inferKinds' initialState = do
         (inferredSignatures, debugOutput) = runState debugState []
     -- Save debug output of steps
     modifyDebugOutput $ \s ->
-        s {getKindInferenceDebugOutputDependencyGroupOutputs = Just $ reverse debugOutput}
+        s
+            { getKindInferenceDebugOutputDependencyGroupOutputs =
+                  Just $ reverse debugOutput
+            }
     -- Return found signatures
     signatures <- lift $ except inferredSignatures
     modifyDebugOutput $ \s ->
@@ -136,9 +135,7 @@ appendEmptyGroupDebugOutput =
             KindInferenceGroupDebugOutput
                 { getKindInferenceGroupDebugOutputIdents = Nothing
                 , getKindInferenceGroupDebugOutputInitialSignatures = Nothing
-                , getKindInferenceGroupDebugOutputEqualities = Nothing
-                , getKindInferenceGroupDebugOutputKindSubstitution = Nothing
-                , getKindInferenceGroupDebugOutputSortSubstitution = Nothing
+                , getKindInferenceGroupDebugOutputSolverOutput = Nothing
                 , getKindInferenceGroupDebugOutputSignatures = Nothing
                 }
      in lift . lift . lift . modify $ \s -> emptyDebugOutput : s
@@ -161,50 +158,20 @@ inferSingleGroup group = do
     modifyGroupDebugOutput $ \s ->
         s {getKindInferenceGroupDebugOutputIdents = Just resolvedGroup}
     -- Collect equalities in the group
-    (signatures, equalities@Equalities { getKindEqualities = kindEqualities
-                                       , getSortEqualities = sortEqualities
-                                       , getHasSortEqualities = hasSortEqualities
-                                       }) <-
+    (signatures, equalities) <-
         lift . lift . except . wrapEqualityGenerationError $
         createEqualitiesForGroup resolvedGroup existingSignatures
-    modifyGroupDebugOutput $ \s ->
-        s
-            { getKindInferenceGroupDebugOutputInitialSignatures =
-                  Just signatures
-            , getKindInferenceGroupDebugOutputEqualities = Just equalities
-            }
-    -- Solve kind equalities
-    kindSubstitution <-
+    -- Solve equalities
+    (inferredSignatures, solverDebugOutput) <-
         lift . lift . except . wrapUnificationError $
-        unifyEqualities kindEqualities
+        solveEqualitiesAndApplySolution equalities signatures
     modifyGroupDebugOutput $ \s ->
         s
-            { getKindInferenceGroupDebugOutputKindSubstitution =
-                  Just kindSubstitution
+            { getKindInferenceGroupDebugOutputSignatures =
+                  Just inferredSignatures
+            , getKindInferenceGroupDebugOutputSolverOutput =
+                  Just solverDebugOutput
             }
-    -- Append extra sort equalities and solve them
-    let (substitutedHasSortEqualities, extraSortEqualities) =
-            createSortEqualities kindSubstitution hasSortEqualities
-        sortOfVariables = findSortOfVariables substitutedHasSortEqualities
-        allSortEqualities = sortEqualities ++ extraSortEqualities
-    sortSubstitution <-
-        lift . lift . except . wrapUnificationError $
-        unifyEqualities allSortEqualities
-    -- Replace all unbound sort variables with []
-    let fixedSortSubstitution =
-            fixSortVariables hasSortEqualities sortSubstitution
-    modifyGroupDebugOutput $ \s ->
-        s
-            { getKindInferenceGroupDebugOutputSortSubstitution =
-                  Just fixedSortSubstitution
-            }
-    -- Substitute all variables with found values
-    let inferredSignatures =
-            substituteSort fixedSortSubstitution .
-            substituteKind kindSubstitution sortOfVariables $
-            signatures
-    modifyGroupDebugOutput $ \s ->
-        s {getKindInferenceGroupDebugOutputSignatures = Just inferredSignatures}
     -- Add inferred signatures to the state
     let newState = existingSignatures <> inferredSignatures
     lift $ put newState
@@ -218,51 +185,8 @@ createEqualitiesForGroup group signatures =
     evalVariableGenerator $ do
         (extendedGroup, localSignatures) <- createSignaturesForGroup group
         let allSignatures = signatures <> localSignatures
-        equalities <- generateEqualitiesForGroup extendedGroup allSignatures
+        equalities <- generateEqualitiesForObject extendedGroup allSignatures
         return $ (\c -> (localSignatures, c)) <$> equalities
-
--- | Create additional equalities between sorts using a solution for kind equalities
-createSortEqualities ::
-       Substitution Kind -> [(Kind, Sort)] -> ([(Kind, Sort)], [(Sort, Sort)])
-createSortEqualities sub hasSortEqualities =
-    let substituted = map (first $ substitute sub) hasSortEqualities
-        grouped = groupHasSortEqualities substituted
-        createEqualities [] = []
-        createEqualities [_] = []
-        createEqualities (s:rest) = map (\t -> (s, t)) rest
-        equalities = concatMap (createEqualities . snd) grouped
-     in (substituted, equalities)
-
--- | Group equal sorts by corresponding kinds
-groupHasSortEqualities :: [(Kind, Sort)] -> [(Kind, [Sort])]
-groupHasSortEqualities = foldr insertSortEquality []
-  where
-    insertSortEquality :: (Kind, Sort) -> [(Kind, [Sort])] -> [(Kind, [Sort])]
-    insertSortEquality x@(kind, sort) gr =
-        case gr of
-            [] -> [(kind, [sort])]
-            firstGroup@(grKind, grSorts):rest ->
-                if kind == grKind
-                    then (grKind, sort : grSorts) : rest
-                    else firstGroup : insertSortEquality x rest
-
--- | Find sort of free variables
-findSortOfVariables :: [(Kind, Sort)] -> [(Ident, Sort)]
-findSortOfVariables =
-    let processSingle (KindVar name, s) = [(name, s)]
-        processSingle _ = []
-     in concatMap processSingle
-
--- | Replace free sort variables with []
-fixSortVariables :: [(Kind, Sort)] -> Substitution Sort -> Substitution Sort
-fixSortVariables hasSortEqualities sub =
-    let freeVariables =
-            HS.unions . map getFreeVariables $
-            HM.elems sub ++ map snd hasSortEqualities
-        fixVariablesSubstitution =
-            HM.fromList . map (\v -> (v, SortSquare)) . HS.toList $
-            freeVariables
-     in sub `compose` fixVariablesSubstitution
 
 -- | Wrap dependency resolver error
 wrapDependencyResolverError ::

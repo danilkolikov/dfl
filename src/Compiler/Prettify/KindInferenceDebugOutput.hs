@@ -16,6 +16,7 @@ import Data.Maybe (catMaybes)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.DependencyResolver
+import Frontend.Inference.Kind.Solver
 import Frontend.Inference.Processor
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
@@ -85,9 +86,7 @@ prettifyGroupIdents = unwords . map prettifyIdent . HS.toList
 prettifyGroupDebugOutput :: KindInferenceGroupDebugOutput -> String
 prettifyGroupDebugOutput KindInferenceGroupDebugOutput { getKindInferenceGroupDebugOutputIdents = group
                                                        , getKindInferenceGroupDebugOutputInitialSignatures = initialSignatures
-                                                       , getKindInferenceGroupDebugOutputEqualities = equalities
-                                                       , getKindInferenceGroupDebugOutputKindSubstitution = kindSubstitution
-                                                       , getKindInferenceGroupDebugOutputSortSubstitution = sortSubstitution
+                                                       , getKindInferenceGroupDebugOutputSolverOutput = solverDebugOutput
                                                        , getKindInferenceGroupDebugOutputSignatures = signatures
                                                        } =
     let prettifyGroupHeader grp =
@@ -96,7 +95,22 @@ prettifyGroupDebugOutput KindInferenceGroupDebugOutput { getKindInferenceGroupDe
         prettifyInitialSignatures sigs =
             unlines
                 [prettifyHeader "Initial signatures", prettifySignatures sigs]
-        prettifyGroupEqualities eqs =
+        prettifyGroupSignatures sigs =
+            unlines
+                [prettifyHeader "Inferred signatures", prettifySignatures sigs]
+     in unlines . catMaybes $
+        [ prettifyGroupHeader <$> group
+        , prettifyInitialSignatures <$> initialSignatures
+        , prettifySolverDebugOutput <$> solverDebugOutput
+        , prettifyGroupSignatures <$> signatures
+        ]
+
+prettifySolverDebugOutput :: SolverDebugOutput -> String
+prettifySolverDebugOutput SolverDebugOutput { getSolverDebugOutputEqualities = equalities
+                                            , getSolverDebugOutputKindSubstitution = kindSubstitution
+                                            , getSolverDebugOutputSortSubstitution = sortSubstitution
+                                            } =
+    let prettifyGroupEqualities eqs =
             unlines [prettifyHeader "Equalities", prettifyEqualities eqs]
         prettifyKindSubstitution sub =
             unlines
@@ -108,16 +122,10 @@ prettifyGroupDebugOutput KindInferenceGroupDebugOutput { getKindInferenceGroupDe
                 [ prettifyHeader "Sort substitution"
                 , prettifySubstitution prettifySort sub
                 ]
-        prettifyGroupSignatures sigs =
-            unlines
-                [prettifyHeader "Inferred signatures", prettifySignatures sigs]
      in unlines . catMaybes $
-        [ prettifyGroupHeader <$> group
-        , prettifyInitialSignatures <$> initialSignatures
-        , prettifyGroupEqualities <$> equalities
+        [ prettifyGroupEqualities <$> equalities
         , prettifyKindSubstitution <$> kindSubstitution
         , prettifySortSubstitution <$> sortSubstitution
-        , prettifyGroupSignatures <$> signatures
         ]
 
 prettifyGroup :: DependencyGroupItemEmpty -> String

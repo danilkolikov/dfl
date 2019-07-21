@@ -22,6 +22,7 @@ compileSourceFile = do
     let initialInfixOperators = HM.empty
         initialDesugaringState = emptyDesugaringState
         initialKindInferenceState = emptySignatures
+        initialTypeInferenceState = emptyTypeSignatures
     fileName <- getSourceFileName
     fileContent <- readFileContent fileName
     lexems <- traceStep $ lexicalAnalysis fileName fileContent
@@ -37,9 +38,17 @@ compileSourceFile = do
         inferKinds desugared initialKindInferenceState
     ExpandTypeSynonymsOutput {getExpandTypeSynonymSignatures = expandedTypeSynonyms} <-
         traceStep $ expandTypeSynonyms desugared inferredKinds
+    inferredTypes <-
+        traceStep $
+        inferTypes
+            desugared
+            inferredKinds
+            expandedTypeSynonyms
+            initialTypeInferenceState
     writeOutput
         Output
             { getInfixOperators = infixOperators
             , getInferredKinds = inferredKinds
             , getExpandedTypeSynonyms = expandedTypeSynonyms
+            , getInferredTypes = inferredTypes
             }

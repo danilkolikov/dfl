@@ -76,12 +76,17 @@ library:
   - Frontend.Inference.Kind.Processor
   - Frontend.Inference.Kind.ProcessorBase
   - Frontend.Inference.Kind.Signatures
+  - Frontend.Inference.Kind.Solver
   - Frontend.Inference.Kind.WithDependencies
   - Frontend.Inference.Processor
   - Frontend.Inference.Signature
   - Frontend.Inference.Sort
   - Frontend.Inference.Substitution
   - Frontend.Inference.Type
+  - Frontend.Inference.Type.Classes
+  - Frontend.Inference.Type.DataTypes
+  - Frontend.Inference.Type.Processor
+  - Frontend.Inference.Type.Signatures
   - Frontend.Inference.Type.WithDependencies
   - Frontend.Inference.TypeSynonyms.Dependencies
   - Frontend.Inference.TypeSynonyms.Expand

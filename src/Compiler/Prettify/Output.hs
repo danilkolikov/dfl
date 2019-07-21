@@ -16,12 +16,14 @@ import Compiler.Prettify.FixityResolutionOutput (prettifyOperators)
 import qualified Compiler.Prettify.KindInferenceDebugOutput as Kind
     ( prettifySignatures
     )
+import Compiler.Prettify.TypeSignatures (prettifyTypeSignatures)
 import Compiler.Prettify.Utils
 
 prettifyOutput :: Output -> String
 prettifyOutput Output { getInfixOperators = operators
                       , getInferredKinds = kinds
                       , getExpandedTypeSynonyms = signatures
+                      , getInferredTypes = types
                       } =
     unlines
         [ prettifyHeader "Infix operators"
@@ -30,4 +32,6 @@ prettifyOutput Output { getInfixOperators = operators
         , Kind.prettifySignatures kinds
         , prettifyHeader "Type synonyms"
         , TypeSynonyms.prettifySignatures signatures
+        , prettifyHeader "Inferred types"
+        , prettifyTypeSignatures types
         ]

@@ -9,10 +9,12 @@ Processors of kind and type inference
 module Frontend.Inference.Processor
     ( InferenceError(..)
     , Signatures(..)
+    , Type.TypeSignatures(..)
     , TypeSynonymSignatures
     , Kind.KindInferenceDebugOutput(..)
     , Kind.KindInferenceGroupDebugOutput(..)
     , Kind.KindInferenceError(..)
+    , Type.TypeInferenceError(..)
     , ExpandTypeSynonymsOutput(..)
     , TypeSynonymsProcessingError(..)
     , Equalities(..)
@@ -20,8 +22,10 @@ module Frontend.Inference.Processor
     , DependencyGroupItemEmpty
     , DependencyGroupItemWithSignature
     , emptySignatures
+    , Type.emptyTypeSignatures
     , inferKinds
     , expandTypeSynonyms
+    , inferTypes
     ) where
 
 import Data.Bifunctor (bimap, first)
@@ -29,12 +33,14 @@ import Data.Bifunctor (bimap, first)
 import Frontend.Desugaring.Final.Ast (Module(..))
 import qualified Frontend.Inference.Kind.Processor as Kind
 import Frontend.Inference.Kind.ProcessorBase
+import qualified Frontend.Inference.Type.Processor as Type
 import Frontend.Inference.TypeSynonyms.Processor
 
 -- | Errors which can be encounterd during inference
 data InferenceError
-    = InferenceErrorKind Kind.KindInferenceError -- ^ Kind inference error
-    | InferenceErrorTypeSynonyms TypeSynonymsProcessingError
+    = InferenceErrorKind Kind.KindInferenceError -- ^ A kind inference error
+    | InferenceErrorTypeSynonyms TypeSynonymsProcessingError -- ^ An error of type synonyms expanding
+    | InferenceErrorType Type.TypeInferenceError -- ^ A type inference error
     deriving (Eq, Show)
 
 -- | Infer kinds of types in a module
@@ -63,3 +69,14 @@ expandTypeSynonyms module' signatures =
     processSignatures
         (getModuleTypeSynonyms module')
         (getTypeSynonymSignatures signatures)
+
+-- | Infers types of a modules
+inferTypes ::
+       Module
+    -> Signatures
+    -> TypeSynonymSignatures
+    -> Type.TypeSignatures
+    -> Either InferenceError Type.TypeSignatures
+inferTypes module' signatures typeSynonyms initial =
+    first InferenceErrorType $
+    Type.inferTypes module' signatures typeSynonyms initial

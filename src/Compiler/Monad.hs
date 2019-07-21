@@ -65,3 +65,4 @@ debugOutputTypeToSuffix type' =
         DebugOutputTypeInferredKinds -> "kinds"
         DebugOutputTypeFixityResolution -> "fixity"
         DebugOutputTypeTypeSynonyms -> "synonyms"
+        DebugOutputTypeInferredTypes -> "types"

@@ -12,6 +12,7 @@ import Frontend.Desugaring.Processor (DesugaringOutput(..))
 import Frontend.Inference.Processor
     ( ExpandTypeSynonymsOutput
     , KindInferenceDebugOutput(..)
+    , TypeSignatures
     )
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
@@ -29,6 +30,7 @@ import Compiler.Prettify.KindInferenceDebugOutput
     ( prettifyKindInferenceDebugOutput
     )
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
+import Compiler.Prettify.TypeSignatures (prettifyTypeSignatures)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -44,6 +46,7 @@ data DebugOutputType
     | DebugOutputTypeDesugaredAst -- ^ Desugared AST
     | DebugOutputTypeInferredKinds -- ^ Inferred kind information
     | DebugOutputTypeTypeSynonyms -- ^ Expanded type synonyms
+    | DebugOutputTypeInferredTypes -- ^ Inferred types
 
 -- | Class for types which can be converted to the debug output
 class HasDebugOutput a where
@@ -76,3 +79,7 @@ instance HasDebugOutput ExpandTypeSynonymsOutput where
         DebugOutput
             (prettifyExpandTypeSynonymsOutput a)
             DebugOutputTypeTypeSynonyms
+
+instance HasDebugOutput TypeSignatures where
+    getDebugOutput a =
+        DebugOutput (prettifyTypeSignatures a) DebugOutputTypeInferredTypes
