@@ -26,7 +26,7 @@ prettifyDesugaringOutput DesugaringOutput { getDesugaringOutputAst = ast
 
 prettifyState :: DesugaringState -> String
 prettifyState (DesugaringState typeNames classNames functionNames fields constructors) =
-    let listKeys = unwords . map prettifyIdent . HM.keys
+    let listKeys = unwords . map prettify . HM.keys
      in unlines
             [ "Types: " ++ listKeys typeNames
             , "Classes: " ++ listKeys classNames

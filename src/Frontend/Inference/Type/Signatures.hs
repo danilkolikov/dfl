@@ -9,77 +9,104 @@ Function for signatures checking
 module Frontend.Inference.Type.Signatures where
 
 import Data.Bifunctor (first)
+import qualified Data.HashMap.Lazy as HM
+import Data.Maybe (fromJust, mapMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
+import Frontend.Inference.Base.Common
+import Frontend.Inference.Base.DebugOutput
+import Frontend.Inference.Base.Descriptor
+import Frontend.Inference.Base.SingleGroupProcessor
 import Frontend.Inference.Constraint
 import Frontend.Inference.Kind.Equalities
-import Frontend.Inference.Kind.ProcessorBase (Signatures)
-import Frontend.Inference.Kind.Solver
 import Frontend.Inference.Signature
+import Frontend.Inference.Solver
 import Frontend.Inference.TypeSynonyms.Expand
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
-import Frontend.Inference.Unification
+import Frontend.Inference.Variables
 import Frontend.Syntax.Position (WithLocation(..))
 
--- | A type of errors which can be encountered during inference of a signature
-data TypeSignatureInferrenceError
-    = TypeSignatureInferrenceErrorEqualityGeneration EqualityGenerationError -- ^ An error of equality generation
-    | TypeSignatureInferrenceErrorUnification UnificationError -- ^ An unification error
-    | TypeSignatureInferrenceErrorTypeSynonyms TypeSynonymsExpandingError -- ^ A type synonym expanding error
-    deriving (Eq, Show)
-
--- | Infers kind and sort for a type signature, and expands type synonyms
-inferTypeSignature ::
-       Signatures
+-- | Infers kinds of explicit type signatures
+inferTypeSignatures ::
+       Signatures TypeConstructorSignature
     -> TypeSynonymSignatures
-    -> F.TypeSignature
-    -> Either TypeSignatureInferrenceError TypeSignature
-inferTypeSignature signatures typeSynonymSignatures signature = do
-    let generatedEqualities =
-            runEqualitiesGenerator
-                (generateEqualitiesForSignature signature)
-                signatures
-    -- Generate equalities for a signature
-    (params, equalities) <-
-        first TypeSignatureInferrenceErrorEqualityGeneration generatedEqualities
-    -- Solve equalities
-    let solvedEqualites = solveEqualitiesAndApplySolution equalities params
-    (TypeConstructorSignature { getTypeConstructorSignatureSort = sort
-                              , getTypeConstructorSignatureKindParams = kindParams
-                              , getTypeConstructorSignatureKind = kind
-                              , getTypeConstructorSignatureTypeParams = typeParams
-                              }, _) <-
-        first TypeSignatureInferrenceErrorUnification solvedEqualites
-    -- Expand type synonyms in the type
-    let expandedType =
-            expandTypeSynonyms
-                (F.getTypeSignatureType signature)
-                typeSynonymSignatures
-    finalType <- first TypeSignatureInferrenceErrorTypeSynonyms expandedType
-    -- Expand type synonyms in the context
-    let expandedContext =
-            mapM (expandConstraint typeSynonymSignatures) $
-            F.getTypeSignatureContext signature
-    finalContext <-
-        first TypeSignatureInferrenceErrorTypeSynonyms expandedContext
-    return
-        TypeSignature
-            { getTypeSignatureSort = sort
-            , getTypeSignatureKindParams = kindParams
-            , getTypeSignatureKind = kind
-            , getTypeSignatureTypeParams = typeParams
-            , getTypeSignatureType = finalType
-            , getTypeSignatureContext = finalContext
-            }
+    -> F.Expressions
+    -> ( Either InferenceError (Signatures TypeSignature)
+       , SingleGroupInferenceDebugOutput)
+inferTypeSignatures signatures typeSynonyms expressions =
+    let getSignature (name, F.Expression {F.getExpressionType = maybeType}) =
+            (\t -> (name, t)) <$> maybeType
+        expressionSignatures =
+            HM.fromList . mapMaybe getSignature . HM.toList $ expressions
+     in inferTypeSignatures' signatures typeSynonyms expressionSignatures
 
--- | Generates equalities for a signature
-generateEqualitiesForSignature ::
-       F.TypeSignature -> EqualityGenerator TypeConstructorSignature
-generateEqualitiesForSignature signature = do
-    signatureWithParams@(TypeSignatureWithParams _ params) <-
-        addParamsToTypeSignature signature
-    generateEqualities signatureWithParams
-    return params
+-- | Describes inference of kinds of explicit type signatures
+signatureKindInferenceDescriptor ::
+       SingleGroupInferenceDescriptor (Signatures F.TypeSignature) (Signatures TypeConstructorSignature)
+signatureKindInferenceDescriptor =
+    SingleGroupInferenceDescriptor
+        { getSingleGroupInferenceDescriptorEqualitiesBuilder =
+              generateEqualitiesForSignatures
+        , getSingleGroupInferenceDescriptorApplySolution =
+              \e s -> HM.map (applyKindSolution e s)
+        }
+
+-- | Infers kinds of explicit type signatures
+inferTypeSignatures' ::
+       Signatures TypeConstructorSignature
+    -> TypeSynonymSignatures
+    -> Signatures F.TypeSignature
+    -> ( Either InferenceError (Signatures TypeSignature)
+       , SingleGroupInferenceDebugOutput)
+inferTypeSignatures' signatures typeSynonymSignatures signaturesMap =
+    let single =
+            inferSingleGroup
+                signatureKindInferenceDescriptor
+                InferenceEnvironment
+                    { getInferenceEnvironmentSignatures = signatures
+                    , getInferenceEnvironmentTypeVariables = HM.empty
+                    }
+                undefined -- recursive call is not used
+                signaturesMap
+                (HM.keys signaturesMap)
+                emptyVariableGeneratorState
+        (result, debugOutput) = runSingleGroupInferenceProcessor' single
+        expandSingle (name, typeSignature) = do
+            let sig = fromJust $ HM.lookup name signaturesMap
+            expanded <-
+                first InferenceErrorSynonyms $
+                expandSignatureType typeSynonymSignatures sig typeSignature
+            return (name, expanded)
+     in ( do (output, _, _) <- result
+             HM.fromList <$> mapM expandSingle (HM.toList output)
+        , debugOutput)
+
+-- | Expands explicit type signature
+expandSignatureType ::
+       TypeSynonymSignatures
+    -> F.TypeSignature
+    -> TypeConstructorSignature
+    -> Either TypeSynonymsExpandingError TypeSignature
+expandSignatureType typeSynonymSignatures typeSig constrSig
+    | TypeConstructorSignature { getTypeConstructorSignatureSort = sort
+                               , getTypeConstructorSignatureKindParams = kindParams
+                               , getTypeConstructorSignatureKind = kind
+                               , getTypeConstructorSignatureTypeParams = typeParams
+                               } <- constrSig
+    , F.TypeSignature { F.getTypeSignatureContext = context
+                      , F.getTypeSignatureType = type'
+                      } <- typeSig = do
+        expandedType <- expandTypeSynonyms type' typeSynonymSignatures
+        expandedContext <- mapM (expandConstraint typeSynonymSignatures) context
+        return
+            TypeSignature
+                { getTypeSignatureSort = sort
+                , getTypeSignatureKindParams = kindParams
+                , getTypeSignatureKind = kind
+                , getTypeSignatureTypeParams = typeParams
+                , getTypeSignatureType = expandedType
+                , getTypeSignatureContext = expandedContext
+                }
 
 -- | Expands type synonyms in a constraint
 expandConstraint ::

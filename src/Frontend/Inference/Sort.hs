@@ -14,6 +14,7 @@ import Data.Maybe (fromMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
 import Frontend.Inference.AlgebraicExp
+import Frontend.Inference.Expression
 import Frontend.Inference.Substitution
 import Frontend.Syntax.EntityName
 
@@ -34,6 +35,10 @@ instance Substitutable Sort where
                 SortFunction (substitute sub from) (substitute sub to)
 
 instance WithVariables Sort where
+    getVariableName sort =
+        case sort of
+            SortVar name -> Just name
+            _ -> Nothing
     getFreeVariables kind =
         case kind of
             SortSquare -> HS.empty

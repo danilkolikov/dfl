@@ -14,6 +14,7 @@ import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.AlgebraicExp
+import Frontend.Inference.Expression
 import Frontend.Inference.Substitution
 
 -- | Unifier of algebraic expression

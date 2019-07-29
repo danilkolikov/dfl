@@ -14,7 +14,10 @@ import qualified Data.List.NonEmpty as NE
 
 import Data.Maybe (fromMaybe)
 import Frontend.Desugaring.Final.Ast (Ident(..))
+import Frontend.Inference.AlgebraicExp
+import Frontend.Inference.Expression
 import Frontend.Inference.Substitution
+import Frontend.Syntax.EntityName
 
 -- | Type of an expression
 data Type
@@ -39,6 +42,10 @@ instance Substitutable Type where
                     (fmap (substitute sub) args)
 
 instance WithVariables Type where
+    getVariableName type' =
+        case type' of
+            TypeVar name -> Just name
+            _ -> Nothing
     getFreeVariables type' =
         case type' of
             TypeVar ident -> HS.singleton ident
@@ -48,3 +55,49 @@ instance WithVariables Type where
             TypeApplication func args ->
                 HS.unions $
                 getFreeVariables func : map getFreeVariables (NE.toList args)
+
+instance IsAlgebraicExp Type where
+    toAlgebraicExp kind =
+        case kind of
+            TypeVar name -> AlgebraicExpVar name
+            TypeConstr name -> AlgebraicExpFunc name []
+            TypeFunction from to ->
+                AlgebraicExpFunc
+                    (IdentNamed aPPLICATION_NAME)
+                    [ AlgebraicExpFunc (IdentNamed fUNCTION_NAME) []
+                    , toAlgebraicExp from
+                    , toAlgebraicExp to
+                    ]
+            TypeApplication func args ->
+                AlgebraicExpFunc
+                    (IdentNamed aPPLICATION_NAME)
+                    (toAlgebraicExp func : map toAlgebraicExp (NE.toList args))
+    fromAlgebraicExp aExp =
+        case aExp of
+            AlgebraicExpVar name -> return $ TypeVar name
+            AlgebraicExpFunc ident args ->
+                case ident of
+                    IdentNamed name
+                        | name == aPPLICATION_NAME ->
+                            case args of
+                                [] -> Nothing
+                                func:rest
+                                    | func ==
+                                          AlgebraicExpFunc
+                                              (IdentNamed fUNCTION_NAME)
+                                              []
+                                    , [from, to] <- rest -> do
+                                        fromType <- fromAlgebraicExp from
+                                        toType <- fromAlgebraicExp to
+                                        return $ TypeFunction fromType toType
+                                    | firstArg:restArgs <- rest -> do
+                                        funcType <- fromAlgebraicExp func
+                                        argTypes <-
+                                            mapM
+                                                fromAlgebraicExp
+                                                (firstArg NE.:| restArgs)
+                                        return $
+                                            TypeApplication funcType argTypes
+                                    | otherwise -> Nothing
+                        | otherwise -> return $ TypeConstr ident
+                    _ -> Nothing

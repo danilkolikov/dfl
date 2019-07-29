@@ -12,7 +12,6 @@ import Control.Monad.Trans.Reader (Reader, ask, local, runReader)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
-import Data.Maybe (isJust)
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
@@ -20,8 +19,8 @@ import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Get graph of dependencies between expressions
 getExpressionsDependencyGraph ::
-       Expressions -> HS.HashSet Ident -> DependencyGraph
-getExpressionsDependencyGraph exprs definedIdents =
+       HS.HashSet Ident -> Expressions -> DependencyGraph
+getExpressionsDependencyGraph definedIdents exprs =
     let getSingleExpressionDependencies expr =
             runReader (getExpressionDependencies expr) definedIdents
      in HM.map getSingleExpressionDependencies exprs
@@ -31,15 +30,8 @@ type DependencyGetter = Reader (HS.HashSet Ident) Dependencies
 
 -- | Get dependencies of an expression
 getExpressionDependencies :: Expression -> DependencyGetter
-getExpressionDependencies Expression { getExpressionName = name
-                                     , getExpressionBody = body
-                                     , getExpressionType = type'
-                                     } =
-    let handleTypeSignature =
-            if isJust type'
-                then local (HS.insert $ getValue name)
-                else id
-     in handleTypeSignature $ getExpDependencies body
+getExpressionDependencies Expression {getExpressionBody = body} =
+    getExpDependencies body
 
 -- | Get dependencies of an Exp
 getExpDependencies :: WithLocation Exp -> DependencyGetter

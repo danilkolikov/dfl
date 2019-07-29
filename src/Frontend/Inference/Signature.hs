@@ -20,13 +20,19 @@ module Frontend.Inference.Signature
     , WithKind(..)
     , WithTypeParams(..)
     , WithType(..)
+    , WithContext(..)
     , getFullSort
     , getFullKind
     , SortSignature(..)
+    , createSortSignature
     , KindConstructorSignature(..)
+    , createKindConstructorSignature
     , KindSignature(..)
+    , createKindSignature
     , TypeConstructorSignature(..)
+    , createTypeConstructorSignature
     , TypeSignature(..)
+    , createTypeSignature
     , Constraint(..)
     ) where
 
@@ -39,6 +45,7 @@ import Frontend.Inference.Constraint
 import Frontend.Inference.Kind
 import Frontend.Inference.Sort
 import Frontend.Inference.Substitution
+import Frontend.Inference.Expression
 import Frontend.Inference.Type
 
 -- | A class of types which support substitution of sort variables with sorts
@@ -79,6 +86,10 @@ class WithTypeParams a where
 class WithType a where
     getType :: a -> Type -- ^ Get a type of an object
 
+-- | A class of types which have a context
+class WithContext a where
+    getContext :: a -> [Constraint] -- ^ Get a context of an object
+
 -- | Get a full sort of an object, including it's parametrs
 getFullSort :: (WithSort a, WithKindParams a) => a -> Sort
 getFullSort a = foldr (SortFunction . snd) (getSort a) (getKindParams a)
@@ -98,6 +109,10 @@ instance WithSort SortSignature where
 instance SortSubstitutable SortSignature where
     substituteSort sub SortSignature {getSortSignatureSort = sort} =
         SortSignature {getSortSignatureSort = substitute sub sort}
+
+-- | Creates a sort signature
+createSortSignature :: (WithSort a) => a -> SortSignature
+createSortSignature s = SortSignature {getSortSignatureSort = getSort s}
 
 -- | A signature of a kind constructor
 data KindConstructorSignature = KindConstructorSignature
@@ -120,6 +135,15 @@ instance SortSubstitutable KindConstructorSignature where
             , getKindConstructorSignatureKindParams =
                   map (second $ substitute sub) kindParams
             }
+
+-- | Creates a kind constructor signature
+createKindConstructorSignature ::
+       (WithSort a, WithKindParams a) => a -> KindConstructorSignature
+createKindConstructorSignature s =
+    KindConstructorSignature
+        { getKindConstructorSignatureSort = getSort s
+        , getKindConstructorSignatureKindParams = getKindParams s
+        }
 
 -- | A signature of a kind
 data KindSignature = KindSignature
@@ -158,6 +182,16 @@ instance KindSubstitutable KindSignature where
                       filterParams freeVars sorts kindParams
                 , getKindSignatureKind = substitutedKind
                 }
+
+-- | Creates a kind signature
+createKindSignature ::
+       (WithSort a, WithKindParams a, WithKind a) => a -> KindSignature
+createKindSignature s =
+    KindSignature
+        { getKindSignatureSort = getSort s
+        , getKindSignatureKindParams = getKindParams s
+        , getKindSignatureKind = getKind s
+        }
 
 -- | A signature of a type constructor
 data TypeConstructorSignature = TypeConstructorSignature
@@ -206,6 +240,19 @@ instance KindSubstitutable TypeConstructorSignature where
                 , getTypeConstructorSignatureTypeParams = substitutedTypeParams
                 }
 
+-- | Creates a type constructor signature
+createTypeConstructorSignature ::
+       (WithSort a, WithKindParams a, WithKind a, WithTypeParams a)
+    => a
+    -> TypeConstructorSignature
+createTypeConstructorSignature s =
+    TypeConstructorSignature
+        { getTypeConstructorSignatureSort = getSort s
+        , getTypeConstructorSignatureKindParams = getKindParams s
+        , getTypeConstructorSignatureKind = getKind s
+        , getTypeConstructorSignatureTypeParams = getTypeParams s
+        }
+
 -- | A signature of a type
 data TypeSignature = TypeSignature
     { getTypeSignatureSort :: Sort -- ^ A resulting sort of the type
@@ -230,6 +277,9 @@ instance WithTypeParams TypeSignature where
 
 instance WithType TypeSignature where
     getType = getTypeSignatureType
+
+instance WithContext TypeSignature where
+    getContext = getTypeSignatureContext
 
 instance SortSubstitutable TypeSignature where
     substituteSort sub sig@TypeSignature { getTypeSignatureSort = sort
@@ -275,6 +325,28 @@ instance TypeSubstitutable TypeSignature where
                 , getTypeSignatureType = substitutedType
                 , getTypeSignatureContext = substitutedContext
                 }
+
+-- | Creates a type signature
+createTypeSignature ::
+       ( WithSort a
+       , WithKindParams a
+       , WithKind a
+       , WithTypeParams a
+       , WithTypeParams a
+       , WithType a
+       , WithContext a
+       )
+    => a
+    -> TypeSignature
+createTypeSignature s =
+    TypeSignature
+        { getTypeSignatureSort = getSort s
+        , getTypeSignatureKindParams = getKindParams s
+        , getTypeSignatureKind = getKind s
+        , getTypeSignatureTypeParams = getTypeParams s
+        , getTypeSignatureType = getType s
+        , getTypeSignatureContext = getContext s
+        }
 
 instance TypeSubstitutable Constraint where
     substituteType sub _ constr =

@@ -12,7 +12,7 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast (Ident)
-import Frontend.Inference.Substitution
+import Frontend.Inference.Expression
 import Frontend.Inference.Type
 
 -- | A type constraint
@@ -27,6 +27,7 @@ data Constraint
     deriving (Eq, Show)
 
 instance WithVariables Constraint where
+    getVariableName _ = Nothing
     getFreeVariables constr =
         case constr of
             ConstraintVariable {getConstraintVariable = var} ->

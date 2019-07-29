@@ -9,7 +9,9 @@ Module with functions for generation of variables
 module Frontend.Inference.Variables
     ( VariableGenerator
     , VariableGeneratorState(..)
+    , emptyVariableGeneratorState
     , evalVariableGenerator
+    , runVariableGenerator
     , Sort(..)
     , generateSortVariable
     , Kind(..)
@@ -23,7 +25,7 @@ module Frontend.Inference.Variables
     , generateTypeIdent
     ) where
 
-import Control.Monad.Trans.State.Lazy (State, evalState, gets, modify)
+import Control.Monad.Trans.State.Lazy (State, evalState, gets, modify, runState)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
 import Frontend.Inference.Kind
@@ -50,6 +52,13 @@ type VariableGenerator = State VariableGeneratorState
 -- | Execute variable generator with an empty state
 evalVariableGenerator :: VariableGenerator a -> a
 evalVariableGenerator gen = evalState gen emptyVariableGeneratorState
+
+-- | Runs the variable generator
+runVariableGenerator ::
+       VariableGenerator a
+    -> VariableGeneratorState
+    -> (a, VariableGeneratorState)
+runVariableGenerator = runState
 
 -- | Generate abstract identifier
 generateIdent ::

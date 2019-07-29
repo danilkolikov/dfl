@@ -14,6 +14,7 @@ import qualified Data.HashSet as HS
 import Data.Maybe (fromMaybe)
 import Frontend.Desugaring.Final.Ast (Ident(..))
 import Frontend.Inference.AlgebraicExp
+import Frontend.Inference.Expression
 import Frontend.Inference.Substitution
 import Frontend.Syntax.EntityName
 
@@ -34,6 +35,10 @@ instance Substitutable Kind where
                 KindFunction (substitute sub from) (substitute sub to)
 
 instance WithVariables Kind where
+    getVariableName kind =
+        case kind of
+            KindVar name -> Just name
+            _ -> Nothing
     getFreeVariables kind =
         case kind of
             KindStar -> HS.empty

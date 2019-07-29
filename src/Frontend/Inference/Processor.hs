@@ -7,21 +7,17 @@ License     :  MIT
 Processors of kind and type inference
 -}
 module Frontend.Inference.Processor
-    ( InferenceError(..)
-    , Signatures(..)
+    ( CombinedInferenceError(..)
+    , InferenceError(..)
+    , InferenceDebugOutput(..)
+    , Type.TypeInferenceDebugOutput(..)
     , Type.TypeSignatures(..)
     , TypeSynonymSignatures
-    , Kind.KindInferenceDebugOutput(..)
-    , Kind.KindInferenceGroupDebugOutput(..)
-    , Kind.KindInferenceError(..)
-    , Type.TypeInferenceError(..)
     , ExpandTypeSynonymsOutput(..)
     , TypeSynonymsProcessingError(..)
-    , Equalities(..)
-    , DependencyGroupItem(..)
-    , DependencyGroupItemEmpty
-    , DependencyGroupItemWithSignature
-    , emptySignatures
+    , Signatures
+    , TypeConstructorSignature
+    , TypeSignature
     , Type.emptyTypeSignatures
     , inferKinds
     , expandTypeSynonyms
@@ -31,25 +27,27 @@ module Frontend.Inference.Processor
 import Data.Bifunctor (bimap, first)
 
 import Frontend.Desugaring.Final.Ast (Module(..))
+import Frontend.Inference.Base.Common
+import Frontend.Inference.Base.DebugOutput
 import qualified Frontend.Inference.Kind.Processor as Kind
-import Frontend.Inference.Kind.ProcessorBase
+import Frontend.Inference.Signature
 import qualified Frontend.Inference.Type.Processor as Type
 import Frontend.Inference.TypeSynonyms.Processor
 
 -- | Errors which can be encounterd during inference
-data InferenceError
-    = InferenceErrorKind Kind.KindInferenceError -- ^ A kind inference error
-    | InferenceErrorTypeSynonyms TypeSynonymsProcessingError -- ^ An error of type synonyms expanding
-    | InferenceErrorType Type.TypeInferenceError -- ^ A type inference error
+data CombinedInferenceError
+    = CombinedInferenceError InferenceError -- ^ An inference error
+    | CombinedInferenceErrorTypeSynonyms TypeSynonymsProcessingError -- ^ An error of type synonyms expanding
     deriving (Eq, Show)
 
 -- | Infer kinds of types in a module
 inferKinds ::
        Module
-    -> Signatures
-    -> (Either InferenceError Signatures, Kind.KindInferenceDebugOutput)
+    -> Signatures TypeConstructorSignature
+    -> ( Either CombinedInferenceError (Signatures TypeConstructorSignature)
+       , InferenceDebugOutput)
 inferKinds module' state =
-    first (first InferenceErrorKind) $
+    first (first CombinedInferenceError) $
     Kind.inferKinds
         (getModuleDataTypes module')
         (getModuleTypeSynonyms module')
@@ -63,20 +61,21 @@ newtype ExpandTypeSynonymsOutput = ExpandTypeSynonymsOutput
 
 -- | Expend defined type synonyms
 expandTypeSynonyms ::
-       Module -> Signatures -> Either InferenceError ExpandTypeSynonymsOutput
+       Module
+    -> Signatures TypeConstructorSignature
+    -> Either CombinedInferenceError ExpandTypeSynonymsOutput
 expandTypeSynonyms module' signatures =
-    bimap InferenceErrorTypeSynonyms ExpandTypeSynonymsOutput $
-    processSignatures
-        (getModuleTypeSynonyms module')
-        (getTypeSynonymSignatures signatures)
+    bimap CombinedInferenceErrorTypeSynonyms ExpandTypeSynonymsOutput $
+    processSignatures (getModuleTypeSynonyms module') signatures
 
 -- | Infers types of a modules
 inferTypes ::
        Module
-    -> Signatures
+    -> Signatures TypeConstructorSignature
     -> TypeSynonymSignatures
     -> Type.TypeSignatures
-    -> Either InferenceError Type.TypeSignatures
+    -> ( Either CombinedInferenceError Type.TypeSignatures
+       , Type.TypeInferenceDebugOutput)
 inferTypes module' signatures typeSynonyms initial =
-    first InferenceErrorType $
-    Type.inferTypes module' signatures typeSynonyms initial
+    first (first CombinedInferenceError) $
+    Type.inferTypes signatures typeSynonyms initial module'

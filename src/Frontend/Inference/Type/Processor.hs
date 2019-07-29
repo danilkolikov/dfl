@@ -8,33 +8,53 @@ Processor of type inference
 -}
 module Frontend.Inference.Type.Processor where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (Except, except, runExcept)
-import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
-import Control.Monad.Trans.State.Lazy (StateT, execStateT, modify)
-import Data.Bifunctor (first)
+import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
+import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
+import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Kind.ProcessorBase (Signatures)
+import Frontend.Inference.Base.Common
+import Frontend.Inference.Base.DebugOutput
+import Frontend.Inference.Base.Descriptor
+import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
 import Frontend.Inference.Signature
+import Frontend.Inference.Solver
 import Frontend.Inference.Type.Classes
 import Frontend.Inference.Type.DataTypes
+import Frontend.Inference.Type.Equalities
 import Frontend.Inference.Type.Signatures
+import Frontend.Inference.Type.WithDependencies
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
 import Frontend.Inference.Variables
 
--- | A type of errors which may be encountered during type inference
-data TypeInferenceError =
-    TypeInferenceErrorSignature TypeSignatureInferrenceError -- ^ An error of type signature inference
-    deriving (Eq, Show)
-
--- | A state of the type inference processor
+-- | An output of the type inference processor
 data TypeSignatures = TypeSignatures
     { getTypeSignaturesConstructors :: HM.HashMap Ident TypeSignature
     , getTypeSignaturesMethods :: HM.HashMap Ident TypeSignature
-    , getTypeSignaturesFunctions :: HM.HashMap Ident TypeSignature
+    , getTypeSignaturesExpressions :: HM.HashMap Ident TypeSignature
     } deriving (Eq, Show)
+
+-- | A debug output of type inference
+data TypeInferenceDebugOutput = TypeInferenceDebugOutput
+    { getTypeInferenceDebugOutputConstructorsOutput :: Maybe SingleGroupInferenceDebugOutput
+    , getTypeInferenceDebugOutputMethodsOutput :: Maybe SingleGroupInferenceDebugOutput
+    , getTypeInferenceDebugOutputExpressions :: Maybe InferenceDebugOutput
+    }
+
+instance Semigroup TypeInferenceDebugOutput where
+    TypeInferenceDebugOutput c1 m1 e1 <> TypeInferenceDebugOutput c2 m2 e2 =
+        TypeInferenceDebugOutput (c1 <|> c2) (m1 <|> m2) (e1 <|> e2)
+
+instance Monoid TypeInferenceDebugOutput where
+    mempty =
+        TypeInferenceDebugOutput
+            { getTypeInferenceDebugOutputConstructorsOutput = Nothing
+            , getTypeInferenceDebugOutputMethodsOutput = Nothing
+            , getTypeInferenceDebugOutputExpressions = Nothing
+            }
 
 -- | An empty type signature
 emptyTypeSignatures :: TypeSignatures
@@ -42,62 +62,105 @@ emptyTypeSignatures =
     TypeSignatures
         { getTypeSignaturesConstructors = HM.empty
         , getTypeSignaturesMethods = HM.empty
-        , getTypeSignaturesFunctions = HM.empty
+        , getTypeSignaturesExpressions = HM.empty
         }
 
--- | An environment of type inference
-data LocalEnvironment = LocalEnvironment
-    { getSignatures :: Signatures
-    , getTypeSynonyms :: TypeSynonymSignatures
-    }
+-- | A processor of type inference
+type Processor = ExceptT InferenceError (Writer [TypeInferenceDebugOutput])
 
--- | A type of the processor of type inference
-type Processor
-     = ReaderT LocalEnvironment (StateT TypeSignatures (Except TypeInferenceError))
+-- | Writes debug output
+writeDebugOutput :: TypeInferenceDebugOutput -> Processor ()
+writeDebugOutput = lift . tell . return
 
--- | Infer types of functions in the module
+-- | Infers types of functions in the module
 inferTypes ::
-       F.Module
-    -> Signatures
+       Signatures TypeConstructorSignature
     -> TypeSynonymSignatures
     -> TypeSignatures
-    -> Either TypeInferenceError TypeSignatures
-inferTypes module' signatures typeSynonymSignatures initialState =
-    let environment =
-            LocalEnvironment
-                { getSignatures = signatures
-                , getTypeSynonyms = typeSynonymSignatures
-                }
-        reader = inferTypes' module'
-        state = runReaderT reader environment
-        exc = execStateT state initialState
-     in runExcept exc
+    -> F.Module
+    -> (Either InferenceError TypeSignatures, TypeInferenceDebugOutput)
+inferTypes signatures typeSynonymSignatures typeSignatures module' =
+    let processor =
+            inferTypes' signatures typeSynonymSignatures typeSignatures module'
+        result = runWriter $ runExceptT processor
+     in second mconcat result
 
 -- | Infer types of functions in the module
-inferTypes' :: F.Module -> Processor ()
-inferTypes' F.Module { F.getModuleDataTypes = dataTypes
-                     , F.getModuleClasses = classes
-                     } = do
-    LocalEnvironment { getSignatures = signatures
-                     , getTypeSynonyms = typeSynonymSignatures
-                     } <- ask
-    let constructors =
-            HM.unions . map createConstructorSignatures . HM.elems $ dataTypes
-        methods = HM.unions . map createClassSignatures . HM.elems $ classes
-        inferSignature (name, sig) = do
-            res <-
-                wrapError TypeInferenceErrorSignature $
-                inferTypeSignature signatures typeSynonymSignatures sig
-            return (name, res)
-        inferSignatures = (HM.fromList <$>) . mapM inferSignature . HM.toList
-    constructorSignatures <- inferSignatures constructors
-    methodsSignatures <- inferSignatures methods
-    lift . modify $ \s ->
-        s
-            { getTypeSignaturesConstructors = constructorSignatures
-            , getTypeSignaturesMethods = methodsSignatures
-            }
+inferTypes' ::
+       Signatures TypeConstructorSignature
+    -> TypeSynonymSignatures
+    -> TypeSignatures
+    -> F.Module
+    -> Processor TypeSignatures
+inferTypes' signatures typeSynonymSignatures typeSignatures module'
+    | TypeSignatures { getTypeSignaturesConstructors = initialConstructorSignatures
+                     , getTypeSignaturesMethods = initialMethodSignatures
+                     , getTypeSignaturesExpressions = initialExpressionSignatures
+                     } <- typeSignatures
+    , F.Module { F.getModuleDataTypes = dataTypes
+               , F.getModuleClasses = classes
+               , F.getModuleExpressions = expressions
+               } <- module' = do
+        let constructors =
+                HM.unions . map createConstructorSignatures . HM.elems $
+                dataTypes
+            methods = HM.unions . map createClassSignatures . HM.elems $ classes
+            inferSignatures =
+                inferTypeSignatures' signatures typeSynonymSignatures
+            (inferConstructors, constructorOutput) =
+                inferSignatures constructors
+            (inferMethods, methodsOutput) = inferSignatures methods
+        writeDebugOutput
+            mempty
+                { getTypeInferenceDebugOutputConstructorsOutput =
+                      Just constructorOutput
+                , getTypeInferenceDebugOutputMethodsOutput = Just methodsOutput
+                }
+        constructorSignatures <- except inferConstructors
+        methodSignatures <- except inferMethods
+        let descriptor =
+                typeInferenceDescriptor signatures typeSynonymSignatures
+            inferenceEnvironment =
+                InferenceEnvironment
+                    { getInferenceEnvironmentSignatures =
+                          initialConstructorSignatures <> constructorSignatures <>
+                          initialMethodSignatures <>
+                          methodSignatures <>
+                          initialExpressionSignatures
+                    , getInferenceEnvironmentTypeVariables = HM.empty
+                    }
+            (result, debugOutput) =
+                runInfer
+                    descriptor
+                    inferenceEnvironment
+                    emptyVariableGeneratorState
+                    expressions
+        writeDebugOutput
+            mempty {getTypeInferenceDebugOutputExpressions = Just debugOutput}
+        (expressionSignatures, _, _) <- except result
+        return
+            TypeSignatures
+                { getTypeSignaturesConstructors = constructorSignatures
+                , getTypeSignaturesMethods = methodSignatures
+                , getTypeSignaturesExpressions = expressionSignatures
+                }
 
--- | Wrap an error, encountered during type inference
-wrapError :: (a -> TypeInferenceError) -> Either a b -> Processor b
-wrapError f = lift . lift . except . first f
+-- | Describes the process of a type inference
+typeInferenceDescriptor ::
+       Signatures TypeConstructorSignature
+    -> TypeSynonymSignatures
+    -> InferenceDescriptor F.Expressions (Signatures TypeSignature)
+typeInferenceDescriptor signatures typeSynonyms =
+    InferenceDescriptor
+        { getInferenceDescriptorSignaturesGetter =
+              inferTypeSignatures signatures typeSynonyms
+        , getInferenceDescriptorDependenyGraphBuilder =
+              \m -> getExpressionsDependencyGraph (HM.keysSet m)
+        , getInferenceDescriptorSingleGroup =
+              SingleGroupInferenceDescriptor
+                  { getSingleGroupInferenceDescriptorEqualitiesBuilder =
+                        generateEqualitiesForExpressions
+                  , getSingleGroupInferenceDescriptorApplySolution =
+                        \e s -> HM.map (applyTypeSolution e s)
+                  }
+        }

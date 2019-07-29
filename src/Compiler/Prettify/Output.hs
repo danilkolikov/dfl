@@ -9,14 +9,8 @@ Functions for pretty printing of Output
 module Compiler.Prettify.Output where
 
 import Compiler.Output
-import qualified Compiler.Prettify.ExpandTypeSynonymsOutput as TypeSynonyms
-    ( prettifySignatures
-    )
 import Compiler.Prettify.FixityResolutionOutput (prettifyOperators)
-import qualified Compiler.Prettify.KindInferenceDebugOutput as Kind
-    ( prettifySignatures
-    )
-import Compiler.Prettify.TypeSignatures (prettifyTypeSignatures)
+import Compiler.Prettify.TypeSignatures
 import Compiler.Prettify.Utils
 
 prettifyOutput :: Output -> String
@@ -29,9 +23,9 @@ prettifyOutput Output { getInfixOperators = operators
         [ prettifyHeader "Infix operators"
         , prettifyOperators operators
         , prettifyHeader "Inferred kinds"
-        , Kind.prettifySignatures kinds
+        , prettifySignatures kinds
         , prettifyHeader "Type synonyms"
-        , TypeSynonyms.prettifySignatures signatures
+        , prettifySignatures signatures
         , prettifyHeader "Inferred types"
         , prettifyTypeSignatures types
         ]

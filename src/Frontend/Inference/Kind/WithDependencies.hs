@@ -14,7 +14,7 @@ import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
-import Frontend.Inference.Kind.ProcessorBase
+import Frontend.Inference.Kind.Environment
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Class for types which have dependencies

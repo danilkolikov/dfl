@@ -13,6 +13,7 @@ import qualified Data.HashSet as HS
 import Data.Maybe (fromMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
+import Frontend.Inference.Expression
 import Frontend.Inference.Substitution
 
 -- | Algebraic expressions, which support unification
@@ -28,9 +29,14 @@ instance Substitutable AlgebraicExp where
         AlgebraicExpFunc name (map (substitute s) args)
 
 instance WithVariables AlgebraicExp where
-    getFreeVariables (AlgebraicExpVar var) = HS.singleton var
-    getFreeVariables (AlgebraicExpFunc _ args) =
-        HS.unions (map getFreeVariables args)
+    getVariableName aExp =
+        case aExp of
+            AlgebraicExpVar var -> Just var
+            _ -> Nothing
+    getFreeVariables aExp =
+        case aExp of
+            AlgebraicExpVar var -> HS.singleton var
+            AlgebraicExpFunc _ args -> HS.unions (map getFreeVariables args)
 
 -- | Class for types which can be converted from and to AlgebraicExp
 class IsAlgebraicExp a where

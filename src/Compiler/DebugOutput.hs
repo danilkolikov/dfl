@@ -11,8 +11,8 @@ module Compiler.DebugOutput where
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
 import Frontend.Inference.Processor
     ( ExpandTypeSynonymsOutput
-    , KindInferenceDebugOutput(..)
-    , TypeSignatures
+    , InferenceDebugOutput(..)
+    , TypeInferenceDebugOutput(..)
     )
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
@@ -26,11 +26,9 @@ import Compiler.Prettify.ExpandTypeSynonymsOutput
     ( prettifyExpandTypeSynonymsOutput
     )
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
-import Compiler.Prettify.KindInferenceDebugOutput
-    ( prettifyKindInferenceDebugOutput
-    )
+import Compiler.Prettify.InferenceDebugOutput (prettifyInferenceDebugOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
-import Compiler.Prettify.TypeSignatures (prettifyTypeSignatures)
+import Compiler.Prettify.TypeSignatures (prettifyTypeInferenceDebugOutput)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -68,10 +66,10 @@ instance HasDebugOutput DesugaringOutput where
     getDebugOutput a =
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
-instance HasDebugOutput KindInferenceDebugOutput where
+instance HasDebugOutput InferenceDebugOutput where
     getDebugOutput a =
         DebugOutput
-            (prettifyKindInferenceDebugOutput a)
+            (prettifyInferenceDebugOutput a)
             DebugOutputTypeInferredKinds
 
 instance HasDebugOutput ExpandTypeSynonymsOutput where
@@ -80,6 +78,8 @@ instance HasDebugOutput ExpandTypeSynonymsOutput where
             (prettifyExpandTypeSynonymsOutput a)
             DebugOutputTypeTypeSynonyms
 
-instance HasDebugOutput TypeSignatures where
+instance HasDebugOutput TypeInferenceDebugOutput where
     getDebugOutput a =
-        DebugOutput (prettifyTypeSignatures a) DebugOutputTypeInferredTypes
+        DebugOutput
+            (prettifyTypeInferenceDebugOutput a)
+            DebugOutputTypeInferredTypes
