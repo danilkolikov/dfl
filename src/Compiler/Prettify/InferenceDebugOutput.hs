@@ -44,7 +44,8 @@ prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputSigna
             prettifyHeader "Dependency groups" : map prettifyGroupIdents grps
         prettifyOutputs outs =
             unlines $
-            prettifyHeader "Group outputs:" : map prettifySingleGroupDebugOutput outs
+            prettifyHeader "Group outputs:" :
+            map prettifySingleGroupDebugOutput outs
         prettifyDOTypeVariableEqualities eqs =
             unlines
                 [ prettifyHeader "Type variable equalities"
@@ -67,12 +68,11 @@ prettifyDependencyGraph =
 prettifyGroupIdents :: HS.HashSet Ident -> String
 prettifyGroupIdents = unwords . map prettify . HS.toList
 
-prettifySingleGroupDebugOutput
- :: SingleGroupInferenceDebugOutput -> String
+prettifySingleGroupDebugOutput :: SingleGroupInferenceDebugOutput -> String
 prettifySingleGroupDebugOutput SingleGroupInferenceDebugOutput { getSingleGroupInferenceDebugOutputGroup = group
-                                                         , getSingleGroupInferenceDebugOutputNested = nested
-                                                         , getSingleGroupInferenceDebugOutputSolver = solverDebugOutput
-                                                         } =
+                                                               , getSingleGroupInferenceDebugOutputNested = nested
+                                                               , getSingleGroupInferenceDebugOutputSolver = solverDebugOutput
+                                                               } =
     let prettifyGroupHeader grp =
             prettifyHeader $ "Group: " ++ intercalate ", " (map prettify grp)
         prettifyNested nst =
@@ -87,33 +87,43 @@ prettifySingleGroupDebugOutput SingleGroupInferenceDebugOutput { getSingleGroupI
 
 prettifySolverDebugOutput :: SolverDebugOutput -> String
 prettifySolverDebugOutput SolverDebugOutput { getSolverDebugOutputEqualities = equalities
+                                            , getSolverDebugOutputTypeSubstitution = typeSubstitution
                                             , getSolverDebugOutputKindSubstitution = kindSubstitution
                                             , getSolverDebugOutputSortSubstitution = sortSubstitution
+                                            , getSolverDebugOutputKindOfTypeVariables = kindOfTypeVariables
+                                            , getSolverDebugOutputSortOfKindVariables = sortOfKindVariables
                                             } =
     let prettifyGroupEqualities eqs =
             unlines [prettifyHeader "Equalities", prettifyEqualities eqs]
-        prettifyKindSubstitution sub =
-            unlines
-                [prettifyHeader "Kind substitution", prettifySubstitution sub]
-        prettifySortSubstitution sub =
-            unlines
-                [prettifyHeader "Sort substitution", prettifySubstitution sub]
+        prettifySomeSubstitution header sub =
+            unlines [prettifyHeader header, prettifySubstitution sub]
      in unlines . catMaybes $
         [ prettifyGroupEqualities <$> equalities
-        , prettifyKindSubstitution <$> kindSubstitution
-        , prettifySortSubstitution <$> sortSubstitution
+        , prettifySomeSubstitution "Type substitution" <$> typeSubstitution
+        , prettifySomeSubstitution "Kind substitution" <$> kindSubstitution
+        , prettifySomeSubstitution "Sort substitution" <$> sortSubstitution
+        , prettifySomeSubstitution "Kinds of type variables" <$>
+          kindOfTypeVariables
+        , prettifySomeSubstitution "Sorts of kind variables" <$>
+          sortOfKindVariables
         ]
 
 prettifyEqualities :: Equalities -> String
-prettifyEqualities Equalities { getKindEqualities = kindEqualities
+prettifyEqualities Equalities { getTypeEqualities = typeEqualities
+                              , getKindEqualities = kindEqualities
                               , getSortEqualities = sortEqualities
+                              , getHasKindEqualities = hasKindEqualities
                               , getHasSortEqualities = hasSortEqualities
                               } =
     unlines $
+    [prettifyHeader "Type equalities"] ++
+    map prettifyEquality typeEqualities ++
     [prettifyHeader "Kind equalities"] ++
     map prettifyEquality kindEqualities ++
     [prettifyHeader "Sort equalities"] ++
     map prettifyEquality sortEqualities ++
+    [prettifyHeader "Has kind"] ++
+    map prettifyEquality hasKindEqualities ++
     [prettifyHeader "Has sort"] ++ map prettifyEquality hasSortEqualities
 
 prettifyEquality :: (Prettifiable a, Prettifiable b) => (a, b) -> String

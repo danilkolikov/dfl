@@ -27,19 +27,18 @@ import Frontend.Inference.Variables
 type InferenceProcessor = ExceptT InferenceError (Writer [InferenceDebugOutput])
 
 -- | Runs inference
-runInfer :: (Monoid s) => RunInfer a s
+runInfer :: RunInfer a s
 runInfer descr env variableState x =
     let inferenceProcessor = infer descr env variableState x
      in second mconcat . runWriter . runExceptT $ inferenceProcessor
 
 -- | Does inference
 infer ::
-       (Monoid s)
-    => InferenceDescriptor a s
+       InferenceDescriptor a s
     -> InferenceEnvironment s
     -> VariableGeneratorState
     -> a
-    -> InferenceProcessor (s, VariableGeneratorState, TypeVariableEqualitiesMap)
+    -> InferenceProcessor (Signatures s, VariableGeneratorState, TypeVariableEqualitiesMap)
 infer descr env variableGeneratorState x
     | InferenceDescriptor { getInferenceDescriptorSignaturesGetter = getSignatures
                           , getInferenceDescriptorDependenyGraphBuilder = buildDependencyGraph
@@ -51,21 +50,21 @@ infer descr env variableGeneratorState x
         -- Check explicit signatures for expressions
      = do
         let (inferSignatures, signaturesDebugOutput) = getSignatures x
-        writeDebugOutput $
+        writeDebugOutput
             mempty
                 {getInferenceDebugOutputSignatures = Just signaturesDebugOutput}
         signatures <- except inferSignatures
         -- Build dependency graph, excluding expressions with explicit signatures
         let knownSignatures = definedSignatures <> signatures
             dependencyGraph = buildDependencyGraph knownSignatures x
-        writeDebugOutput $
+        writeDebugOutput
             mempty
                 {getInferenceDebugOutputDependencyGraph = Just dependencyGraph}
         -- Order dependency groups
         groups <-
             wrapError InferenceErrorDependencyResolution $
             getDependencyGroups dependencyGraph
-        writeDebugOutput $
+        writeDebugOutput
             mempty {getInferenceDebugOutputDependencyGroups = Just groups}
         -- Infer each group
         let newEnv = env {getInferenceEnvironmentSignatures = knownSignatures}
@@ -85,7 +84,7 @@ infer descr env variableGeneratorState x
                     (map HS.toList $ reverse groups)
             (result, groupOutputs) =
                 runSingleGroupInferenceProcessor inferGroups
-        writeDebugOutput $
+        writeDebugOutput
             mempty
                 { getInferenceDebugOutputDependencyGroupOutputs =
                       Just groupOutputs
@@ -97,7 +96,7 @@ infer descr env variableGeneratorState x
                        } <- except result
         let typeVariableEqualities =
                 collectTypeVariableEqualities definedTypeVariables solutions
-        writeDebugOutput $
+        writeDebugOutput
             mempty
                 { getInferenceDebugOutputTypeVariableEqualities =
                       Just typeVariableEqualities

@@ -21,7 +21,7 @@ import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
 import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
 import Frontend.Inference.Signature
-import Frontend.Inference.Solver
+import Frontend.Inference.Solver hiding (writeDebugOutput)
 import Frontend.Inference.Type.Classes
 import Frontend.Inference.Type.DataTypes
 import Frontend.Inference.Type.Equalities
@@ -149,18 +149,18 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
 typeInferenceDescriptor ::
        Signatures TypeConstructorSignature
     -> TypeSynonymSignatures
-    -> InferenceDescriptor F.Expressions (Signatures TypeSignature)
+    -> InferenceDescriptor F.Expressions TypeSignature
 typeInferenceDescriptor signatures typeSynonyms =
     InferenceDescriptor
         { getInferenceDescriptorSignaturesGetter =
               inferTypeSignatures signatures typeSynonyms
         , getInferenceDescriptorDependenyGraphBuilder =
-              \m -> getExpressionsDependencyGraph (HM.keysSet m)
+              getExpressionsDependencyGraph . HM.keysSet
         , getInferenceDescriptorSingleGroup =
               SingleGroupInferenceDescriptor
                   { getSingleGroupInferenceDescriptorEqualitiesBuilder =
                         generateEqualitiesForExpressions
                   , getSingleGroupInferenceDescriptorApplySolution =
-                        \e s -> HM.map (applyTypeSolution e s)
+                        const applyTypeSolution -- Ignore type variables
                   }
         }

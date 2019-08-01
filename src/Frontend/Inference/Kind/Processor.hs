@@ -52,7 +52,7 @@ inferKinds dataTypes typeSynonyms classes initialState =
 
 -- | Describes the process of kind inference
 kindInferenceDescriptor ::
-       InferenceDescriptor Environment (Signatures TypeConstructorSignature)
+       InferenceDescriptor Environment TypeConstructorSignature
 kindInferenceDescriptor =
     InferenceDescriptor
         { getInferenceDescriptorSignaturesGetter =
@@ -64,6 +64,6 @@ kindInferenceDescriptor =
                   { getSingleGroupInferenceDescriptorEqualitiesBuilder =
                         generateEqualitiesForGroup
                   , getSingleGroupInferenceDescriptorApplySolution =
-                        \e s -> HM.map (applyKindSolution e s)
+                        applyKindSolutionAndSetTypeVariables
                   }
         }

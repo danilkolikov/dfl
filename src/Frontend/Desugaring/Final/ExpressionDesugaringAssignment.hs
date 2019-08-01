@@ -8,13 +8,14 @@ Final desugaring of assignments
 -}
 module Frontend.Desugaring.Final.ExpressionDesugaringAssignment where
 
-import Control.Monad (unless)
+import Control.Monad (foldM, unless)
 import Control.Monad.Trans.Except (throwE)
-import Data.Either (partitionEithers)
+import Data.Bifunctor (first)
 import Data.Functor (($>))
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
-import Data.Maybe (catMaybes, isJust)
+import Data.Maybe (catMaybes, fromJust, isJust, isNothing)
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Desugaring.Final.ExpressionDesugaringBase
@@ -33,7 +34,7 @@ desugarPreparedAssignments assignments = do
     (methods, expressions) <- desugarPreparedAssignmentsWithMethods assignments
     let methodsWithoutImplementation =
             filter
-                (\Method {getMethodDefault = def} -> def == Nothing)
+                (\Method {getMethodDefault = def} -> isNothing def)
                 (map snd $ HM.toList methods)
     unless (null methodsWithoutImplementation) $
         raiseError $
@@ -43,13 +44,13 @@ desugarPreparedAssignments assignments = do
 
 -- | Desugar a list of prepared assignments into Methods
 desugarPreparedMethods ::
-  [WithLocation PreparedAssignment]
-  -> ExpressionDesugaringProcessor Methods
+       [WithLocation PreparedAssignment]
+    -> ExpressionDesugaringProcessor Methods
 desugarPreparedMethods assignments = do
     (methods, expressions) <- desugarPreparedAssignmentsWithMethods assignments
     let expressionsWithoutSignature =
             filter
-                (\Expression {getExpressionType = sig} -> sig == Nothing)
+                (\Expression {getExpressionType = sig} -> isNothing sig)
                 (map snd $ HM.toList expressions)
     unless (null expressionsWithoutSignature) $
         raiseError $
@@ -62,86 +63,90 @@ desugarPreparedAssignmentsWithMethods ::
        [WithLocation PreparedAssignment]
     -> ExpressionDesugaringProcessor (Methods, Expressions)
 desugarPreparedAssignmentsWithMethods assignments = do
-    (grouped, patterns) <- groupAssignments assignments
-    desugaredGroups <- mapM desugarGroup (HM.toList grouped)
-    patternExprs <- desugarAllPatterns patterns
-    let (methods, expressions) = partitionEithers (concat desugaredGroups)
-        expressionsMap = HM.fromList expressions
-        methodsMap = HM.fromList methods
-    finalExpressions <- addExpressions expressionsMap patternExprs
-    return (methodsMap, finalExpressions)
+    (grouped, patterns, types) <- groupAssignments assignments
+    desugaredGroups <- mapM desugarGroup (HM.elems grouped)
+    patternExprs <- concat <$> mapM desugarSinglePattern patterns
+    ensureNoIntersection desugaredGroups patternExprs
+    let (methodsMap, expressionsMap) =
+            splitToMethodsAndExpressions types $ desugaredGroups ++ patternExprs
+    return (methodsMap, expressionsMap)
 
 -- | Group of assignments
 data AssignmentsGroup =
     AssignmentsGroup (WithLocation Ident)
-                     [(NE.NonEmpty (WithLocation R.Pattern), WithLocation Exp)]
-                     (Maybe TypeSignature)
+                     (NE.NonEmpty ( NE.NonEmpty (WithLocation R.Pattern)
+                                  , WithLocation Exp))
+
+type GroupedAssignments
+     = ( HM.HashMap Ident AssignmentsGroup
+       , [(WithLocation R.Pattern, WithLocation Exp)]
+       , [(WithLocation Ident, TypeSignature)])
 
 -- | Group assignments from the provided list of PreparedAssignment-s
 groupAssignments ::
        [WithLocation PreparedAssignment]
-    -> ExpressionDesugaringProcessor ( HM.HashMap Ident AssignmentsGroup
-                                     , [( WithLocation R.Pattern
-                                        , WithLocation Exp)])
-groupAssignments [] = return (HM.empty, [])
-groupAssignments (f:rest) = do
-    (groupedRest, patterns) <- groupAssignments rest
-    case getValue f of
-        PreparedAssignmentName name pats exp' ->
+    -> ExpressionDesugaringProcessor GroupedAssignments
+groupAssignments = foldM processSingle (HM.empty, [], [])
+  where
+    processSingle ::
+           GroupedAssignments
+        -> WithLocation PreparedAssignment
+        -> ExpressionDesugaringProcessor GroupedAssignments
+    processSingle (assignments, patterns, types) f =
+        case getValue f of
+            PreparedAssignmentName name pats exp' ->
+                let name' = getValue name
+                    res = (pats, exp')
+                    assignment =
+                        case HM.lookup name' assignments of
+                            Nothing -> AssignmentsGroup name (res NE.:| [])
+                            Just (AssignmentsGroup _ group) ->
+                                AssignmentsGroup name (res NE.<| group)
+                 in return
+                        ( HM.insert name' assignment assignments
+                        , patterns
+                        , types)
+            PreparedAssignmentPattern pattern' exp' ->
+                let res = (pattern', exp')
+                 in return (assignments, res : patterns, types)
+            PreparedAssignmentType name context type' -> do
+                let name' = getValue name
+                    typeSignature = TypeSignature context type'
+                unless (all (\(n, _) -> getValue n /= name') types) $
+                    throwE $
+                    ExpressionDesugaringErrorDuplicatedTypeDeclaration name
+                return (assignments, patterns, (name, typeSignature) : types)
+
+splitToMethodsAndExpressions ::
+       [(WithLocation Ident, TypeSignature)]
+    -> [(WithLocation Ident, WithLocation Exp)]
+    -> (HM.HashMap Ident Method, HM.HashMap Ident Expression)
+splitToMethodsAndExpressions types exprs =
+    let typesMap = HM.fromList $ map (first getValue) types
+        processExp (name, exp') =
             let name' = getValue name
-                res = (pats, exp')
-                assignment =
-                    case HM.lookup name' groupedRest of
-                        Nothing -> AssignmentsGroup name [res] Nothing
-                        Just (AssignmentsGroup _ assignments type') ->
-                            AssignmentsGroup name (res : assignments) type'
-             in return (HM.insert name' assignment groupedRest, patterns)
-        PreparedAssignmentPattern pattern' exp' ->
-            let res = (pattern', exp')
-             in return (groupedRest, res : patterns)
-        PreparedAssignmentType name context type' -> do
-            let name' = getValue name
-                typeSignature = TypeSignature context type'
-            assignment <-
-                case HM.lookup name' groupedRest of
+             in case HM.lookup name' typesMap of
                     Nothing ->
-                        return $ AssignmentsGroup name [] (Just typeSignature)
-                    Just (AssignmentsGroup _ assignments foundType) ->
-                        case foundType of
-                            Nothing ->
-                                return $
-                                AssignmentsGroup
-                                    name
-                                    assignments
-                                    (Just typeSignature)
-                            Just _ ->
-                                throwE $
-                                ExpressionDesugaringErrorDuplicatedTypeDeclaration
-                                    name
-            return (HM.insert name' assignment groupedRest, patterns)
+                        ( HM.empty
+                        , HM.singleton name' $ Expression name exp' Nothing)
+                    Just type' ->
+                        ( HM.singleton name' $ Method name type' (Just exp')
+                        , HM.singleton name' $ Expression name exp' (Just type'))
+        processType (name, type') =
+            (HM.singleton (getValue name) $ Method name type' Nothing, HM.empty)
+        expNames = HS.fromList $ map (getValue . fst) exprs
+        typeNames = HM.keysSet typesMap `HS.difference` expNames
+        methods =
+            filter (\(name, _) -> getValue name `HS.member` typeNames) types
+     in mconcat $ map processExp exprs ++ map processType methods
 
 -- | Desugar single group of assignments
 desugarGroup ::
-       (Ident, AssignmentsGroup)
-    -> ExpressionDesugaringProcessor [Either (Ident, Method) (Ident, Expression)]
-desugarGroup (groupName, AssignmentsGroup name exps type') =
-    case (exps, type') of
-        ([], Nothing) -> error "Such combination is impossible"
-        ([], Just signature) ->
-            return $ [Left (groupName, Method name signature Nothing)]
-        (e:rest, _) -> do
-            mergedExp <- mergeExpressions name (e NE.:| rest)
-            -- It can be either expression, or method with default implementation
-            let expression = Right (groupName, Expression name mergedExp type')
-            return $
-                case type' of
-                    Nothing -> [expression]
-                    Just signature ->
-                        let method =
-                                Left
-                                    ( groupName
-                                    , Method name signature (Just mergedExp))
-                         in [method, method]
+       AssignmentsGroup
+    -> ExpressionDesugaringProcessor (WithLocation Ident, WithLocation Exp)
+desugarGroup (AssignmentsGroup name exps) = do
+    mergedExp <- mergeExpressions name exps
+    return (name, mergedExp)
 
 -- | Merge multilple expressions into one
 mergeExpressions ::
@@ -156,41 +161,35 @@ mergeExpressions name nonEmpty@((patterns, exp') NE.:| rest) = do
     merged <- desugarPatternsToAbstraction nPatterns nonEmpty
     return $ exp' $> merged
 
--- | Add expressions to a map of expressions and check for duplications
-addExpressions ::
-       Expressions
-    -> [(Ident, Expression)]
-    -> ExpressionDesugaringProcessor Expressions
-addExpressions exprs [] = return exprs
-addExpressions exprs ((name, expr):rest) = do
-    mergedRest <- addExpressions exprs rest
-    case HM.lookup name mergedRest of
-        Just found ->
-            raiseError $
-            ExpressionDesugaringErrorIdentifierIsAlreadyDefined
-                (getExpressionName expr)
-                (getExpressionName found)
-        Nothing -> return $ HM.insert name expr mergedRest
-
--- | Desugar all pattern assignments
-desugarAllPatterns ::
-       [(WithLocation R.Pattern, WithLocation Exp)]
-    -> ExpressionDesugaringProcessor [(Ident, Expression)]
-desugarAllPatterns patterns = concat <$> mapM desugarSinglePattern patterns
+-- | Ensure that there is no intersection between two group of expressions
+ensureNoIntersection ::
+       [(WithLocation Ident, WithLocation Exp)]
+    -> [(WithLocation Ident, WithLocation Exp)]
+    -> ExpressionDesugaringProcessor ()
+ensureNoIntersection a b =
+    let makeMap = HM.fromList . map (\(n, _) -> (getValue n, n))
+        aNames = makeMap a
+        bNames = makeMap b
+        sameNames =
+            HS.toList $ HM.keysSet aNames `HS.intersection` HM.keysSet bNames
+        findName names = fromJust $ HM.lookup (head sameNames) names
+     in unless (null sameNames) $
+        raiseError $
+        ExpressionDesugaringErrorIdentifierIsAlreadyDefined
+            (findName aNames)
+            (findName bNames)
 
 -- | Desugar a single pattern assignment
 desugarSinglePattern ::
        (WithLocation R.Pattern, WithLocation Exp)
-    -> ExpressionDesugaringProcessor [(Ident, Expression)]
+    -> ExpressionDesugaringProcessor [(WithLocation Ident, WithLocation Exp)]
 desugarSinglePattern (singlePattern, exp')
       -- Special case of a function without arguments
     | (R.PatternVar name Nothing) <- getValue singlePattern =
-        let expression = Expression name exp' Nothing
-         in return [(getValue name, expression)]
+        return [(name, exp')]
     | otherwise = do
         expIdent <- generateNewIdent'
-        let expression = Expression expIdent exp' Nothing
-            expPair = (getValue expIdent, expression)
+        let expPair = (expIdent, exp')
             expVar = expIdent $> ExpVar expIdent
             patterns = getVariablesFromPattern singlePattern
         prepared <- mapM (processPattern expVar) patterns
@@ -200,14 +199,15 @@ desugarSinglePattern (singlePattern, exp')
 processPattern ::
        WithLocation Exp
     -> (WithLocation R.Pattern, Maybe (WithLocation Ident))
-    -> ExpressionDesugaringProcessor (Maybe (Ident, Expression))
+    -> ExpressionDesugaringProcessor (Maybe ( WithLocation Ident
+                                            , WithLocation Exp))
 processPattern _ (_, Nothing) = return Nothing
 processPattern expVar (pat, Just var) = do
     let varExp = withDummyLocation $ ExpVar var
         alt = withDummyLocation $ PreparedAltSimple pat varExp
     case' <- desugarCase expVar (alt NE.:| [])
-    let resultExp = Expression var (withDummyLocation case') Nothing
-    return $ Just (getValue var, resultExp)
+    let resultExp = withDummyLocation case'
+    return $ Just (var, resultExp)
 
 -- | Remove variables from a pattern
 patternWithoutVariables :: WithLocation R.Pattern -> WithLocation R.Pattern

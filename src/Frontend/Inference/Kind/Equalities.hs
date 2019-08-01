@@ -46,7 +46,7 @@ runKindEqualitiesGenerator generator signatures =
 
 -- | Generates equalities for a single group
 generateEqualitiesForGroup ::
-       EqualitiesBuilder Environment (Signatures TypeConstructorSignature)
+       EqualitiesBuilder Environment TypeConstructorSignature
 generateEqualitiesForGroup _ inferenceEnv env items
     | InferenceEnvironment {getInferenceEnvironmentSignatures = signatures} <-
          inferenceEnv =
@@ -58,17 +58,17 @@ generateEqualitiesForGroup _ inferenceEnv env items
 generateEqualitiesForGroup' ::
        Environment
     -> [Ident]
-    -> InferenceEqualitiesGenerator (Signatures TypeConstructorSignature)
+    -> InferenceEqualitiesGenerator (Signatures ( TypeConstructorSignature
+                                                , [Ident]))
 generateEqualitiesForGroup' env group = do
     let createSignaturePair name = (\sig -> (name, sig)) <$> createSignature
     signatures <- HM.fromList <$> mapM createSignaturePair group
     withTypeConstructors signatures $
-        mapM_ (generateEqualitiesForIdent env) group
-    return signatures
+        HM.fromList <$> mapM (generateEqualitiesForIdent env) group
 
 -- | Generates equalities for a group of signatures
 generateEqualitiesForSignatures ::
-       EqualitiesBuilder (HM.HashMap Ident TypeSignature) (Signatures TypeConstructorSignature)
+       EqualitiesBuilder (HM.HashMap Ident TypeSignature) TypeConstructorSignature
 generateEqualitiesForSignatures _ inferenceEnv env items
     | InferenceEnvironment {getInferenceEnvironmentSignatures = signatures} <-
          inferenceEnv =
@@ -80,11 +80,12 @@ generateEqualitiesForSignatures _ inferenceEnv env items
 generateEqualitiesForTypeSignatures' ::
        HM.HashMap Ident TypeSignature
     -> [Ident]
-    -> InferenceEqualitiesGenerator (Signatures TypeConstructorSignature)
+    -> InferenceEqualitiesGenerator (Signatures ( TypeConstructorSignature
+                                                , [Ident]))
 generateEqualitiesForTypeSignatures' env idents = do
     let processSingle name = do
             let signature = fromJust $ HM.lookup name env
-            result <- generateEqualitiesForTypeSignature signature
+            result <- generateEqualitiesAndSignature signature
             return (name, result)
     HM.fromList <$> mapM processSingle idents
 
@@ -107,21 +108,26 @@ generateEqualitiesUsingSignature ::
        [Ident]
     -> InferenceEqualitiesGenerator Kind
     -> TypeConstructorSignature
-    -> InferenceEqualitiesGenerator ()
+    -> InferenceEqualitiesGenerator (TypeConstructorSignature, [Ident])
 generateEqualitiesUsingSignature params generator signature = do
     typeParams <- createNewVariables params
     kind <- withTypeVariables typeParams generator
     let resultKind =
             foldr (KindFunction . (\(_, k, _) -> k) . snd) kind typeParams
-    expectedKind <- specialiseDataTypeSignature signature
+    (expectedKind, expectedSort) <- specialiseDataTypeSignature signature
     writeKindEqualities [(resultKind, expectedKind)]
+    writeSortEqualities [(SortSquare, expectedSort)]
+    return (signature, params)
 
 -- | Generates equalities for an ident
 generateEqualitiesForIdent ::
-       Environment -> Ident -> InferenceEqualitiesGenerator ()
+       Environment
+    -> Ident
+    -> InferenceEqualitiesGenerator ( Ident
+                                    , (TypeConstructorSignature, [Ident]))
 generateEqualitiesForIdent env name =
     let maybeResolveSingle getMap =
-            generateEqualities <$> HM.lookup name (getMap env)
+            generateEqualitiesAndSignature <$> HM.lookup name (getMap env)
         maybeGenerator =
             asum
                 [ maybeResolveSingle getTypeSynonyms
@@ -130,7 +136,11 @@ generateEqualitiesForIdent env name =
                 ]
       -- This error should not occur, because we expect that all idents are
       -- either type synonyms, data types or classes
-     in fromMaybe (error $ "Unexpected identifier " ++ show name) maybeGenerator
+        result =
+            fromMaybe
+                (error $ "Unexpected identifier " ++ show name)
+                maybeGenerator
+     in (\s -> (name, s)) <$> result
 
 -- | A class of types for which it's posible to generator equalities between
 -- | kinds and sorts
@@ -148,38 +158,44 @@ lookupSignatureAndGenerateEqualities ::
        WithLocation Ident
     -> [WithLocation Ident]
     -> InferenceEqualitiesGenerator Kind
-    -> InferenceEqualitiesGenerator ()
+    -> InferenceEqualitiesGenerator (TypeConstructorSignature, [Ident])
 lookupSignatureAndGenerateEqualities name params generator =
     let getSignature =
             fromJust . HM.lookup (getValue name) . getTypeConstructorSignatures
      in asks getSignature >>=
         generateEqualitiesUsingSignature (map getValue params) generator
 
-instance WithEqualities TypeSynonym where
-    generateEqualities TypeSynonym { getTypeSynonymName = name
-                                   , getTypeSynonymParams = params
-                                   , getTypeSynonymType = type'
-                                   } =
+class WithEqualitiesAndSignature a where
+    generateEqualitiesAndSignature ::
+           a
+        -> InferenceEqualitiesGenerator ( TypeConstructorSignature
+                                        , [Ident])
+
+instance WithEqualitiesAndSignature TypeSynonym where
+    generateEqualitiesAndSignature TypeSynonym { getTypeSynonymName = name
+                                               , getTypeSynonymParams = params
+                                               , getTypeSynonymType = type'
+                                               } =
         lookupSignatureAndGenerateEqualities name params $
         generateTypeEqualities type'
 
-instance WithEqualities DataType where
-    generateEqualities DataType { getDataTypeName = name
-                                , getDataTypeParams = params
-                                , getDataTypeContext = context
-                                , getDataTypeConstructors = constructors
-                                } =
+instance WithEqualitiesAndSignature DataType where
+    generateEqualitiesAndSignature DataType { getDataTypeName = name
+                                            , getDataTypeParams = params
+                                            , getDataTypeContext = context
+                                            , getDataTypeConstructors = constructors
+                                            } =
         lookupSignatureAndGenerateEqualities name params $ do
             generateEqualities context
             generateEqualities $ map snd constructors
             return KindStar
 
-instance WithEqualities Class where
-    generateEqualities Class { getClassName = name
-                             , getClassParam = param
-                             , getClassContext = context
-                             , getClassMethods = methods
-                             } =
+instance WithEqualitiesAndSignature Class where
+    generateEqualitiesAndSignature Class { getClassName = name
+                                         , getClassParam = param
+                                         , getClassContext = context
+                                         , getClassMethods = methods
+                                         } =
         lookupSignatureAndGenerateEqualities name [param] $ do
             generateEqualities context
             generateEqualities . map snd $ HM.toList methods
@@ -221,7 +237,7 @@ instance WithEqualities Method where
     generateEqualities = generateEqualities . getMethodType
 
 instance WithEqualities TypeSignature where
-    generateEqualities = void . generateEqualitiesForTypeSignature
+    generateEqualities = void . generateEqualitiesAndSignature
 
 -- | Collect equalities between kinds in a type
 generateTypeEqualities :: WithLocation Type -> InferenceEqualitiesGenerator Kind
@@ -243,19 +259,19 @@ generateTypeEqualities type' =
             writeKindEqualities [(funcKind, expectedKind)]
             return resultKind
 
--- | Generates equalities for a type signature
-generateEqualitiesForTypeSignature ::
-       TypeSignature -> InferenceEqualitiesGenerator TypeConstructorSignature
-generateEqualitiesForTypeSignature TypeSignature { getTypeSignatureType = type'
+instance WithEqualitiesAndSignature TypeSignature where
+    generateEqualitiesAndSignature TypeSignature { getTypeSignatureType = type'
                                                  , getTypeSignatureContext = context
                                                  } = do
-    signature <- createSignature
-    let params = HS.toList . getFreeTypeVariables $ type'
-        generator = do
-            generateEqualities context
-            generateTypeEqualities type'
-    generateEqualitiesUsingSignature params generator signature
-    return signature
+        signature <- createSignature
+        let params =
+                HS.toList . HS.unions $
+                getFreeTypeVariables type' :
+                map getFreeTypeVariablesOfConstraint context
+            generator = do
+                generateEqualities context
+                generateTypeEqualities type'
+        generateEqualitiesUsingSignature params generator signature
 
 -- | Get variables of a type
 getFreeTypeVariables :: WithLocation Type -> HS.HashSet Ident
@@ -267,3 +283,10 @@ getFreeTypeVariables aType =
             getFreeTypeVariables from `HS.union` getFreeTypeVariables to
         TypeApplication func args ->
             HS.unions . map getFreeTypeVariables $ func : NE.toList args
+
+getFreeTypeVariablesOfConstraint :: WithLocation Constraint -> HS.HashSet Ident
+getFreeTypeVariablesOfConstraint constraint =
+    case getValue constraint of
+        ConstraintParam _ param -> HS.singleton (getValue param)
+        ConstraintType _ _ args ->
+            HS.unions . map getFreeTypeVariables $ NE.toList args

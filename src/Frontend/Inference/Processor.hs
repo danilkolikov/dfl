@@ -36,8 +36,9 @@ import Frontend.Inference.TypeSynonyms.Processor
 
 -- | Errors which can be encounterd during inference
 data CombinedInferenceError
-    = CombinedInferenceError InferenceError -- ^ An inference error
+    = CombinedInferenceErrorKindInference InferenceError -- ^ Kind inference error
     | CombinedInferenceErrorTypeSynonyms TypeSynonymsProcessingError -- ^ An error of type synonyms expanding
+    | CombinedInferenceErrorTypeInference InferenceError -- ^ Type inference error
     deriving (Eq, Show)
 
 -- | Infer kinds of types in a module
@@ -47,7 +48,7 @@ inferKinds ::
     -> ( Either CombinedInferenceError (Signatures TypeConstructorSignature)
        , InferenceDebugOutput)
 inferKinds module' state =
-    first (first CombinedInferenceError) $
+    first (first CombinedInferenceErrorKindInference) $
     Kind.inferKinds
         (getModuleDataTypes module')
         (getModuleTypeSynonyms module')
@@ -77,5 +78,5 @@ inferTypes ::
     -> ( Either CombinedInferenceError Type.TypeSignatures
        , Type.TypeInferenceDebugOutput)
 inferTypes module' signatures typeSynonyms initial =
-    first (first CombinedInferenceError) $
+    first (first CombinedInferenceErrorTypeInference) $
     Type.inferTypes signatures typeSynonyms initial module'

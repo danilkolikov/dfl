@@ -7,14 +7,18 @@ License     :  MIT
 Module with the definition of signatures of sorts, kinds and types
 -}
 module Frontend.Inference.Signature
-    ( Sort(..)
+    ( Params
+    , ParamsMap
+    , Sort(..)
     , SortSubstitutable(..)
     , Kind(..)
     , KindParams
     , KindSubstitutable(..)
+    , KindGeneralisable(..)
     , Type(..)
     , TypeParams
     , TypeSubstitutable(..)
+    , TypeGeneralisable(..)
     , WithSort(..)
     , WithKindParams(..)
     , WithKind(..)
@@ -37,34 +41,48 @@ module Frontend.Inference.Signature
     ) where
 
 import Data.Bifunctor (second)
+import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.Constraint
+import Frontend.Inference.Expression
 import Frontend.Inference.Kind
 import Frontend.Inference.Sort
 import Frontend.Inference.Substitution
-import Frontend.Inference.Expression
 import Frontend.Inference.Type
 
 -- | A class of types which support substitution of sort variables with sorts
 class SortSubstitutable a where
     substituteSort :: Substitution Sort -> a -> a -- ^ Substitute sort variables
 
--- | A list of kind parameters
-type KindParams = [(Ident, Sort)]
-
 -- | A class of types which support substitution of kind variables with kinds
 class KindSubstitutable a where
-    substituteKind :: Substitution Kind -> KindParams -> a -> a -- ^ Substitute kind variables
-
--- | A list of type parameters
-type TypeParams = [(Ident, Kind)]
+    substituteKind :: Substitution Kind -> a -> a -- ^ Substitute kind variables
 
 -- | A class of types which support substitution of type variables with types
 class TypeSubstitutable a where
-    substituteType :: Substitution Type -> TypeParams -> a -> a -- ^ Substitute type variables
+    substituteType :: Substitution Type -> a -> a -- ^ Substitute type variables
+
+-- | A map of parameters
+type Params a = [(Ident, a)]
+
+-- | A hashmap of parameters
+type ParamsMap a = HM.HashMap Ident a
+
+-- | A list of kind parameters
+type KindParams = Params Sort
+
+-- | A class of types which support generalisation of kind variables
+class KindGeneralisable a where
+    generaliseKind :: HS.HashSet Ident -> ParamsMap Sort -> a -> a -- ^ Generalise kind variables, except for the bound ones
+
+-- | A list of type parameters
+type TypeParams = Params Kind
+
+class TypeGeneralisable a where
+    generaliseType :: HS.HashSet Ident -> ParamsMap Kind -> a -> a -- ^ Generalise type variables, except for the bound ones
 
 -- | A class of types which have a sort
 class WithSort a where
@@ -172,15 +190,25 @@ instance SortSubstitutable KindSignature where
             }
 
 instance KindSubstitutable KindSignature where
-    substituteKind sub sorts sig@KindSignature { getKindSignatureKindParams = kindParams
-                                               , getKindSignatureKind = kind
-                                               } =
+    substituteKind sub sig@KindSignature { getKindSignatureKindParams = kindParams
+                                         , getKindSignatureKind = kind
+                                         } =
         let substitutedKind = substitute sub kind
             freeVars = getFreeVariables substitutedKind
          in sig
                 { getKindSignatureKindParams =
-                      filterParams freeVars sorts kindParams
+                      removeBoundParams freeVars kindParams
                 , getKindSignatureKind = substitutedKind
+                }
+
+instance KindGeneralisable KindSignature where
+    generaliseKind boundVars kindMapping sig@KindSignature { getKindSignatureKindParams = kindParams
+                                                           , getKindSignatureKind = kind
+                                                           } =
+        let freeVars = getFreeVariables kind
+         in sig
+                { getKindSignatureKindParams =
+                      generaliseParams boundVars kindMapping freeVars kindParams
                 }
 
 -- | Creates a kind signature
@@ -224,10 +252,10 @@ instance SortSubstitutable TypeConstructorSignature where
             }
 
 instance KindSubstitutable TypeConstructorSignature where
-    substituteKind sub sorts sig@TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
-                                                          , getTypeConstructorSignatureKind = kind
-                                                          , getTypeConstructorSignatureTypeParams = typeParams
-                                                          } =
+    substituteKind sub sig@TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
+                                                    , getTypeConstructorSignatureKind = kind
+                                                    , getTypeConstructorSignatureTypeParams = typeParams
+                                                    } =
         let substitutedKind = substitute sub kind
             substitutedTypeParams = map (second $ substitute sub) typeParams
             freeVars =
@@ -235,9 +263,21 @@ instance KindSubstitutable TypeConstructorSignature where
                 substitutedKind : map snd substitutedTypeParams
          in sig
                 { getTypeConstructorSignatureKindParams =
-                      filterParams freeVars sorts kindParams
+                      removeBoundParams freeVars kindParams
                 , getTypeConstructorSignatureKind = substitutedKind
                 , getTypeConstructorSignatureTypeParams = substitutedTypeParams
+                }
+
+instance KindGeneralisable TypeConstructorSignature where
+    generaliseKind boundVars kindMapping sig@TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
+                                                                      , getTypeConstructorSignatureKind = kind
+                                                                      , getTypeConstructorSignatureTypeParams = typeParams
+                                                                      } =
+        let freeVars =
+                HS.unions . map getFreeVariables $ kind : map snd typeParams
+         in sig
+                { getTypeConstructorSignatureKindParams =
+                      generaliseParams boundVars kindMapping freeVars kindParams
                 }
 
 -- | Creates a type constructor signature
@@ -292,10 +332,10 @@ instance SortSubstitutable TypeSignature where
             }
 
 instance KindSubstitutable TypeSignature where
-    substituteKind sub sorts sig@TypeSignature { getTypeSignatureKindParams = kindParams
-                                               , getTypeSignatureKind = kind
-                                               , getTypeSignatureTypeParams = typeParams
-                                               } =
+    substituteKind sub sig@TypeSignature { getTypeSignatureKindParams = kindParams
+                                         , getTypeSignatureKind = kind
+                                         , getTypeSignatureTypeParams = typeParams
+                                         } =
         let substitutedKind = substitute sub kind
             substitutedParams = map (second $ substitute sub) typeParams
             freeVars =
@@ -303,27 +343,52 @@ instance KindSubstitutable TypeSignature where
                 substitutedKind : map snd substitutedParams
          in sig
                 { getTypeSignatureKindParams =
-                      filterParams freeVars sorts kindParams
+                      removeBoundParams freeVars kindParams
                 , getTypeSignatureKind = substitutedKind
                 , getTypeSignatureTypeParams = substitutedParams
                 }
 
+instance KindGeneralisable TypeSignature where
+    generaliseKind boundVars kindMapping sig@TypeSignature { getTypeSignatureKindParams = kindParams
+                                                           , getTypeSignatureKind = kind
+                                                           , getTypeSignatureTypeParams = typeParams
+                                                           } =
+        let freeVars =
+                HS.unions . map getFreeVariables $ kind : map snd typeParams
+         in sig
+                { getTypeSignatureKindParams =
+                      generaliseParams boundVars kindMapping freeVars kindParams
+                }
+
 instance TypeSubstitutable TypeSignature where
-    substituteType sub kinds sig@TypeSignature { getTypeSignatureTypeParams = typeParams
-                                               , getTypeSignatureType = type'
-                                               , getTypeSignatureContext = context
-                                               } =
+    substituteType sub sig@TypeSignature { getTypeSignatureTypeParams = typeParams
+                                         , getTypeSignatureType = type'
+                                         , getTypeSignatureContext = context
+                                         } =
         let substitutedType = substitute sub type'
-            substitutedContext = map (substituteType sub kinds) context
+            substitutedContext = map (substituteType sub) context
             freeVars =
                 HS.unions $
                 getFreeVariables substitutedType :
                 map getFreeVariables substitutedContext
          in sig
                 { getTypeSignatureTypeParams =
-                      filterParams freeVars kinds typeParams
+                      removeBoundParams freeVars typeParams
                 , getTypeSignatureType = substitutedType
                 , getTypeSignatureContext = substitutedContext
+                }
+
+instance TypeGeneralisable TypeSignature where
+    generaliseType boundVars typeMapping sig@TypeSignature { getTypeSignatureTypeParams = typeParams
+                                                           , getTypeSignatureType = type'
+                                                           , getTypeSignatureContext = context
+                                                           } =
+        let freeVars =
+                HS.unions $
+                getFreeVariables type' : map getFreeVariables context
+         in sig
+                { getTypeSignatureTypeParams =
+                      generaliseParams boundVars typeMapping freeVars typeParams
                 }
 
 -- | Creates a type signature
@@ -349,19 +414,29 @@ createTypeSignature s =
         }
 
 instance TypeSubstitutable Constraint where
-    substituteType sub _ constr =
+    substituteType sub constr =
         case constr of
             ConstraintVariable cls var ->
                 ConstraintVariable cls (substitute sub var)
             ConstraintType cls type' args ->
                 ConstraintType cls type' (fmap (substitute sub) args)
 
--- | Select only free variables, and add missing ones
-filterParams :: HS.HashSet Ident -> [(Ident, a)] -> [(Ident, a)] -> [(Ident, a)]
-filterParams freeVars missing params =
+-- | Removes bound parameters from the provided list
+removeBoundParams :: HS.HashSet Ident -> Params a -> Params a
+removeBoundParams freeVars = filter (\(name, _) -> name `HS.member` freeVars)
+
+-- | Generalises free variables
+generaliseParams ::
+       HS.HashSet Ident
+    -> ParamsMap a
+    -> HS.HashSet Ident
+    -> Params a
+    -> Params a
+generaliseParams boundVars paramsMapping freeVars params =
     let existingVars = HS.fromList $ map fst params
-        stillFreeVars = filter (\(k, _) -> k `HS.member` freeVars) params
-        newVars =
-            map (\var -> (var, fromJust $ lookup var missing)) . HS.toList $
-            freeVars `HS.difference` existingVars
-     in stillFreeVars ++ newVars
+        boundAndExistingVars = boundVars `HS.union` existingVars
+        shouldGeneralise = freeVars `HS.difference` boundAndExistingVars
+        newParams =
+            map (\var -> (var, fromJust $ HM.lookup var paramsMapping)) $
+            HS.toList shouldGeneralise
+     in params ++ newParams

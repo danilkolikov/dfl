@@ -8,6 +8,8 @@ Description of some kind of inference
 -}
 module Frontend.Inference.Base.Descriptor where
 
+import qualified Data.HashSet as HS
+
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Variables
@@ -18,14 +20,15 @@ import Frontend.Inference.Variables
 
 -- | A function which infers explicit signatures
 type SignaturesGetter a s
-     = a -> (Either InferenceError s, SingleGroupInferenceDebugOutput)
+     = a -> ( Either InferenceError (Signatures s)
+            , SingleGroupInferenceDebugOutput)
 
 -- | A function which builds a dependency graph
-type DependencyGraphBuilder a s = s -> a -> DependencyGraph
+type DependencyGraphBuilder a s = Signatures s -> a -> DependencyGraph
 
 -- | An output of inference
 type InferOutput s
-     = ( Either InferenceError ( s
+     = ( Either InferenceError ( Signatures s
                                , VariableGeneratorState
                                , TypeVariableEqualitiesMap)
        , InferenceDebugOutput)
@@ -39,7 +42,9 @@ type RunInfer a s = InferenceDescriptor a s -> Infer a s
 
 -- | An output of a function which creates a system of equalities
 type EqualitiesBuilderOutput s
-     = ( ( Either InferenceEqualitiesGenerationError (s, Equalities)
+     = ( ( Either InferenceEqualitiesGenerationError ( Signatures ( s
+                                                                  , [Ident])
+                                                     , Equalities)
          , [InferenceDebugOutput])
        , VariableGeneratorState)
 
@@ -48,7 +53,7 @@ type EqualitiesBuilder a s
      = Infer a s -> InferenceEnvironment s -> a -> [Ident] -> VariableGeneratorState -> EqualitiesBuilderOutput s
 
 -- | A function which applies a solution of a system of equalities
-type SolutionApplier s = Equalities -> Solution -> s -> s
+type SolutionApplier s = [Ident] -> HS.HashSet Ident -> Solution -> s -> s
 
 -- | A structure that describes a process of inference
 data InferenceDescriptor a s = InferenceDescriptor

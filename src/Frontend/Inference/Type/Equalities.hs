@@ -10,8 +10,9 @@ module Frontend.Inference.Type.Equalities where
 
 import Control.Monad.Trans.Reader (ask, asks, local)
 import Control.Monad.Trans.State.Lazy (get, put)
+import Data.Either (lefts, rights)
 import qualified Data.HashMap.Lazy as HM
-import Data.Maybe (fromJust, fromMaybe, mapMaybe)
+import Data.Maybe (fromJust, fromMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Base.Common
@@ -25,7 +26,7 @@ import Frontend.Syntax.Position
 
 -- | Collects equalities between types of expressions
 generateEqualitiesForExpressions ::
-       EqualitiesBuilder F.Expressions (Signatures TypeSignature)
+       EqualitiesBuilder F.Expressions TypeSignature
 generateEqualitiesForExpressions inferTypes env exprs items
     | InferenceEnvironment { getInferenceEnvironmentSignatures = signatures
                            , getInferenceEnvironmentTypeVariables = typeVariables
@@ -43,7 +44,7 @@ generateEqualitiesForExpressions inferTypes env exprs items
                 []
 
 -- | A function which infers types
-type InferTypes = Infer F.Expressions (Signatures TypeSignature)
+type InferTypes = Infer F.Expressions TypeSignature
 
 -- | Collects equalities between types of expressions
 generateEqualitiesForExpressions' ::
@@ -51,20 +52,22 @@ generateEqualitiesForExpressions' ::
     -> TypeVariables
     -> F.Expressions
     -> [Ident]
-    -> InferenceEqualitiesGenerator (Signatures TypeSignature)
+    -> InferenceEqualitiesGenerator (Signatures (TypeSignature, [Ident]))
 generateEqualitiesForExpressions' inferTypes typeVariables exprs items = do
     let boundVars = HM.toList typeVariables
     defineNewVariables boundVars
     definedSignatures <- asks getExpressionSignatures
     let createSignatureForItem name =
             case HM.lookup name definedSignatures of
-                Just _ -> Nothing -- Signature was inferred earlier
-                Nothing -> Just $ (\sig -> (name, sig)) <$> createSignature
-        signatureCreators = mapMaybe createSignatureForItem items
-    signatures <- HM.fromList <$> sequence signatureCreators
-    withExpressions signatures . withTypeVariables boundVars $
+                Just sig -> return $ Left (name, sig)
+                Nothing -> (\sig -> Right (name, sig)) <$> createSignature
+    allSignatures <- mapM createSignatureForItem items
+    let newSignatures = HM.fromList $ rights allSignatures
+        existingSignatures = HM.fromList $ lefts allSignatures
+    withExpressions newSignatures . withTypeVariables boundVars $
         mapM_ (generateEqualitiesForIdent inferTypes exprs) items
-    return signatures
+    return . HM.map (\s -> (s, [])) $
+        newSignatures `HM.union` existingSignatures
 
 -- | Creates a type signatures
 createSignature :: InferenceEqualitiesGenerator TypeSignature
@@ -102,8 +105,10 @@ generateEqualitiesForExpression inferTypes F.Expression { F.getExpressionName = 
     resultType <- generateEqualitiesForExp inferTypes body
     signature <-
         asks $ fromJust . HM.lookup (getValue name) . getExpressionSignatures
-    expectedType <- specialiseExpressionSignature signature
+    (expectedType, expectedKind, expectedSort) <- specialiseExpressionSignature signature
     writeTypeEqualities [(resultType, expectedType)]
+    writeKindEqualities [(KindStar, expectedKind)]
+    writeSortEqualities [(SortSquare, expectedSort)]
 
 -- | Generates equalities for an expression
 generateEqualitiesForExp ::

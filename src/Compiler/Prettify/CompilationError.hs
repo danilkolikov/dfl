@@ -162,13 +162,16 @@ prettifyExpressionDesugaringError expressionError =
 prettifyCombinedInferenceError :: CombinedInferenceError -> String
 prettifyCombinedInferenceError err =
     case err of
-        CombinedInferenceError infErr -> prettifyInferenceError infErr
+        CombinedInferenceErrorKindInference infErr ->
+            prettifyInferenceError "Kind inference error: " infErr
         CombinedInferenceErrorTypeSynonyms typeSynonymsErr ->
             prettifyTypeSynonymsProcessingError typeSynonymsErr
+        CombinedInferenceErrorTypeInference infErr ->
+            prettifyInferenceError "Type inference error: " infErr
 
-prettifyInferenceError :: InferenceError -> String
-prettifyInferenceError err =
-    "Inference error: " ++
+prettifyInferenceError :: String -> InferenceError -> String
+prettifyInferenceError label err =
+    label ++
     case err of
         InferenceErrorSynonyms expErr ->
             prettifyTypeSynonymsExpandingError expErr
@@ -208,7 +211,7 @@ prettifyEqualitiesGenerationError groupError =
         EqualitiesGenerationErrorUnknownType name ->
             "Unknown type " ++ prettifyName name
         EqualitiesGenerationErrorNested err ->
-            "Nested error: " ++ prettifyInferenceError err
+            "Nested error: " ++ prettifyInferenceError "" err
 
 prettifyTypeSynonymsProcessingError :: TypeSynonymsProcessingError -> String
 prettifyTypeSynonymsProcessingError typeSynonymsErr =

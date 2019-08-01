@@ -8,15 +8,17 @@ The solver of type, kind and sort equalities
 -}
 module Frontend.Inference.Solver where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (Except, except, runExcept)
-import Control.Monad.Trans.State.Lazy (StateT, modify, runStateT)
-import Data.Bifunctor (first)
+import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
+import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
+import Data.Bifunctor (first, second)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.Maybe (fromMaybe, mapMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident)
+import Frontend.Inference.AlgebraicExp
 import Frontend.Inference.Equalities
 import Frontend.Inference.Expression
 import Frontend.Inference.Signature
@@ -28,6 +30,8 @@ data Solution = Solution
     { getSolutionTypeSubstitution :: Substitution Type
     , getSolutionKindSubstitution :: Substitution Kind
     , getSolutionSortSubstitution :: Substitution Sort
+    , getSolutionKindOfTypeVariables :: Substitution Kind
+    , getSolutionSortOfKindVariables :: Substitution Sort
     }
 
 -- | A debug output of the equality solver
@@ -36,72 +40,98 @@ data SolverDebugOutput = SolverDebugOutput
     , getSolverDebugOutputTypeSubstitution :: Maybe (Substitution Type) -- ^ Solution for type equalities
     , getSolverDebugOutputKindSubstitution :: Maybe (Substitution Kind) -- ^ Solution for kind equalities
     , getSolverDebugOutputSortSubstitution :: Maybe (Substitution Sort) -- ^ Solution for sort equalities
+    , getSolverDebugOutputKindOfTypeVariables :: Maybe (Substitution Kind) -- ^ Kinds of type variables
+    , getSolverDebugOutputSortOfKindVariables :: Maybe (Substitution Sort) -- ^ Sort of kind variables
     } deriving (Eq, Show)
+
+instance Semigroup SolverDebugOutput where
+    SolverDebugOutput e1 t1 k1 s1 kt1 sk1 <> SolverDebugOutput e2 t2 k2 s2 kt2 sk2 =
+        SolverDebugOutput
+            (e1 <|> e2)
+            (t1 <|> t2)
+            (k1 <|> k2)
+            (s1 <|> s2)
+            (kt1 <|> kt2)
+            (sk1 <|> sk2)
+
+instance Monoid SolverDebugOutput where
+    mempty = SolverDebugOutput Nothing Nothing Nothing Nothing Nothing Nothing
 
 -- | Solves the provided system of equalities
 solveEqualities ::
-       Equalities -> Either UnificationError (Solution, SolverDebugOutput)
-solveEqualities equalities =
-    let emptyOutput =
-            SolverDebugOutput
-                { getSolverDebugOutputEqualities = Nothing
-                , getSolverDebugOutputTypeSubstitution = Nothing
-                , getSolverDebugOutputKindSubstitution = Nothing
-                , getSolverDebugOutputSortSubstitution = Nothing
-                }
-     in runExcept $ runStateT (solveEqualities' equalities) emptyOutput
+       Equalities -> (Either UnificationError Solution, SolverDebugOutput)
+solveEqualities = runWriter . runExceptT . solveEqualities'
 
 -- | Applies the solution of a system to the object, supporting substitution of sorts
-applySortSolution :: (SortSubstitutable a) => Equalities -> Solution -> a -> a
-applySortSolution _ Solution {getSolutionSortSubstitution = sortSubstitution} =
+applySortSolution :: (SortSubstitutable a) => Solution -> a -> a
+applySortSolution Solution {getSolutionSortSubstitution = sortSubstitution} =
     substituteSort sortSubstitution
 
 -- | Applies the solution of a system to the object, supporting substitution of sorts and kinds
 applyKindSolution ::
-       (SortSubstitutable a, KindSubstitutable a)
-    => Equalities
+       (SortSubstitutable a, KindSubstitutable a, KindGeneralisable a)
+    => HS.HashSet Ident
     -> Solution
     -> a
     -> a
-applyKindSolution equalities solution@Solution {getSolutionKindSubstitution = kindSubstitution} =
-    let substitutedHasSort =
-            map
-                (first $ substitute kindSubstitution)
-                (getHasSortEqualities equalities)
-        sortOfVariables = findVariables substitutedHasSort
-     in applySortSolution equalities solution .
-        substituteKind kindSubstitution sortOfVariables
-
+applyKindSolution boundVars solution@Solution { getSolutionKindSubstitution = kindSubstitution
+                                              , getSolutionSortOfKindVariables = sortOfKindVariables
+                                              } =
+    applySortSolution solution .
+    generaliseKind boundVars sortOfKindVariables .
+    substituteKind kindSubstitution
 
 -- | Applies the solution of a system to the object, supporting substitution of sorts, kinds and types
 applyTypeSolution ::
-       (TypeSubstitutable a, KindSubstitutable a, SortSubstitutable a)
-    => Equalities
+       ( SortSubstitutable a
+       , KindSubstitutable a
+       , KindGeneralisable a
+       , TypeSubstitutable a
+       , TypeGeneralisable a
+       )
+    => HS.HashSet Ident
     -> Solution
     -> a
     -> a
-applyTypeSolution equalities solution@Solution {getSolutionTypeSubstitution = typeSubstitution} =
-    let substitutedHasKind =
-            map
-                (first $ substitute typeSubstitution)
-                (getHasKindEqualities equalities)
-        kindOfVariables = findVariables substitutedHasKind
-     in applyKindSolution equalities solution .
-        substituteType typeSubstitution kindOfVariables
+applyTypeSolution boundTypeVars solution@Solution { getSolutionTypeSubstitution = typeSubstitution
+                                                  , getSolutionKindOfTypeVariables = kindOfTypeVariables
+                                                  } =
+    let boundKindVars = HS.empty -- All kind variables are unbound
+     in applyKindSolution boundKindVars solution .
+        generaliseType boundTypeVars kindOfTypeVariables .
+        substituteType typeSubstitution
 
--- | Solves the provided system of equalities and applies solution to the provided
--- | object
-solveEqualitiesAndApplySolution ::
-       (TypeSubstitutable a, KindSubstitutable a, SortSubstitutable a)
-    => Equalities
-    -> a
-    -> Either UnificationError (a, SolverDebugOutput)
-solveEqualitiesAndApplySolution equalities obj = do
-    (solution, debug) <- solveEqualities equalities
-    return (applyTypeSolution equalities solution obj, debug)
+applyKindSolutionAndSetTypeVariables ::
+       [Ident]
+    -> HS.HashSet Ident
+    -> Solution
+    -> TypeConstructorSignature
+    -> TypeConstructorSignature
+applyKindSolutionAndSetTypeVariables vars def sol signature =
+    let kindApplied = applyKindSolution def sol signature
+        combinedKind = getTypeConstructorSignatureKind kindApplied
+        cutVars [] kind = ([], kind)
+        cutVars (name:rest) kind =
+            case kind of
+                KindFunction from to ->
+                    let (resVars, resKind) = cutVars rest to
+                     in ((name, from) : resVars, resKind)
+                _ -> error "Unexpected kind"
+        (typeVariables, resultKind) = cutVars vars combinedKind
+     in kindApplied
+            { getTypeConstructorSignatureKind = resultKind
+            , getTypeConstructorSignatureTypeParams = typeVariables
+            }
 
 -- | A type of the solver of equalities
-type Solver = StateT SolverDebugOutput (Except UnificationError)
+type Solver = ExceptT UnificationError (Writer SolverDebugOutput)
+
+writeDebugOutput :: SolverDebugOutput -> Solver ()
+writeDebugOutput = lift . tell
+
+unifyEqualitiesSystem ::
+       (IsAlgebraicExp a) => [(a, a)] -> Solver (Substitution a)
+unifyEqualitiesSystem = except . unifyEqualities
 
 -- | Solves the provided system of equalities
 solveEqualities' :: Equalities -> Solver Solution
@@ -111,33 +141,46 @@ solveEqualities' equalities@Equalities { getTypeEqualities = typeEqualities
                                        , getHasKindEqualities = hasKindEqualities
                                        , getHasSortEqualities = hasSortEqualities
                                        } = do
-    modify $ \s -> s {getSolverDebugOutputEqualities = Just equalities}
+    writeDebugOutput mempty {getSolverDebugOutputEqualities = Just equalities}
     -- Solve type equalities
-    typeSubstitution <- lift . except $ unifyEqualities typeEqualities
-    modify $ \s ->
-        s {getSolverDebugOutputTypeSubstitution = Just typeSubstitution}
+    typeSubstitution <- unifyEqualitiesSystem typeEqualities
+    writeDebugOutput
+        mempty {getSolverDebugOutputTypeSubstitution = Just typeSubstitution}
     -- Append extra kind equalities and solve them
     let extraKindEqualities =
             createExtraEqualities typeSubstitution hasKindEqualities
         allKindEqualities = kindEqualities ++ extraKindEqualities
-    kindSubstitution <- lift . except $ unifyEqualities allKindEqualities
-    modify $ \s ->
-        s {getSolverDebugOutputKindSubstitution = Just kindSubstitution}
+    kindSubstitution <- unifyEqualitiesSystem allKindEqualities
+    writeDebugOutput
+        mempty {getSolverDebugOutputKindSubstitution = Just kindSubstitution}
     -- Append extra sort equalities and solve them
     let extraSortEqualities =
             createExtraEqualities kindSubstitution hasSortEqualities
         allSortEqualities = sortEqualities ++ extraSortEqualities
-    sortSubstitution <- lift . except $ unifyEqualities allSortEqualities
+    sortSubstitution <- unifyEqualitiesSystem allSortEqualities
     -- Replace all unbound sort variables with []
     let fixedSortSubstitution =
             fixSortVariables hasSortEqualities sortSubstitution
-    modify $ \s ->
-        s {getSolverDebugOutputSortSubstitution = Just fixedSortSubstitution}
+    writeDebugOutput
+        mempty
+            {getSolverDebugOutputSortSubstitution = Just fixedSortSubstitution}
+    let makeMapping sub =
+            HM.fromList . map (second $ substitute sub) . findVariables
+        kindOfTypeVariables = makeMapping kindSubstitution hasKindEqualities
+        sortOfKindVariables =
+            makeMapping fixedSortSubstitution hasSortEqualities
+    writeDebugOutput
+        mempty
+            { getSolverDebugOutputKindOfTypeVariables = Just kindOfTypeVariables
+            , getSolverDebugOutputSortOfKindVariables = Just sortOfKindVariables
+            }
     return
         Solution
             { getSolutionTypeSubstitution = typeSubstitution
             , getSolutionKindSubstitution = kindSubstitution
             , getSolutionSortSubstitution = fixedSortSubstitution
+            , getSolutionKindOfTypeVariables = kindOfTypeVariables
+            , getSolutionSortOfKindVariables = sortOfKindVariables
             }
 
 -- | Create additional equalities between sorts using a solution for kind equalities

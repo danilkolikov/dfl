@@ -42,13 +42,12 @@ inferTypeSignatures signatures typeSynonyms expressions =
 
 -- | Describes inference of kinds of explicit type signatures
 signatureKindInferenceDescriptor ::
-       SingleGroupInferenceDescriptor (Signatures F.TypeSignature) (Signatures TypeConstructorSignature)
+       SingleGroupInferenceDescriptor (Signatures F.TypeSignature) TypeConstructorSignature
 signatureKindInferenceDescriptor =
     SingleGroupInferenceDescriptor
         { getSingleGroupInferenceDescriptorEqualitiesBuilder =
               generateEqualitiesForSignatures
-        , getSingleGroupInferenceDescriptorApplySolution =
-              \e s -> HM.map (applyKindSolution e s)
+        , getSingleGroupInferenceDescriptorApplySolution = applyKindSolutionAndSetTypeVariables
         }
 
 -- | Infers kinds of explicit type signatures

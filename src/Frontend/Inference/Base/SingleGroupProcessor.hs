@@ -12,6 +12,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
 import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
 import Data.Bifunctor (first, second)
+import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
@@ -38,8 +39,7 @@ runSingleGroupInferenceProcessor' =
 
 -- | Does inference of a single group
 doInferSingleGroup ::
-       (Semigroup s)
-    => SingleGroupInferenceDescriptor a s
+       SingleGroupInferenceDescriptor a s
     -> InferenceEnvironment s
     -> Infer a s
     -> a
@@ -78,13 +78,13 @@ inferSingleGroup descr env runInfer x group variableGeneratorState
     | SingleGroupInferenceDescriptor { getSingleGroupInferenceDescriptorEqualitiesBuilder = buildEqualities
                                      , getSingleGroupInferenceDescriptorApplySolution = applySolution
                                      } <- descr = do
-        writeGroupDebugOutput $
+        writeGroupDebugOutput
             mempty {getSingleGroupInferenceDebugOutputGroup = Just group}
         -- Build equalities for each group
         let ((generated, nestedDebugOutput), newVariableGeneratorState) =
                 buildEqualities runInfer env x group variableGeneratorState
         -- Save possible nested debug outputs
-        writeGroupDebugOutput $
+        writeGroupDebugOutput
             mempty
                 { getSingleGroupInferenceDebugOutputNested =
                       Just nestedDebugOutput
@@ -92,19 +92,22 @@ inferSingleGroup descr env runInfer x group variableGeneratorState
         -- Generate equalities
         (signatures, equalities) <-
             wrapGroupError InferenceErrorEqualityGeneration generated
-        -- Solve equalities
-        (solution, solverDebugOutput) <-
-            wrapGroupError InferenceErrorUnification $
-            solveEqualities equalities
-        writeGroupDebugOutput $
+        let (solve, solverDebugOutput) = solveEqualities equalities
+        writeGroupDebugOutput
             mempty
                 { getSingleGroupInferenceDebugOutputSolver =
                       Just solverDebugOutput
                 }
+        -- Solve equalities
+        solution <- wrapGroupError InferenceErrorUnification solve
         -- Apply solution to signatures
-        let finalSignatures = applySolution equalities solution signatures
-            output = (finalSignatures, newVariableGeneratorState, solution)
-        return output
+        let boundVariables =
+                HM.keysSet . getInferenceEnvironmentTypeVariables $ env
+            finalSignatures =
+                HM.map
+                    (\(s, vars) -> applySolution vars boundVariables solution s)
+                    signatures
+        return (finalSignatures, newVariableGeneratorState, solution)
 
 -- | Wraps an error, encountered during inference
 wrapGroupError ::

@@ -22,19 +22,19 @@ type Signatures s = HM.HashMap Ident s
 
 -- | An environment of type inference
 data InferenceEnvironment s = InferenceEnvironment
-    { getInferenceEnvironmentSignatures :: s
+    { getInferenceEnvironmentSignatures :: Signatures s
     , getInferenceEnvironmentTypeVariables :: TypeVariables
     }
 
 -- | A state of inference
 data InferenceState s = InferenceState
-    { getInferenceStateSignatures :: s
+    { getInferenceStateSignatures :: Signatures s
     , getInferenceStateVariableGeneratorState :: VariableGeneratorState
     , getInferenceStateSolutions :: [Solution]
     }
 
 -- | An output of inference of a single group
-type SingleGroupInferenceOutput s = (s, VariableGeneratorState, Solution)
+type SingleGroupInferenceOutput s = (Signatures s, VariableGeneratorState, Solution)
 
 -- | A type of errors which may be encountered during type inference
 data InferenceError

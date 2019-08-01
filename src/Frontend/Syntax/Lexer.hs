@@ -82,11 +82,11 @@ isLarge :: Char -> Bool
 isLarge = isUpper
 
 isNameCharacter :: Char -> Bool
-isNameCharacter c = isSmall c || isLarge c || c == '\''
+isNameCharacter c = isSmall c || isLarge c || isDigit c || c == '\''
 
 nameLexer :: Lexer Char -> Lexer String
 nameLexer first =
-    liftA2 (:) first (takeWhileP (Just "letter, _ or \'") isNameCharacter)
+    liftA2 (:) first (takeWhileP (Just "letter, digit or \'") isNameCharacter)
 
 lowerCaseNameLexer :: Lexer String
 lowerCaseNameLexer = nameLexer (satisfy isSmall)

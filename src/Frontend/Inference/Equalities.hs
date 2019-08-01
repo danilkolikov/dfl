@@ -214,7 +214,7 @@ lookupTypeConstructorSignature name = do
 -- | Finds the kind of a type constructor
 lookupKindOfType :: WithLocation Ident -> EqualitiesGenerator d e Kind
 lookupKindOfType =
-    lookupTypeConstructorSignature >=> specialiseDataTypeSignature
+    lookupTypeConstructorSignature >=> (fst <$>) . specialiseDataTypeSignature
 
 -- | Finds the type of a variable
 lookupTypeVariable :: WithLocation Ident -> EqualitiesGenerator d e (Maybe Type)
@@ -239,7 +239,8 @@ lookupTypeOfVariableOrExpression name = do
     case maybeType of
         Just type' -> return type'
         Nothing ->
-            lookupExpressionSignature name >>= specialiseExpressionSignature
+            lookupExpressionSignature name >>=
+            ((\(t, _, _) -> t) <$>) . specialiseExpressionSignature
 
 -- | Generates new kind and sort variables for an ident
 specialiseKindVariable :: Ident -> EqualitiesGenerator d e (Ident, (Kind, Sort))
@@ -267,7 +268,7 @@ specialiseTypeConstructorSignature ::
        (WithKind a, WithKindParams a, WithTypeParams a)
     => Sort
     -> a
-    -> EqualitiesGenerator d e Kind
+    -> EqualitiesGenerator d e (Kind, Sort)
 specialiseTypeConstructorSignature expectedSort sig = do
     specialisedKind <- mapM (specialiseKindVariable . fst) (getKindParams sig)
     -- Saves generated mapping from kinds to sorts
@@ -282,15 +283,15 @@ specialiseTypeConstructorSignature expectedSort sig = do
         resultKind = substitute kindSubstitution (getFullKind sig)
     -- Saves information about the sort
     writeHasSortEqualities [(resultKind, resSort)]
-    return resultKind
+    return (resultKind, resSort)
 
 -- | Specialises the signature of a type
 specialiseTypeSignature ::
        (WithType a, WithTypeParams a)
-    => Kind
+    => (Kind, Sort)
     -> a
-    -> EqualitiesGenerator d e Type
-specialiseTypeSignature expectedKind sig = do
+    -> EqualitiesGenerator d e (Type, Kind, Sort)
+specialiseTypeSignature (expectedKind, expectedSort) sig = do
     specialisedType <- mapM (specialiseTypeVariable . fst) (getTypeParams sig)
     -- Saves generate mapping from types to kinds
     writeHasKindEqualities $ map snd specialisedType
@@ -304,14 +305,14 @@ specialiseTypeSignature expectedKind sig = do
         resultType = substitute typeSubstitution (getType sig)
     -- Saves information about the kind
     writeHasKindEqualities [(resultType, resKind)]
-    return resultType
+    return (resultType, resKind, expectedSort)
 
 -- | Specialises the kind of a data type. Function creates new kind and sort
 -- | variables and specialises the kind with them.
 specialiseDataTypeSignature ::
        (WithSort a, WithKindParams a, WithKind a, WithTypeParams a)
     => a
-    -> EqualitiesGenerator d e Kind
+    -> EqualitiesGenerator d e (Kind, Sort)
 specialiseDataTypeSignature signature = do
     sort <- specialiseKindConstructorSignature signature
     specialiseTypeConstructorSignature sort signature
@@ -321,7 +322,7 @@ specialiseDataTypeSignature signature = do
 specialiseExpressionSignature ::
        (WithSort a, WithKindParams a, WithKind a, WithTypeParams a, WithType a)
     => a
-    -> EqualitiesGenerator d e Type
+    -> EqualitiesGenerator d e (Type, Kind, Sort)
 specialiseExpressionSignature signature = do
     kind <- specialiseDataTypeSignature signature
     specialiseTypeSignature kind signature
