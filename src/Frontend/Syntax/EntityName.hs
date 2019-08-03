@@ -51,6 +51,27 @@ cHAR_NAME = ["Char"]
 sTRING_NAME :: EntityName
 sTRING_NAME = ["String"]
 
+-- | Bool type
+bOOL_NAME :: EntityName
+bOOL_NAME = ["Bool"]
+
+-- Classes
+-- | Monad class
+mONAD_NAME :: EntityName
+mONAD_NAME = ["Monad"]
+
+-- | Eq class
+eQ_NAME :: EntityName
+eQ_NAME = ["Eq"]
+
+-- | Num class
+nUM_NAME :: EntityName
+nUM_NAME = ["Num"]
+
+-- | Enum class
+eNUM_NAME :: EntityName
+eNUM_NAME = ["Enum"]
+
 -- | Kind symbol
 sTAR_NAME :: EntityName
 sTAR_NAME = ["*"]

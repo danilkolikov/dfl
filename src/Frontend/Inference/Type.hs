@@ -75,29 +75,20 @@ instance IsAlgebraicExp Type where
     fromAlgebraicExp aExp =
         case aExp of
             AlgebraicExpVar name -> return $ TypeVar name
-            AlgebraicExpFunc ident args ->
-                case ident of
-                    IdentNamed name
-                        | name == aPPLICATION_NAME ->
-                            case args of
-                                [] -> Nothing
-                                func:rest
-                                    | func ==
-                                          AlgebraicExpFunc
-                                              (IdentNamed fUNCTION_NAME)
-                                              []
-                                    , [from, to] <- rest -> do
-                                        fromType <- fromAlgebraicExp from
-                                        toType <- fromAlgebraicExp to
-                                        return $ TypeFunction fromType toType
-                                    | firstArg:restArgs <- rest -> do
-                                        funcType <- fromAlgebraicExp func
-                                        argTypes <-
-                                            mapM
-                                                fromAlgebraicExp
-                                                (firstArg NE.:| restArgs)
-                                        return $
-                                            TypeApplication funcType argTypes
-                                    | otherwise -> Nothing
-                        | otherwise -> return $ TypeConstr ident
-                    _ -> Nothing
+            AlgebraicExpFunc ident args
+                | [] <- args -> return $ TypeConstr ident
+                | func:rest <- args
+                , IdentNamed name <- ident
+                , name == aPPLICATION_NAME -> do
+                    funcType <- fromAlgebraicExp func
+                    restType <- mapM fromAlgebraicExp rest
+                    if funcType == TypeConstr (IdentNamed fUNCTION_NAME) &&
+                       length restType == 2
+                        then return $
+                             TypeFunction (head restType) (last restType)
+                        else case restType of
+                                 [] -> Nothing
+                                 hd:tl ->
+                                     return $
+                                     TypeApplication funcType (hd NE.:| tl)
+                | otherwise -> Nothing

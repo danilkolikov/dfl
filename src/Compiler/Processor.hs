@@ -21,8 +21,8 @@ compileSourceFile :: (Compiler m) => m ()
 compileSourceFile = do
     let initialInfixOperators = HM.empty
         initialDesugaringState = emptyDesugaringState
-        initialKindInferenceState = HM.empty
-        initialTypeInferenceState = emptyTypeSignatures
+        initialKindInferenceState = defaultKindSignatures
+        initialTypeInferenceState = defaultTypeSignatures
     fileName <- getSourceFileName
     fileContent <- readFileContent fileName
     lexems <- traceStep $ lexicalAnalysis fileName fileContent

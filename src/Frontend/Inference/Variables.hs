@@ -18,6 +18,8 @@ module Frontend.Inference.Variables
     , generateKindVariable
     , Type(..)
     , generateTypeVariable
+    , generateKSVariables
+    , generateTKSVariables
     , Ident(..)
     , IdentEnvironment(..)
     , generateSortIdent
@@ -106,3 +108,17 @@ generateTypeIdent =
         getVariableGeneratorStateType
         (\n s -> s {getVariableGeneratorStateType = n})
         IdentEnvironmentTypeVariable
+
+-- | Generates kind and sort variables
+generateKSVariables :: VariableGenerator (Kind, Sort)
+generateKSVariables = do
+    sortVar <- generateSortVariable
+    kindVar <- generateKindVariable
+    return (kindVar, sortVar)
+
+-- | Generates type, kind and sort variables
+generateTKSVariables :: VariableGenerator (Type, Kind, Sort)
+generateTKSVariables = do
+    (kindVar, sortVar) <- generateKSVariables
+    typeVar <- generateTypeVariable
+    return (typeVar, kindVar, sortVar)

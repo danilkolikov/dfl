@@ -91,40 +91,38 @@ generateEqualitiesForTypeSignatures' env idents = do
 
 -- | Creates a type constructor signatures, using provided type parameters
 createSignature :: InferenceEqualitiesGenerator TypeConstructorSignature
-createSignature =
-    liftGen $ do
-        resultKind <- generateKindVariable
-        resultSort <- generateSortVariable
-        return $
-            TypeConstructorSignature
-                { getTypeConstructorSignatureSort = resultSort
-                , getTypeConstructorSignatureKindParams = []
-                , getTypeConstructorSignatureKind = resultKind
-                , getTypeConstructorSignatureTypeParams = []
-                }
+createSignature = do
+    (resultKind, resultSort) <- createNewKindVariable
+    return $
+        TypeConstructorSignature
+            { getTypeConstructorSignatureSort = resultSort
+            , getTypeConstructorSignatureKindParams = []
+            , getTypeConstructorSignatureKind = resultKind
+            , getTypeConstructorSignatureTypeParams = []
+            }
 
 -- | Generates equalities using a provided signature
 generateEqualitiesUsingSignature ::
        [Ident]
-    -> InferenceEqualitiesGenerator Kind
+    -> InferenceEqualitiesGenerator (Kind, Sort)
     -> TypeConstructorSignature
     -> InferenceEqualitiesGenerator (TypeConstructorSignature, [Ident])
 generateEqualitiesUsingSignature params generator signature = do
-    typeParams <- createNewVariables params
-    kind <- withTypeVariables typeParams generator
-    let resultKind =
-            foldr (KindFunction . (\(_, k, _) -> k) . snd) kind typeParams
+    kindParams <- createNewKindVariables params
+    (genKind, genSort) <- withKindVariables kindParams generator
+    let (kinds, sorts) = unzip $ map snd kindParams
+        resultKind = foldr KindFunction genKind kinds
+    writeSortSquare $ genSort : sorts
     (expectedKind, expectedSort) <- specialiseDataTypeSignature signature
     writeKindEqualities [(resultKind, expectedKind)]
-    writeSortEqualities [(SortSquare, expectedSort)]
+    writeSortEqualities [(genSort, expectedSort)]
     return (signature, params)
 
 -- | Generates equalities for an ident
 generateEqualitiesForIdent ::
        Environment
     -> Ident
-    -> InferenceEqualitiesGenerator ( Ident
-                                    , (TypeConstructorSignature, [Ident]))
+    -> InferenceEqualitiesGenerator (Ident, (TypeConstructorSignature, [Ident]))
 generateEqualitiesForIdent env name =
     let maybeResolveSingle getMap =
             generateEqualitiesAndSignature <$> HM.lookup name (getMap env)
@@ -157,7 +155,7 @@ instance (WithEqualities a) => WithEqualities [a] where
 lookupSignatureAndGenerateEqualities ::
        WithLocation Ident
     -> [WithLocation Ident]
-    -> InferenceEqualitiesGenerator Kind
+    -> InferenceEqualitiesGenerator (Kind, Sort)
     -> InferenceEqualitiesGenerator (TypeConstructorSignature, [Ident])
 lookupSignatureAndGenerateEqualities name params generator =
     let getSignature =
@@ -165,11 +163,10 @@ lookupSignatureAndGenerateEqualities name params generator =
      in asks getSignature >>=
         generateEqualitiesUsingSignature (map getValue params) generator
 
+-- | A class of types which have both equalities and signatures
 class WithEqualitiesAndSignature a where
     generateEqualitiesAndSignature ::
-           a
-        -> InferenceEqualitiesGenerator ( TypeConstructorSignature
-                                        , [Ident])
+           a -> InferenceEqualitiesGenerator (TypeConstructorSignature, [Ident])
 
 instance WithEqualitiesAndSignature TypeSynonym where
     generateEqualitiesAndSignature TypeSynonym { getTypeSynonymName = name
@@ -188,7 +185,7 @@ instance WithEqualitiesAndSignature DataType where
         lookupSignatureAndGenerateEqualities name params $ do
             generateEqualities context
             generateEqualities $ map snd constructors
-            return KindStar
+            return (KindStar, SortSquare)
 
 instance WithEqualitiesAndSignature Class where
     generateEqualitiesAndSignature Class { getClassName = name
@@ -199,7 +196,7 @@ instance WithEqualitiesAndSignature Class where
         lookupSignatureAndGenerateEqualities name [param] $ do
             generateEqualities context
             generateEqualities . map snd $ HM.toList methods
-            return KindStar
+            return (KindStar, SortSquare)
 
 instance WithEqualities Constraint where
     generateEqualities constr =
@@ -230,8 +227,10 @@ instance WithEqualities SimpleConstraint where
 instance WithEqualities Constructor where
     generateEqualities Constructor {getConstructorArgs = args} = do
         argKinds <- mapM generateTypeEqualities args
-    -- Kind of every argument is *
-        writeKindEqualities $ map (\k -> (k, KindStar)) argKinds
+        let (kinds, sorts) = unzip argKinds
+        -- Kind of every argument is *, and sort is []
+        writeKindStar kinds
+        writeSortSquare sorts
 
 instance WithEqualities Method where
     generateEqualities = generateEqualities . getMethodType
@@ -240,24 +239,30 @@ instance WithEqualities TypeSignature where
     generateEqualities = void . generateEqualitiesAndSignature
 
 -- | Collect equalities between kinds in a type
-generateTypeEqualities :: WithLocation Type -> InferenceEqualitiesGenerator Kind
+generateTypeEqualities ::
+       WithLocation Type -> InferenceEqualitiesGenerator (Kind, Sort)
 generateTypeEqualities type' =
     case getValue type' of
-        TypeVar name -> lookupKindOfTypeVariable name
+        TypeVar name -> lookupKindVariable name
         TypeConstr name -> lookupKindOfType name
         TypeFunction from to -> do
-            fromKind <- generateTypeEqualities from
-            toKind <- generateTypeEqualities to
+            (fromKind, fromSort) <- generateTypeEqualities from
+            (toKind, toSort) <- generateTypeEqualities to
             -- Kind of (->) is (* -> * -> *)
             writeKindEqualities [(fromKind, KindStar), (toKind, KindStar)]
-            return KindStar
+            -- We expect each argument to be fully specialised
+            writeSortSquare [fromSort, toSort]
+            return (KindStar, SortSquare)
         TypeApplication func args -> do
-            funcKind <- generateTypeEqualities func
-            argsResolved <- mapM generateTypeEqualities args
-            resultKind <- liftGen generateKindVariable
-            let expectedKind = foldr KindFunction resultKind argsResolved
+            (funcKind, funcSort) <- generateTypeEqualities func
+            argsResolved <- mapM generateTypeEqualities (NE.toList args)
+            (resultKind, resultSort) <- createNewKindVariable
+            let (kinds, sorts) = unzip argsResolved
+                expectedKind = foldr KindFunction resultKind kinds
             writeKindEqualities [(funcKind, expectedKind)]
-            return resultKind
+            -- Each argument should be fully specialised
+            writeSortSquare $ funcSort : resultSort : sorts
+            return (resultKind, SortSquare)
 
 instance WithEqualitiesAndSignature TypeSignature where
     generateEqualitiesAndSignature TypeSignature { getTypeSignatureType = type'
@@ -284,6 +289,7 @@ getFreeTypeVariables aType =
         TypeApplication func args ->
             HS.unions . map getFreeTypeVariables $ func : NE.toList args
 
+-- | Gets free type variables of a constraint
 getFreeTypeVariablesOfConstraint :: WithLocation Constraint -> HS.HashSet Ident
 getFreeTypeVariablesOfConstraint constraint =
     case getValue constraint of

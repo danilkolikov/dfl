@@ -18,7 +18,8 @@ module Frontend.Inference.Processor
     , Signatures
     , TypeConstructorSignature
     , TypeSignature
-    , Type.emptyTypeSignatures
+    , defaultTypeSignatures
+    , defaultKindSignatures
     , inferKinds
     , expandTypeSynonyms
     , inferTypes
@@ -33,6 +34,7 @@ import qualified Frontend.Inference.Kind.Processor as Kind
 import Frontend.Inference.Signature
 import qualified Frontend.Inference.Type.Processor as Type
 import Frontend.Inference.TypeSynonyms.Processor
+import Frontend.Inference.BuiltIns
 
 -- | Errors which can be encounterd during inference
 data CombinedInferenceError

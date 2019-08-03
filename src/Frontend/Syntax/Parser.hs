@@ -119,8 +119,8 @@ instance Parseable ConSym where
     parser = parseNotQualified <?> "Constructor operator"
 
 -- | Parser for the operator ":"
-colon :: Parser ConSym
-colon = expectName (ConSym ":")
+colon :: Parser Operator
+colon = expect OperatorColon
 
 instance (NameContains a) => Parseable (Qualified a) where
     parser =
@@ -695,7 +695,10 @@ sepByP :: (TokenContains b, Eq b, Show b) => Parser a -> b -> Parser [a]
 sepByP item sep = try item `sepEndBy` try (expect sep)
 
 sepBy1P ::
-       (TokenContains b, Eq b, Show b) => Parser a -> b -> Parser (NE.NonEmpty a)
+       (TokenContains b, Eq b, Show b)
+    => Parser a
+    -> b
+    -> Parser (NE.NonEmpty a)
 sepBy1P item sep = try item `sepEndBy1` try (expect sep)
 
 -- | Run parser and pass result as an argument to a function
@@ -741,7 +744,7 @@ parseNotQualified =
 
 -- | Expect the next parsed object to be equal to the provided one
 expect :: (TokenContains a, Eq a, Show a) => a -> Parser a
-expect x = (parserForTokenContainsGuarded (== x)) <?> show x
+expect x = parserForTokenContainsGuarded (== x) <?> show x
 
 -- | Expect an object and ignore result
 expect_ :: (TokenContains a, Eq a, Show a) => a -> Parser ()
@@ -749,7 +752,7 @@ expect_ x = void $ expect x
 
 -- | Expect the following token to be a 'NameContains'
 expectName :: (NameContains a, Eq a, Show a) => a -> Parser a
-expectName x =  x <$ expect (NameWithPath [] (toName x))
+expectName x = x <$ expect (NameWithPath [] (toName x))
 
 -- | Run parser and save locations of parsed tokens
 parseWithLocation :: Parser a -> Parser (WithLocation a)

@@ -12,6 +12,7 @@ import Control.Monad.Trans.Reader (ask, asks, local)
 import Control.Monad.Trans.State.Lazy (get, put)
 import Data.Either (lefts, rights)
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromJust, fromMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -55,7 +56,7 @@ generateEqualitiesForExpressions' ::
     -> InferenceEqualitiesGenerator (Signatures (TypeSignature, [Ident]))
 generateEqualitiesForExpressions' inferTypes typeVariables exprs items = do
     let boundVars = HM.toList typeVariables
-    defineNewVariables boundVars
+    defineNewTypeVariables (HM.elems typeVariables)
     definedSignatures <- asks getExpressionSignatures
     let createSignatureForItem name =
             case HM.lookup name definedSignatures of
@@ -71,20 +72,17 @@ generateEqualitiesForExpressions' inferTypes typeVariables exprs items = do
 
 -- | Creates a type signatures
 createSignature :: InferenceEqualitiesGenerator TypeSignature
-createSignature =
-    liftGen $ do
-        resultType <- generateTypeVariable
-        resultKind <- generateKindVariable
-        resultSort <- generateSortVariable
-        return $
-            TypeSignature
-                { getTypeSignatureSort = resultSort
-                , getTypeSignatureKindParams = []
-                , getTypeSignatureKind = resultKind
-                , getTypeSignatureTypeParams = []
-                , getTypeSignatureType = resultType
-                , getTypeSignatureContext = []
-                }
+createSignature = do
+    (resultType, resultKind, resultSort) <- createNewTypeVariable
+    return $
+        TypeSignature
+            { getTypeSignatureSort = resultSort
+            , getTypeSignatureKindParams = []
+            , getTypeSignatureKind = resultKind
+            , getTypeSignatureTypeParams = []
+            , getTypeSignatureType = resultType
+            , getTypeSignatureContext = []
+            }
 
 -- | Generates equalities for an ident
 generateEqualitiesForIdent ::
@@ -102,60 +100,90 @@ generateEqualitiesForExpression ::
 generateEqualitiesForExpression inferTypes F.Expression { F.getExpressionName = name
                                                         , F.getExpressionBody = body
                                                         } = do
-    resultType <- generateEqualitiesForExp inferTypes body
+    (resultType, resultKind, resultSort) <-
+        generateEqualitiesForExp inferTypes body
     signature <-
         asks $ fromJust . HM.lookup (getValue name) . getExpressionSignatures
-    (expectedType, expectedKind, expectedSort) <- specialiseExpressionSignature signature
+    (expectedType, expectedKind, expectedSort) <-
+        specialiseExpressionSignature signature
     writeTypeEqualities [(resultType, expectedType)]
-    writeKindEqualities [(KindStar, expectedKind)]
-    writeSortEqualities [(SortSquare, expectedSort)]
+    writeKindEqualities [(resultKind, expectedKind)]
+    writeSortEqualities [(resultSort, expectedSort)]
 
 -- | Generates equalities for an expression
 generateEqualitiesForExp ::
-       InferTypes -> WithLocation F.Exp -> InferenceEqualitiesGenerator Type
+       InferTypes
+    -> WithLocation F.Exp
+    -> InferenceEqualitiesGenerator (Type, Kind, Sort)
 generateEqualitiesForExp inferTypes expr =
     case getValue expr of
         F.ExpVar name -> lookupTypeOfVariableOrExpression name
         F.ExpConstr name -> lookupTypeOfVariableOrExpression name
         F.ExpConst c ->
-            let makeType = return . TypeConstr . IdentNamed
+            let makeType name =
+                    return (TypeConstr $ IdentNamed name, KindStar, SortSquare)
              in case getValue c of
                     F.ConstInt _ -> makeType iNT_NAME
                     F.ConstFloat _ -> makeType fLOAT_NAME
                     F.ConstChar _ -> makeType cHAR_NAME
                     F.ConstString _ -> makeType sTRING_NAME
         F.ExpAbstraction var inner -> do
-            args <- createNewVariables [getValue var]
-            exprType <-
+            args <- createNewTypeVariables [getValue var]
+            (exprType, exprKind, exprSort) <-
                 withTypeVariables args $
                 generateEqualitiesForExp inferTypes inner
-            let [(_, (typeVar, _, _))] = args
-            return $ TypeFunction typeVar exprType
+            let [(_, (typeVar, kindVar, sortVar))] = args
+            writeKindStar [exprKind, kindVar]
+            writeSortSquare [exprSort, sortVar]
+            return (TypeFunction typeVar exprType, KindStar, SortSquare)
         F.ExpApplication func args -> do
-            funcType <- generateEqualitiesForExp inferTypes func
-            argsTypes <- mapM (generateEqualitiesForExp inferTypes) args
-            resultType <- liftGen generateTypeVariable
-            let expectedType = foldr TypeFunction resultType argsTypes
+            (funcType, funcKind, funcSort) <-
+                generateEqualitiesForExp inferTypes func
+            argsTypes <-
+                mapM (generateEqualitiesForExp inferTypes) (NE.toList args)
+            (resultType, resultKind, resultSort) <- createNewTypeVariable
+            let (types, kinds, sorts) = unzip3 argsTypes
+                expectedType = foldr TypeFunction resultType types
             writeTypeEqualities [(funcType, expectedType)]
-            return resultType
+            writeKindStar $ funcKind : resultKind : kinds
+            writeSortSquare $ funcSort : resultSort : sorts
+            return (resultType, KindStar, SortSquare)
         F.ExpCase var constr args ifSuccess ifFail -> do
-            variableType <- lookupTypeOfVariableOrExpression var
-            constructorType <- lookupTypeOfVariableOrExpression constr
-            argsVars <- createNewVariables (map getValue args)
-            let argsTypes = map (\(name, (t, _, _)) -> (name, t)) argsVars
-                expectedConstructorType =
-                    foldr (TypeFunction . snd) variableType argsTypes
-            ifSuccessType <-
+            (variableType, variableKind, variableSort) <-
+                lookupTypeOfVariableOrExpression var
+            (constructorType, constructorKind, constructorSort) <-
+                lookupTypeOfVariableOrExpression constr
+            argsVars <- createNewTypeVariables (map getValue args)
+            let (types, kinds, sorts) = unzip3 . map snd $ argsVars
+                expectedConstructorType = foldr TypeFunction variableType types
+            (ifSuccessType, ifSuccessKind, ifSuccessSort) <-
                 withTypeVariables argsVars $
                 generateEqualitiesForExp inferTypes ifSuccess
-            ifFailType <- lookupTypeOfVariableOrExpression ifFail
-            resultType <- liftGen generateTypeVariable
+            (ifFailType, ifFailKind, ifFailSort) <-
+                lookupTypeOfVariableOrExpression ifFail
+            (resultType, resultKind, resultSort) <- createNewTypeVariable
             writeTypeEqualities
                 [ (constructorType, expectedConstructorType)
                 , (resultType, ifSuccessType)
                 , (resultType, ifFailType)
                 ]
-            return resultType
+            writeKindStar $
+                [ variableKind
+                , constructorKind
+                , ifSuccessKind
+                , ifFailKind
+                , resultKind
+                ] ++
+                kinds
+            writeSortSquare $
+                [ variableSort
+                , constructorSort
+                , ifSuccessSort
+                , ifFailSort
+                , resultSort
+                ] ++
+                sorts
+            return (resultType, KindStar, SortSquare)
         F.ExpLet decls inner -> do
             counter <- liftGen get
             EqualitiesGeneratorEnvironment { getExpressionSignatures = signatures

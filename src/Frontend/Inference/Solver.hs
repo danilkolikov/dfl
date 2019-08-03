@@ -101,6 +101,7 @@ applyTypeSolution boundTypeVars solution@Solution { getSolutionTypeSubstitution 
         generaliseType boundTypeVars kindOfTypeVariables .
         substituteType typeSubstitution
 
+-- | Applies kind solutions and sets kinds of free type variables
 applyKindSolutionAndSetTypeVariables ::
        [Ident]
     -> HS.HashSet Ident
@@ -126,9 +127,11 @@ applyKindSolutionAndSetTypeVariables vars def sol signature =
 -- | A type of the solver of equalities
 type Solver = ExceptT UnificationError (Writer SolverDebugOutput)
 
+-- | Writes a debug output
 writeDebugOutput :: SolverDebugOutput -> Solver ()
 writeDebugOutput = lift . tell
 
+-- | Unifies the system of equalities
 unifyEqualitiesSystem ::
        (IsAlgebraicExp a) => [(a, a)] -> Solver (Substitution a)
 unifyEqualitiesSystem = except . unifyEqualities

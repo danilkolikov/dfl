@@ -42,11 +42,15 @@ instance Monoid Equalities where
 -- | Types, kinds and sorts of type variables
 type TypeVariables = HM.HashMap Ident (Type, Kind, Sort)
 
+-- | Kinds and sorts of kind variables
+type KindVariables = HM.HashMap Ident (Kind, Sort)
+
 -- | A local environment of inference
 data EqualitiesGeneratorEnvironment = EqualitiesGeneratorEnvironment
     { getTypeConstructorSignatures :: HM.HashMap F.Ident TypeConstructorSignature -- ^ Signatures of type synonyms
     , getExpressionSignatures :: HM.HashMap F.Ident TypeSignature -- ^ Signatures of expressions or constructors
     , getTypeVariables :: TypeVariables -- ^ Types of variables
+    , getKindVariables :: KindVariables -- ^ Kinds of variables
     }
 
 -- | An empty environment of inference
@@ -56,6 +60,7 @@ emptyEqualitiesGeneratorEnvironment =
         { getTypeConstructorSignatures = HM.empty
         , getExpressionSignatures = HM.empty
         , getTypeVariables = HM.empty
+        , getKindVariables = HM.empty
         }
 
 -- | Defines new type constructors
@@ -84,6 +89,14 @@ defineTypeVariables ::
     -> EqualitiesGeneratorEnvironment
 defineTypeVariables m env =
     env {getTypeVariables = getTypeVariables env `HM.union` HM.fromList m}
+
+-- | Defines new type variables
+defineKindVariables ::
+       [(Ident, (Kind, Sort))]
+    -> EqualitiesGeneratorEnvironment
+    -> EqualitiesGeneratorEnvironment
+defineKindVariables m env =
+    env {getKindVariables = getKindVariables env `HM.union` HM.fromList m}
 
 -- | Errors which may be encountered during generation of equalities of a dependency group
 data EqualitiesGenerationError e
@@ -136,6 +149,16 @@ writeHasSortEqualities :: [(Kind, Sort)] -> EqualitiesGenerator d e ()
 writeHasSortEqualities equalities =
     lift $ tell mempty {getHasSortEqualities = equalities}
 
+-- | Writes equalities "kind = *" for all provided kinds
+writeKindStar :: [Kind] -> EqualitiesGenerator d e ()
+writeKindStar =
+    writeKindEqualities . map (\x -> (x, KindStar)) . filter (/= KindStar)
+
+-- | Writes equalities "sort = []" for all provided sorts
+writeSortSquare :: [Sort] -> EqualitiesGenerator d e ()
+writeSortSquare =
+    writeSortEqualities . map (\x -> (x, SortSquare)) . filter (/= SortSquare)
+
 -- | Raise an error
 raiseError :: EqualitiesGenerationError e -> EqualitiesGenerator d e a
 raiseError = lift . lift . throwE
@@ -152,26 +175,60 @@ modifyDebugOutput = lift . lift . lift . modify
 liftGen :: VariableGenerator a -> EqualitiesGenerator d e a
 liftGen = lift . lift . lift . lift
 
--- | Creates new type, kind and sort variables for idents and writes relations between them
-createNewVariables ::
-       [Ident] -> EqualitiesGenerator d e [(Ident, (Type, Kind, Sort))]
-createNewVariables idents = do
-    let createVariables name = do
-            typeVar <- generateTypeVariable
-            kindVar <- generateKindVariable
-            sortVar <- generateSortVariable
-            return (name, (typeVar, kindVar, sortVar))
-    vars <- liftGen $ mapM createVariables idents
-    defineNewVariables vars
-    return vars
+-- | Defines new kind variables
+defineNewKindVariables :: [(Kind, Sort)] -> EqualitiesGenerator d e ()
+defineNewKindVariables = writeHasSortEqualities
 
 -- | Defines provided type variables
-defineNewVariables ::
-       [(Ident, (Type, Kind, Sort))] -> EqualitiesGenerator d e ()
-defineNewVariables vars =
-    let hasKind = map ((\(t, k, _) -> (t, k)) . snd) vars
-        hasSort = map ((\(_, k, s) -> (k, s)) . snd) vars
+defineNewTypeVariables :: [(Type, Kind, Sort)] -> EqualitiesGenerator d e ()
+defineNewTypeVariables vars =
+    let hasKind = map (\(t, k, _) -> (t, k)) vars
+        hasSort = map (\(_, k, s) -> (k, s)) vars
      in writeHasKindEqualities hasKind >> writeHasSortEqualities hasSort
+
+-- | Creates new variables, using provided variable and equalities generators
+createNewVariables' ::
+       VariableGenerator a
+    -> ([a] -> EqualitiesGenerator d e ())
+    -> [Ident]
+    -> EqualitiesGenerator d e [(Ident, a)]
+createNewVariables' generate define idents = do
+    let createVariables name = (\v -> (name, v)) <$> generate
+    vars <- liftGen $ mapM createVariables idents
+    define (map snd vars)
+    return vars
+
+-- | Creates new kind and sort variables and saves relations between them
+createNewKindVariables ::
+       [Ident] -> EqualitiesGenerator d e [(Ident, (Kind, Sort))]
+createNewKindVariables =
+    createNewVariables' generateKSVariables defineNewKindVariables
+
+-- | Creates new type, kind and sort variables for idents and writes relations between them
+createNewTypeVariables ::
+       [Ident] -> EqualitiesGenerator d e [(Ident, (Type, Kind, Sort))]
+createNewTypeVariables =
+    createNewVariables' generateTKSVariables defineNewTypeVariables
+
+-- | Creates new variable using provided variable and equalities generators
+createNewVariable' ::
+       VariableGenerator a
+    -> ([a] -> EqualitiesGenerator d e ())
+    -> EqualitiesGenerator d e a
+createNewVariable' generate define = do
+    var <- liftGen generate
+    define [var]
+    return var
+
+-- | Creates new kind and sort variable and saves relations between them
+createNewKindVariable :: EqualitiesGenerator d e (Kind, Sort)
+createNewKindVariable =
+    createNewVariable' generateKSVariables defineNewKindVariables
+
+-- | Creates new type, kind and sort variable and saves relations between them
+createNewTypeVariable :: EqualitiesGenerator d e (Type, Kind, Sort)
+createNewTypeVariable =
+    createNewVariable' generateTKSVariables defineNewTypeVariables
 
 -- | Executes generator with provided type constructors
 withTypeConstructors ::
@@ -187,19 +244,26 @@ withExpressions ::
     -> EqualitiesGenerator d e a
 withExpressions expressions = local (defineExpressions expressions)
 
--- | Executes generator with orovided type variables
+-- | Executes the generator with provided type variables
 withTypeVariables ::
        [(Ident, (Type, Kind, Sort))]
     -> EqualitiesGenerator d e a
     -> EqualitiesGenerator d e a
 withTypeVariables params = local (defineTypeVariables params)
 
--- | Find kind of a variable
-lookupKindOfTypeVariable :: WithLocation Ident -> EqualitiesGenerator d e Kind
-lookupKindOfTypeVariable name = do
-    kindMapping <- asks getTypeVariables
+-- | Executes the generator with provided kind variables
+withKindVariables ::
+       [(Ident, (Kind, Sort))]
+    -> EqualitiesGenerator d e a
+    -> EqualitiesGenerator d e a
+withKindVariables params = local (defineKindVariables params)
+
+-- | Finds kind of a variable
+lookupKindVariable :: WithLocation Ident -> EqualitiesGenerator d e (Kind, Sort)
+lookupKindVariable name = do
+    kindMapping <- asks getKindVariables
     case HM.lookup (getValue name) kindMapping of
-        Just (_, res, _) -> return res
+        Just res -> return res
         Nothing -> raiseError $ EqualitiesGenerationErrorUnknownName name
 
 -- | Finds the signature of a data type, type synonym or a class
@@ -212,15 +276,16 @@ lookupTypeConstructorSignature name = do
         Nothing -> raiseError $ EqualitiesGenerationErrorUnknownType name
 
 -- | Finds the kind of a type constructor
-lookupKindOfType :: WithLocation Ident -> EqualitiesGenerator d e Kind
+lookupKindOfType :: WithLocation Ident -> EqualitiesGenerator d e (Kind, Sort)
 lookupKindOfType =
-    lookupTypeConstructorSignature >=> (fst <$>) . specialiseDataTypeSignature
+    lookupTypeConstructorSignature >=> specialiseDataTypeSignature
 
 -- | Finds the type of a variable
-lookupTypeVariable :: WithLocation Ident -> EqualitiesGenerator d e (Maybe Type)
+lookupTypeVariable ::
+       WithLocation Ident -> EqualitiesGenerator d e (Maybe (Type, Kind, Sort))
 lookupTypeVariable name = do
     typeMapping <- asks getTypeVariables
-    return . ((\(t, _, _) -> t) <$>) $ HM.lookup (getValue name) typeMapping
+    return $ HM.lookup (getValue name) typeMapping
 
 -- | Finds the signature of an expression
 lookupExpressionSignature ::
@@ -233,30 +298,22 @@ lookupExpressionSignature name = do
 
 -- | Finds the type of a variable or an expression
 lookupTypeOfVariableOrExpression ::
-       WithLocation Ident -> EqualitiesGenerator d e Type
+       WithLocation Ident -> EqualitiesGenerator d e (Type, Kind, Sort)
 lookupTypeOfVariableOrExpression name = do
     maybeType <- lookupTypeVariable name
     case maybeType of
-        Just type' -> return type'
+        Just res -> return res
         Nothing ->
-            lookupExpressionSignature name >>=
-            ((\(t, _, _) -> t) <$>) . specialiseExpressionSignature
+            lookupExpressionSignature name >>= specialiseExpressionSignature
 
 -- | Generates new kind and sort variables for an ident
 specialiseKindVariable :: Ident -> EqualitiesGenerator d e (Ident, (Kind, Sort))
-specialiseKindVariable name =
-    liftGen $ do
-        kindVar <- generateKindVariable
-        sortVar <- generateSortVariable
-        return (name, (kindVar, sortVar))
+specialiseKindVariable name = (\x -> (name, x)) <$> createNewKindVariable
 
 -- | Generates new type and kind variables for an ident
-specialiseTypeVariable :: Ident -> EqualitiesGenerator d e (Ident, (Type, Kind))
-specialiseTypeVariable name =
-    liftGen $ do
-        typeVar <- generateTypeVariable
-        kindVar <- generateKindVariable
-        return (name, (typeVar, kindVar))
+specialiseTypeVariable ::
+       Ident -> EqualitiesGenerator d e (Ident, (Type, Kind, Sort))
+specialiseTypeVariable name = (\x -> (name, x)) <$> createNewTypeVariable
 
 -- | Specialises the signature of a kind constructor
 specialiseKindConstructorSignature ::
@@ -271,8 +328,6 @@ specialiseTypeConstructorSignature ::
     -> EqualitiesGenerator d e (Kind, Sort)
 specialiseTypeConstructorSignature expectedSort sig = do
     specialisedKind <- mapM (specialiseKindVariable . fst) (getKindParams sig)
-    -- Saves generated mapping from kinds to sorts
-    writeHasSortEqualities $ map snd specialisedKind
     -- Ensure that sorts match
     resSort <- liftGen generateSortVariable
     let resultParamSorts = map (snd . snd) specialisedKind
@@ -293,15 +348,14 @@ specialiseTypeSignature ::
     -> EqualitiesGenerator d e (Type, Kind, Sort)
 specialiseTypeSignature (expectedKind, expectedSort) sig = do
     specialisedType <- mapM (specialiseTypeVariable . fst) (getTypeParams sig)
-    -- Saves generate mapping from types to kinds
-    writeHasKindEqualities $ map snd specialisedType
     -- Ensure that kinds match
     resKind <- liftGen generateKindVariable
-    let resultParamKinds = map (snd . snd) specialisedType
+    let resultParamKinds = map ((\(_, k, _) -> k) . snd) specialisedType
         resultKind = foldr KindFunction resKind resultParamKinds
     writeKindEqualities [(resultKind, expectedKind)]
     -- Substitute types with new parameters
-    let typeSubstitution = HM.fromList $ map (second fst) specialisedType
+    let typeSubstitution =
+            HM.fromList $ map (second (\(t, _, _) -> t)) specialisedType
         resultType = substitute typeSubstitution (getType sig)
     -- Saves information about the kind
     writeHasKindEqualities [(resultType, resKind)]

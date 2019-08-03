@@ -77,6 +77,7 @@ data AssignmentsGroup =
                      (NE.NonEmpty ( NE.NonEmpty (WithLocation R.Pattern)
                                   , WithLocation Exp))
 
+-- | Output of the function "groupAssignments"
 type GroupedAssignments
      = ( HM.HashMap Ident AssignmentsGroup
        , [(WithLocation R.Pattern, WithLocation Exp)]
@@ -117,6 +118,7 @@ groupAssignments = foldM processSingle (HM.empty, [], [])
                     ExpressionDesugaringErrorDuplicatedTypeDeclaration name
                 return (assignments, patterns, (name, typeSignature) : types)
 
+-- | Splits the set of signatures and expressions to methods and expressions
 splitToMethodsAndExpressions ::
        [(WithLocation Ident, TypeSignature)]
     -> [(WithLocation Ident, WithLocation Exp)]

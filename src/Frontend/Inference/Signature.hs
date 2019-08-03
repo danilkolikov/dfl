@@ -81,6 +81,7 @@ class KindGeneralisable a where
 -- | A list of type parameters
 type TypeParams = Params Kind
 
+-- | A class of types which can be generalised
 class TypeGeneralisable a where
     generaliseType :: HS.HashSet Ident -> ParamsMap Kind -> a -> a -- ^ Generalise type variables, except for the bound ones
 
