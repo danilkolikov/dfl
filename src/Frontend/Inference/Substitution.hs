@@ -9,7 +9,6 @@ Class for objects which support substitution
 module Frontend.Inference.Substitution where
 
 import qualified Data.HashMap.Lazy as HM
-import qualified Data.HashSet as HS
 
 import Frontend.Desugaring.Final.Ast (Ident)
 
@@ -30,11 +29,3 @@ compose s1 s2 =
     let substitutedS1 = HM.map (substitute s2) s1
         missingS1 = HM.difference s2 s1
      in substitutedS1 `HM.union` missingS1
-
--- | Class of types which has variables
-class WithVariables a where
-   getFreeVariables :: a -> HS.HashSet Ident -- ^ Get the set of free variables
-
--- | Check if the object freely contains the provided variable
-contains :: (WithVariables a) => a -> Ident -> Bool
-contains x name = HS.member name (getFreeVariables x)

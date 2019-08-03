@@ -25,7 +25,7 @@ prettifyTokenStream (TokenStream tokens) =
 
 prettifyTokenWithLocation :: WithLocation Token -> String
 prettifyTokenWithLocation (WithLocation token location) =
-    concat [prettifyToken token, ": ", prettifyLocation location]
+    concat [prettifyToken token, ": ", prettify location]
 
 prettifyToken :: Token -> String
 prettifyToken token =

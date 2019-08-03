@@ -171,14 +171,6 @@ algorithmL tokens stack
                     _ -> Left (LayoutErrorRedundantClosingBracket loc)
             (WithLocation (TokenSpecial SpecialLCurly) _) ->
                 (t :) <$> algorithmL ts (0 : stack)
-          -- Kludge for the let ... in construction
-            (WithLocation (TokenKeyword KeywordIn) _) ->
-                case stack of
-                    m:ms
-                        | m /= 0 ->
-                            (closingCurly :) . (t :) <$> algorithmL ts ms
-                        | otherwise -> (t :) <$> algorithmL ts stack
-                    _ -> (t :) <$> algorithmL ts stack
             _ -> (t :) <$> algorithmL ts stack
     | [] <- tokens =
         case stack of

@@ -524,7 +524,7 @@ instance PrettyPrintable GConSym where
 
 -- Desugared ast
 instance PrettyPrintable F.Ident where
-    prettyPrint = singleLine . prettifyIdent
+    prettyPrint = singleLine . prettify
 
 instance PrettyPrintable F.Const where
     prettyPrint cnst =

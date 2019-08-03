@@ -9,7 +9,11 @@ Debug output of the DFL compiler
 module Compiler.DebugOutput where
 
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import Frontend.Inference.Processor (KindInferenceOutput(..))
+import Frontend.Inference.Processor
+    ( ExpandTypeSynonymsOutput
+    , InferenceDebugOutput(..)
+    , TypeInferenceDebugOutput(..)
+    )
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
     , Module
@@ -18,9 +22,13 @@ import Frontend.Syntax.Processor
 
 import Compiler.Prettify.Ast (prettifyAst)
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
+import Compiler.Prettify.ExpandTypeSynonymsOutput
+    ( prettifyExpandTypeSynonymsOutput
+    )
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
+import Compiler.Prettify.InferenceDebugOutput (prettifyInferenceDebugOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
-import Compiler.Prettify.KindInferenceOutput (prettifyKindInferenceOutput)
+import Compiler.Prettify.TypeSignatures (prettifyTypeInferenceDebugOutput)
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -35,6 +43,8 @@ data DebugOutputType
     | DebugOutputTypeFixityResolution -- ^ AST and fixity of operators
     | DebugOutputTypeDesugaredAst -- ^ Desugared AST
     | DebugOutputTypeInferredKinds -- ^ Inferred kind information
+    | DebugOutputTypeTypeSynonyms -- ^ Expanded type synonyms
+    | DebugOutputTypeInferredTypes -- ^ Inferred types
 
 -- | Class for types which can be converted to the debug output
 class HasDebugOutput a where
@@ -56,5 +66,20 @@ instance HasDebugOutput DesugaringOutput where
     getDebugOutput a =
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
-instance HasDebugOutput KindInferenceOutput where
-    getDebugOutput a = DebugOutput (prettifyKindInferenceOutput a) DebugOutputTypeInferredKinds
+instance HasDebugOutput InferenceDebugOutput where
+    getDebugOutput a =
+        DebugOutput
+            (prettifyInferenceDebugOutput a)
+            DebugOutputTypeInferredKinds
+
+instance HasDebugOutput ExpandTypeSynonymsOutput where
+    getDebugOutput a =
+        DebugOutput
+            (prettifyExpandTypeSynonymsOutput a)
+            DebugOutputTypeTypeSynonyms
+
+instance HasDebugOutput TypeInferenceDebugOutput where
+    getDebugOutput a =
+        DebugOutput
+            (prettifyTypeInferenceDebugOutput a)
+            DebugOutputTypeInferredTypes

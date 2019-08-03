@@ -56,8 +56,8 @@ testSuite =
                 VarSym "-"
             it "parses colon" $
                 colon `shouldParse`
-                [defaultLocation $ TokenName [] (NameConSym $ ConSym ":")] $
-                ConSym ":"
+                [defaultLocation $ TokenOperator OperatorColon] $
+                OperatorColon
             it "parses QConSym" $
                 shouldParseAllExamples (Proxy :: Proxy QConSym)
             it "parses ConSym" $ shouldParseAllExamples (Proxy :: Proxy ConSym)

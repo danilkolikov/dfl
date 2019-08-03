@@ -435,7 +435,7 @@ instance (Tokenisable a, Tokenisable b) => Tokenisable (OpLabel a b) where
     toTokens (OpLabelId name) = toTokens $ inBackticks name
 
 instance Tokenisable GConSym where
-    toTokens GConSymColon = [TokenName [] (NameConSym $ ConSym ":")]
+    toTokens GConSymColon = [TokenOperator OperatorColon]
     toTokens (GConSymOp sym) = toTokens sym
 
 -- Helper functions

@@ -19,7 +19,7 @@ import Frontend.Desugaring.Final.ExpressionDesugaringAssignment
 import Frontend.Desugaring.Final.ExpressionDesugaringBase
 import qualified Frontend.Desugaring.Final.ResolvedAst as R
 import Frontend.Desugaring.Final.Utils
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
+import Frontend.Syntax.Position (withDummyLocation)
 
 testSuite :: IO ()
 testSuite =
@@ -95,16 +95,14 @@ testSuite =
                     application0 =
                         withDummyLocation $
                         ExpApplication abstraction0 (exp' NE.:| [])
-                    expression = Expression yIdent application0 Nothing
                 runExpressionDesugaringProcessor
                     (processPattern exp' (pat, Just yIdent))
                     0 `shouldBe`
-                    (Right $ Just (getValue yIdent, expression), 2)
+                    (Right $ Just (yIdent, application0), 2)
         describe "desugarSinglePattern" $
             it "doesn't split expression if the pattern is a variable binding" $ do
                 let pat = yVar
-                    expression = Expression yIdent exp' Nothing
                 runExpressionDesugaringProcessor
                     (desugarSinglePattern (pat, exp'))
                     0 `shouldBe`
-                    (Right [(getValue yIdent, expression)], 0)
+                    (Right [(yIdent, exp')], 0)

@@ -35,6 +35,43 @@ fUNCTION_NAME = ["->"]
 tUPLE_NAME :: EntityName
 tUPLE_NAME = ["(,)"]
 
+-- | Int type
+iNT_NAME :: EntityName
+iNT_NAME = ["Int"]
+
+-- | Float type
+fLOAT_NAME :: EntityName
+fLOAT_NAME = ["Float"]
+
+-- | Char type
+cHAR_NAME :: EntityName
+cHAR_NAME = ["Char"]
+
+-- | String type
+sTRING_NAME :: EntityName
+sTRING_NAME = ["String"]
+
+-- | Bool type
+bOOL_NAME :: EntityName
+bOOL_NAME = ["Bool"]
+
+-- Classes
+-- | Monad class
+mONAD_NAME :: EntityName
+mONAD_NAME = ["Monad"]
+
+-- | Eq class
+eQ_NAME :: EntityName
+eQ_NAME = ["Eq"]
+
+-- | Num class
+nUM_NAME :: EntityName
+nUM_NAME = ["Num"]
+
+-- | Enum class
+eNUM_NAME :: EntityName
+eNUM_NAME = ["Enum"]
+
 -- | Kind symbol
 sTAR_NAME :: EntityName
 sTAR_NAME = ["*"]
@@ -55,6 +92,10 @@ bIND_NAME = [">>="]
 -- | Operator "=="
 eQUAL_NAME :: EntityName
 eQUAL_NAME = ["=="]
+
+-- | Operator "$"
+aPPLICATION_NAME :: EntityName
+aPPLICATION_NAME = ["$"]
 
 -- Functions
 -- | Function "negate"

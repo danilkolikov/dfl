@@ -203,33 +203,6 @@ testSuite =
                     , rCurly
                     , WithLocation (TokenEOF EOF) (sourceLocation 3 4 3 4)
                     ]
-            it "inserts brackets after keywords" $
-                sourceLexerShouldBe
-                    "let x = 5 in x"
-                    [ WithLocation (TokenSpecial SpecialLCurly) dummyLocation
-                    , WithLocation
-                          (TokenKeyword KeywordLet)
-                          (sourceLocation 1 1 1 4)
-                    , WithLocation (TokenSpecial SpecialLCurly) dummyLocation
-                    , WithLocation
-                          (TokenName [] (NameVarId (VarId "x")))
-                          (sourceLocation 1 5 1 6)
-                    , WithLocation
-                          (TokenOperator OperatorEq)
-                          (sourceLocation 1 7 1 8)
-                    , WithLocation
-                          (TokenInteger (IntT 5))
-                          (sourceLocation 1 9 1 10)
-                    , WithLocation (TokenSpecial SpecialRCurly) dummyLocation
-                    , WithLocation
-                          (TokenKeyword KeywordIn)
-                          (sourceLocation 1 11 1 13)
-                    , WithLocation
-                          (TokenName [] (NameVarId (VarId "x")))
-                          (sourceLocation 1 14 1 15)
-                    , WithLocation (TokenSpecial SpecialRCurly) dummyLocation
-                    , WithLocation (TokenEOF EOF) (sourceLocation 1 15 1 15)
-                    ]
             it "fails on wrong bracket sequence" $ do
                 sourceLexerShouldFailOn "{"
                 sourceLexerShouldFailOn "}"

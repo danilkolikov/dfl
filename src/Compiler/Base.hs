@@ -16,7 +16,7 @@ import Compiler.Environment
 import Compiler.Error
 import Compiler.Output
 
--- | Class of objects which can compile DFL source files
+-- | A class of objects which can compile DFL source files
 class (Monad m) =>
       Compiler m
     where
@@ -26,15 +26,15 @@ class (Monad m) =>
     writeDebugOutput :: DebugOutput -> m () -- ^ Write debug output of a step
     writeOutput :: Output -> m () -- ^ Write result of compilation
 
--- | Get name of a source file to compile
+-- | Get the name of a source file to compile
 getSourceFileName :: (Compiler m) => m String
 getSourceFileName = getEnvironmentComponent getSourceFile
 
--- | Execute single step of compilation
+-- | Execute a single step of compilation
 processStep :: (Compiler m, IsCompilationError e) => Either e a -> m a
 processStep = handleResult . first wrapToCompilationError
 
--- | Execute single step and write debug output
+-- | Execute a single step and write a debug output
 traceStep ::
        (Compiler m, IsCompilationError e, HasDebugOutput a) => Either e a -> m a
 traceStep step = do
@@ -42,3 +42,13 @@ traceStep step = do
     shouldTrace <- getEnvironmentComponent isDebugOutputEnabled
     when shouldTrace . writeDebugOutput . getDebugOutput $ result
     return result
+
+-- | Write a debug output and execute a single step
+traceStepWithDebugOutput ::
+       (Compiler m, IsCompilationError e, HasDebugOutput d)
+    => (Either e a, d)
+    -> m a
+traceStepWithDebugOutput (step, debugOutput) = do
+    shouldTrace <- getEnvironmentComponent isDebugOutputEnabled
+    when shouldTrace . writeDebugOutput . getDebugOutput $ debugOutput
+    processStep step

@@ -15,9 +15,14 @@ import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
+import Frontend.Inference.Base.Common
 import Frontend.Inference.DependencyResolver
-import Frontend.Inference.Kind.DependencyGroup
+import Frontend.Inference.Equalities
 import Frontend.Inference.Processor
+import Frontend.Inference.TypeSynonyms.Expand (TypeSynonymsExpandingError(..))
+import Frontend.Inference.TypeSynonyms.Processor
+    ( TypeSynonymsProcessingError(..)
+    )
 import Frontend.Inference.Unification
 import Frontend.Syntax.Position (WithLocation(WithLocation))
 import Frontend.Syntax.Processor
@@ -25,104 +30,105 @@ import Frontend.Syntax.Token (VarId(..))
 
 prettifyCompilationError :: CompilationError -> String
 prettifyCompilationError err =
+    "Compilation error: " ++
     case err of
-        CompilerErrorLexer l -> "Lexer error: " ++ prettifyLexerError l
-        CompilerErrorParser p -> "Parser error: " ++ prettifyParserError p
-        CompilerErrorFixity f ->
-            "Fixity resolution error: " ++ prettifyFixityError f
-        CompilerErrorDesugaring d ->
-            "Desugaring error: " ++ prettifyDesugaringError d
-        CompilerErrorInference i ->
-            "Inference error: " ++ prettifyInferenceError i
+        CompilerErrorLexer l -> prettifyLexerError l
+        CompilerErrorParser p -> prettifyParserError p
+        CompilerErrorFixity f -> prettifyFixityError f
+        CompilerErrorDesugaring d -> prettifyDesugaringError d
+        CompilerErrorInference i -> prettifyCombinedInferenceError i
 
 prettifyLexerError :: LexicalError -> String
 prettifyLexerError err =
+    "Lexer error: " ++
     case err of
         LexicalErrorLexer pos tok expected ->
             "Unexpected character " ++
             maybe "" (\t -> show t ++ " ") tok ++
             "at position " ++
-            prettifyPosition pos ++ ", expected " ++ intercalate ", " expected
+            prettify pos ++ ", expected " ++ intercalate ", " expected
         LexicalErrorLayout layoutError ->
             "Layout error: " ++ prettifyLayoutError layoutError
         LexicalErrorUnexpected pos ->
-            "Unexpected lexer error at position " ++ prettifyPosition pos
+            "Unexpected lexer error at position " ++ prettify pos
 
 prettifyLayoutError :: LayoutError -> String
 prettifyLayoutError layoutError =
     case layoutError of
         LayoutErrorRedundantClosingBracket loc ->
-            "Redundant closing bracket at location " ++ prettifyLocation loc
+            "Redundant closing bracket at location " ++ prettify loc
         LayoutErrorMissingClosingBracket ->
             "Missing closing bracket at the end of the file"
 
 prettifyParserError :: ParserError -> String
 prettifyParserError err =
+    "Parser error: " ++
     case err of
         ParserErrorParser loc tok expected ->
             "Unexpected token " ++
             maybe "" (\t -> prettifyToken t ++ " ") tok ++
             "at location " ++
-            prettifyLocation loc ++ ", expected " ++ intercalate ", " expected
+            prettify loc ++ ", expected " ++ intercalate ", " expected
         ParserErrorChecker checkerError ->
             "Ast checker error: " ++ prettifyAstCheckerError checkerError
         ParserErrorUnexpected pos ->
-            "Unexpected parser error at position " ++ prettifyPosition pos
+            "Unexpected parser error at position " ++ prettify pos
 
 prettifyAstCheckerError :: AstCheckerError -> String
 prettifyAstCheckerError checkerError =
     case checkerError of
         AstCheckerErrorSameTyVar first second ->
             let prettifyTyVar (WithLocation (VarId ident) loc) =
-                    ident ++ "(" ++ prettifyLocation loc ++ ")"
+                    ident ++ "(" ++ prettify loc ++ ")"
              in "Type variables should be different: " ++
                 prettifyTyVar first ++ " and " ++ prettifyTyVar second
         AstCheckerErrorLastStatement (WithLocation _ loc) ->
             "Last statement in do block shouldn't be let or pattern assignment (" ++
-            prettifyLocation loc ++ ")"
+            prettify loc ++ ")"
 
 prettifyFixityError :: FixityResolutionError -> String
 prettifyFixityError err =
     let prettifyOperator (InfixOperator op _ _) = prettifyEntityName op
-     in case err of
+     in "Fixity resolution error: " ++
+        case err of
             FixityResolutionErrorRedefinedOperator op _ loc ->
                 "Redefinition of operator " ++
-                prettifyOperator op ++ " at location " ++ prettifyLocation loc
+                prettifyOperator op ++ " at location " ++ prettify loc
             FixityResolutionErrorMissingOperand op loc ->
                 "Missing operand of operator " ++
-                prettifyOperator op ++ " at location " ++ prettifyLocation loc
+                prettifyOperator op ++ " at location " ++ prettify loc
             FixityResolutionErrorMissingOperator loc ->
-                "Missing operator at location " ++ prettifyLocation loc
+                "Missing operator at location " ++ prettify loc
             FixityResolutionErrorUnexpectedOperator op loc ->
                 "Unexpected operator " ++
-                prettifyOperator op ++ " at location " ++ prettifyLocation loc
+                prettifyOperator op ++ " at location " ++ prettify loc
             FixityResolutionErrorFixityConflict op1 op2 loc ->
                 "Fixity conflict between operators " ++
                 prettifyOperator op1 ++
                 " and " ++
-                prettifyOperator op2 ++ " at location " ++ prettifyLocation loc
+                prettifyOperator op2 ++ " at location " ++ prettify loc
             FixityResolutionErrorCannotResolve loc ->
-                "Can't resolve expression at location " ++ prettifyLocation loc
+                "Can't resolve expression at location " ++ prettify loc
 
 prettifyName :: WithLocation Ident -> String
 prettifyName (WithLocation ident loc) =
-    prettifyIdent ident ++ " (" ++ prettifyLocation loc ++ ")"
+    prettify ident ++ " (" ++ prettify loc ++ ")"
 
 prettifyDesugaringError :: DesugaringError -> String
 prettifyDesugaringError err =
+    "Desugaring error: " ++
     case err of
         DesugaringErrorNameConflict name1 name2 ->
             "Conflicting names: " ++
             prettifyName name1 ++ " and " ++ prettifyName name2
         DesugaringErrorRecord recordError ->
-            "Record desugaring error: " ++
             prettifyRecordDesugaringError recordError
         DesugaringErrorExpression expressionError ->
-            "Expression desugaring error: " ++
             prettifyExpressionDesugaringError expressionError
 
 prettifyRecordDesugaringError :: RecordDesugaringError -> String
 prettifyRecordDesugaringError recordError =
+    "Record desugaring error: " ++
     case recordError of
         RecordDesugaringErrorUnknownField name ->
             "Unknown field " ++ prettifyName name
@@ -137,6 +143,7 @@ prettifyRecordDesugaringError recordError =
 
 prettifyExpressionDesugaringError :: ExpressionDesugaringError -> String
 prettifyExpressionDesugaringError expressionError =
+    "Expression desugaring error: " ++
     case expressionError of
         ExpressionDesugaringErrorDuplicatedTypeDeclaration name ->
             "Multiple type declarations for the expression " ++
@@ -152,51 +159,79 @@ prettifyExpressionDesugaringError expressionError =
             "Expressions share the same name: " ++
             prettifyName name1 ++ " and " ++ prettifyName name2
 
-prettifyInferenceError :: InferenceError -> String
-prettifyInferenceError err =
+prettifyCombinedInferenceError :: CombinedInferenceError -> String
+prettifyCombinedInferenceError err =
     case err of
-        InferenceErrorKind kindErr ->
-            "Kind inference error: " ++ prettifyKindInferenceError kindErr
+        CombinedInferenceErrorKindInference infErr ->
+            prettifyInferenceError "Kind inference error: " infErr
+        CombinedInferenceErrorTypeSynonyms typeSynonymsErr ->
+            prettifyTypeSynonymsProcessingError typeSynonymsErr
+        CombinedInferenceErrorTypeInference infErr ->
+            prettifyInferenceError "Type inference error: " infErr
 
-prettifyKindInferenceError :: KindInferenceError -> String
-prettifyKindInferenceError err =
+prettifyInferenceError :: String -> InferenceError -> String
+prettifyInferenceError label err =
+    label ++
     case err of
-        KindInferenceErrorDependencyResolution dependencyError ->
-            "Dependency resolution error: " ++
+        InferenceErrorSynonyms expErr ->
+            prettifyTypeSynonymsExpandingError expErr
+        InferenceErrorDependencyResolution dependencyError ->
             prettifyDependencyError dependencyError
-        KindInferenceErrorUnification unificationError ->
-            "Unification error: " ++ prettifyUnificationError unificationError
-        KindInferenceErrorDependencyGroupResolution groupError ->
-            "Dependency group inference error: " ++
-            prettifyDependencyGroupResolutionError groupError
+        InferenceErrorUnification unificationError ->
+            prettifyUnificationError unificationError
+        InferenceErrorEqualityGeneration groupError ->
+            prettifyEqualitiesGenerationError groupError
 
 prettifyDependencyError :: DependencyResolverError -> String
 prettifyDependencyError dependencyError =
+    "Dependency resolution error: " ++
     case dependencyError of
         DependencyResolverErrorUnknownNode node ->
-            "Unknown identifier " ++ prettifyIdent node
+            "Unknown identifier " ++ prettify node
 
 prettifyUnificationError :: UnificationError -> String
 prettifyUnificationError unificationError =
+    "Unification error: " ++
     case unificationError of
         UnificationErrorFunctionNameMismatch name1 name2 ->
             "Can't unify functions " ++
-            prettifyIdent name1 ++ " and " ++ prettifyIdent name2
+            prettify name1 ++ " and " ++ prettify name2
         UnificationErrorRecursive name _ ->
-            "Can't unify recursive expression " ++ prettifyIdent name
+            "Can't unify recursive expression " ++ prettify name
         UnificationErrorDifferentNumberOfArgs ->
             "Can't unify functions with different number of arguments"
 
-prettifyDependencyGroupResolutionError ::
-       DependencyGroupResolvingError -> String
-prettifyDependencyGroupResolutionError groupError =
+prettifyEqualitiesGenerationError ::
+       InferenceEqualitiesGenerationError -> String
+prettifyEqualitiesGenerationError groupError =
+    "Equality generation error: " ++
     case groupError of
-        DependencyGroupResolvingErrorUnknownVariable name ->
-            "Unknown variable " ++ prettifyName name
-        DependencyGroupResolvingErrorUnknownType name ->
+        EqualitiesGenerationErrorUnknownName name ->
+            "Unknown name " ++ prettifyName name
+        EqualitiesGenerationErrorUnknownType name ->
             "Unknown type " ++ prettifyName name
-        DependencyGroupResolvingErrorUnknownClass name ->
-            "Unkonwn class " ++ prettifyName name
-        DependencyGroupResolvingErrorUnusedTypeVariable name _ ->
-            "Class parameter " ++
-            prettifyIdent name ++ " is not used in the type signature"
+        EqualitiesGenerationErrorNested err ->
+            "Nested error: " ++ prettifyInferenceError "" err
+
+prettifyTypeSynonymsProcessingError :: TypeSynonymsProcessingError -> String
+prettifyTypeSynonymsProcessingError typeSynonymsErr =
+    "Type synonyms processing error: " ++
+    case typeSynonymsErr of
+        TypeSynonymsProcessingErrorRecursive name ->
+            "Type synonym " ++
+            prettify name ++ " is recursive, which is not supported"
+        TypeSynonymsProcessingErrorMutuallyRecursive names ->
+            "Type synonyms " ++
+            intercalate ", " (map prettify names) ++
+            " are mutually recursive, which is not supported"
+        TypeSynonymsProcessingErrorDependencyResolution dependencyError ->
+            prettifyDependencyError dependencyError
+        TypeSynonymsProcessingErrorExpanding expandingError ->
+            prettifyTypeSynonymsExpandingError expandingError
+
+prettifyTypeSynonymsExpandingError :: TypeSynonymsExpandingError -> String
+prettifyTypeSynonymsExpandingError (TypeSynonymsExpandingErrorwWrongNumberOfArgs name expected got) =
+    "Type synonym expanding error: " ++
+    "Wrong number of arguments of a type synonym " ++
+    prettifyName name ++
+    ", expected " ++ show expected ++ ", but got " ++ show got

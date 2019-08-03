@@ -41,6 +41,10 @@ inverseGraph = inverseGraph' . HM.toList
                     Just edges -> HM.insert node (HS.insert name edges) graph
          in HS.foldr inverse restWithNode dependencies
 
+-- | Get nodes of the graph which have loops
+getLoops :: DependencyGraph -> [Ident]
+getLoops = map fst . filter (uncurry HS.member) . HM.toList
+
 -- | Errors which can be encountered during dependency resolution
 newtype DependencyResolverError =
     DependencyResolverErrorUnknownNode Ident -- ^ Unknown identifier
@@ -84,14 +88,14 @@ depthFirstSearch node =
                 modify $ HS.insert node
                 dependencies <- lift $ lookupNode node
                 sorted <- mapM depthFirstSearch (HS.toList dependencies)
-                return $ node : concat sorted
+                return $ concat sorted ++ [node]
 
 -- | Sort the nodes in the graph topologically
 topologicalSort :: DependencyResolver [Ident]
 topologicalSort = do
     graph <- ask
     sorted <- runVisitedTracker . mapM depthFirstSearch $ HM.keys graph
-    return . concat . reverse $ sorted
+    return . reverse . concat $ sorted
 
 -- | Find nodes, reachable from the provided ones
 findReachableNodes :: [Ident] -> DependencyResolver [HS.HashSet Ident]
@@ -131,9 +135,9 @@ topologicalSortOfComponents comps = do
     let makeIdent = IdentGenerated IdentEnvironmentDependencyResolution
         namedComponents =
             zipWith (\pos comp -> (makeIdent pos, comp)) [0 ..] comps
-        findReachableNodesGraph = HM.fromList namedComponents
-        lookupComponent = local (const findReachableNodesGraph) . lookupNode
-    condensedGraph <- condenseGraph findReachableNodesGraph
+        compGraph = HM.fromList namedComponents
+        lookupComponent = local (const compGraph) . lookupNode
+    condensedGraph <- condenseGraph compGraph
     sorted <- local (const condensedGraph) topologicalSort
     mapM lookupComponent sorted
 

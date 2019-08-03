@@ -271,10 +271,6 @@ testSuite =
                         (TokenKeyword KeywordUnderscore)
                         (sourceLocation 1 n 1 (n + 1))
                 layoutToken = LayoutToken . token
-                in' =
-                    WithLocation
-                        (TokenKeyword KeywordIn)
-                        (sourceLocation 1 2 1 4)
             it "adds semicolon according to layout" $
                 algorithmL [LayoutIndent 2] [2] `shouldBe`
                 Right [semicolon, rCurly]
@@ -299,8 +295,6 @@ testSuite =
             it "preserves explicit {}" $
                 algorithmL [LayoutToken lCurly, LayoutToken rCurly] [] `shouldBe`
                 Right [lCurly, rCurly]
-            it "adds implicit } in case of (let ... in)" $
-                algorithmL [LayoutToken in'] [2] `shouldBe` Right [rCurly, in']
             it "preserves simple tokens" $
                 algorithmL [layoutToken 1, layoutToken 2] [] `shouldBe`
                 Right [token 1, token 2]
