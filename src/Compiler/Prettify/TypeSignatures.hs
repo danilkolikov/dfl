@@ -8,6 +8,7 @@ Functions for pretty printing of TypeSignatures
 -}
 module Compiler.Prettify.TypeSignatures where
 
+import qualified Data.HashMap.Lazy as HM
 import Data.Maybe (catMaybes)
 
 import Compiler.Prettify.InferenceDebugOutput
@@ -25,7 +26,7 @@ prettifyTypeSignatures TypeSignatures { getTypeSignaturesConstructors = construc
         , prettifyHeader "Methods:"
         , prettifySignatures methods
         , prettifyHeader "Expressions:"
-        , prettifySignatures expressions
+        , prettifySignatures (HM.map snd expressions)
         ]
 
 prettifyTypeInferenceDebugOutput :: TypeInferenceDebugOutput -> String

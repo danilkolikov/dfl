@@ -34,11 +34,11 @@ type InferOutput s
        , InferenceDebugOutput)
 
 -- | A function that does inference
-type Infer a s
-     = InferenceEnvironment s -> VariableGeneratorState -> a -> InferOutput s
+type Infer a s x
+     = InferenceEnvironment s -> VariableGeneratorState -> a -> InferOutput (x, s)
 
 -- | A function that runs inference
-type RunInfer a s = InferenceDescriptor a s -> Infer a s
+type RunInfer a s x = InferenceDescriptor a s x -> Infer a s x
 
 -- | An output of a function which creates a system of equalities
 type EqualitiesBuilderOutput s
@@ -49,23 +49,23 @@ type EqualitiesBuilderOutput s
        , VariableGeneratorState)
 
 -- | A function which creates a system of equalities
-type EqualitiesBuilder a s
-     = Infer a s -> InferenceEnvironment s -> a -> [Ident] -> VariableGeneratorState -> EqualitiesBuilderOutput s
+type EqualitiesBuilder a s x
+     = Infer a s x -> InferenceEnvironment s -> a -> [Ident] -> VariableGeneratorState -> EqualitiesBuilderOutput (x, s)
 
 -- | A function which applies a solution of a system of equalities
 type SolutionApplier s = [Ident] -> HS.HashSet Ident -> Solution -> s -> s
 
 -- | A structure that describes a process of inference
-data InferenceDescriptor a s = InferenceDescriptor
+data InferenceDescriptor a s x = InferenceDescriptor
     { getInferenceDescriptorSignaturesGetter :: SignaturesGetter a s
     , getInferenceDescriptorDependenyGraphBuilder :: DependencyGraphBuilder a s
-    , getInferenceDescriptorSingleGroup :: SingleGroupInferenceDescriptor a s
+    , getInferenceDescriptorSingleGroup :: SingleGroupInferenceDescriptor a s x
     }
 
 -- | A structure that describes a process of inference of a single dependency group
-data SingleGroupInferenceDescriptor a s = SingleGroupInferenceDescriptor
-    { getSingleGroupInferenceDescriptorEqualitiesBuilder :: EqualitiesBuilder a s
-    , getSingleGroupInferenceDescriptorApplySolution :: SolutionApplier s
+data SingleGroupInferenceDescriptor a s x = SingleGroupInferenceDescriptor
+    { getSingleGroupInferenceDescriptorEqualitiesBuilder :: EqualitiesBuilder a s x
+    , getSingleGroupInferenceDescriptorApplySolution :: SolutionApplier (x, s)
     }
 
 -- | A generator of equalities

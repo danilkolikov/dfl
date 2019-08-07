@@ -20,10 +20,10 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.AlgebraicExp
 import Frontend.Inference.Equalities
-import Frontend.Inference.Expression
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Frontend.Inference.Unification
+import Frontend.Inference.WithVariables
 
 -- | A solution of a system of type, kind and sort equalities
 data Solution = Solution
@@ -69,20 +69,37 @@ applySortSolution Solution {getSolutionSortSubstitution = sortSubstitution} =
 
 -- | Applies the solution of a system to the object, supporting substitution of sorts and kinds
 applyKindSolution ::
+       (SortSubstitutable a, KindSubstitutable a) => Solution -> a -> a
+applyKindSolution solution@Solution {getSolutionKindSubstitution = kindSubstitution} =
+    applySortSolution solution . substituteKind kindSubstitution
+
+-- | Applies the solution of a system to the object, supporting substitution of sorts, kinds and types
+applyTypeSolution ::
+       (SortSubstitutable a, KindSubstitutable a, TypeSubstitutable a)
+    => Solution
+    -> a
+    -> a
+applyTypeSolution solution@Solution {getSolutionTypeSubstitution = typeSubstitution} =
+    applyKindSolution solution . substituteType typeSubstitution
+
+-- | Applies the solution of a system to the object, supporting substitution of sorts and kinds,
+-- | and generalises the result
+applyKindSolutionAndGeneralise ::
        (SortSubstitutable a, KindSubstitutable a, KindGeneralisable a)
     => HS.HashSet Ident
     -> Solution
     -> a
     -> a
-applyKindSolution boundVars solution@Solution { getSolutionKindSubstitution = kindSubstitution
-                                              , getSolutionSortOfKindVariables = sortOfKindVariables
-                                              } =
+applyKindSolutionAndGeneralise boundVars solution@Solution { getSolutionKindSubstitution = kindSubstitution
+                                                           , getSolutionSortOfKindVariables = sortOfKindVariables
+                                                           } =
     applySortSolution solution .
     generaliseKind boundVars sortOfKindVariables .
     substituteKind kindSubstitution
 
--- | Applies the solution of a system to the object, supporting substitution of sorts, kinds and types
-applyTypeSolution ::
+-- | Applies the solution of a system to the object, supporting substitution of sorts, kinds and types,
+-- | and generalises the result
+applyTypeSolutionAndGeneralise ::
        ( SortSubstitutable a
        , KindSubstitutable a
        , KindGeneralisable a
@@ -93,11 +110,11 @@ applyTypeSolution ::
     -> Solution
     -> a
     -> a
-applyTypeSolution boundTypeVars solution@Solution { getSolutionTypeSubstitution = typeSubstitution
-                                                  , getSolutionKindOfTypeVariables = kindOfTypeVariables
-                                                  } =
+applyTypeSolutionAndGeneralise boundTypeVars solution@Solution { getSolutionTypeSubstitution = typeSubstitution
+                                                               , getSolutionKindOfTypeVariables = kindOfTypeVariables
+                                                               } =
     let boundKindVars = HS.empty -- All kind variables are unbound
-     in applyKindSolution boundKindVars solution .
+     in applyKindSolutionAndGeneralise boundKindVars solution .
         generaliseType boundTypeVars kindOfTypeVariables .
         substituteType typeSubstitution
 
@@ -109,7 +126,7 @@ applyKindSolutionAndSetTypeVariables ::
     -> TypeConstructorSignature
     -> TypeConstructorSignature
 applyKindSolutionAndSetTypeVariables vars def sol signature =
-    let kindApplied = applyKindSolution def sol signature
+    let kindApplied = applyKindSolutionAndGeneralise def sol signature
         combinedKind = getTypeConstructorSignatureKind kindApplied
         cutVars [] kind = ([], kind)
         cutVars (name:rest) kind =

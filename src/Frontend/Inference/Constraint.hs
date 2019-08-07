@@ -12,7 +12,7 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast (Ident)
-import Frontend.Inference.Expression
+import Frontend.Inference.WithVariables
 import Frontend.Inference.Type
 
 -- | A type constraint

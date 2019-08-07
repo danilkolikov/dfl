@@ -12,7 +12,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
 import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
-import Data.Bifunctor (second)
+import Data.Bifunctor (bimap, second)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -20,6 +20,7 @@ import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
 import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
+import Frontend.Inference.Expression
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver hiding (writeDebugOutput)
 import Frontend.Inference.Type.Classes
@@ -34,7 +35,7 @@ import Frontend.Inference.Variables
 data TypeSignatures = TypeSignatures
     { getTypeSignaturesConstructors :: HM.HashMap Ident TypeSignature
     , getTypeSignaturesMethods :: HM.HashMap Ident TypeSignature
-    , getTypeSignaturesExpressions :: HM.HashMap Ident TypeSignature
+    , getTypeSignaturesExpressions :: HM.HashMap Ident (Exp, TypeSignature)
     } deriving (Eq, Show)
 
 -- | A debug output of type inference
@@ -126,7 +127,7 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
                           initialConstructorSignatures <> constructorSignatures <>
                           initialMethodSignatures <>
                           methodSignatures <>
-                          initialExpressionSignatures
+                          HM.map snd initialExpressionSignatures
                     , getInferenceEnvironmentTypeVariables = HM.empty
                     }
             (result, debugOutput) =
@@ -149,7 +150,7 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
 typeInferenceDescriptor ::
        Signatures TypeConstructorSignature
     -> TypeSynonymSignatures
-    -> InferenceDescriptor F.Expressions TypeSignature
+    -> InferenceDescriptor F.Expressions TypeSignature Exp
 typeInferenceDescriptor signatures typeSynonyms =
     InferenceDescriptor
         { getInferenceDescriptorSignaturesGetter =
@@ -161,6 +162,9 @@ typeInferenceDescriptor signatures typeSynonyms =
                   { getSingleGroupInferenceDescriptorEqualitiesBuilder =
                         generateEqualitiesForExpressions
                   , getSingleGroupInferenceDescriptorApplySolution =
-                        const applyTypeSolution -- Ignore type variables
+                        \_ eq sol ->
+                            bimap
+                                (applyTypeSolution sol)
+                                (applyTypeSolutionAndGeneralise eq sol)
                   }
         }

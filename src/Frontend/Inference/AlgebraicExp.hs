@@ -13,7 +13,7 @@ import qualified Data.HashSet as HS
 import Data.Maybe (fromMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
-import Frontend.Inference.Expression
+import Frontend.Inference.WithVariables
 import Frontend.Inference.Substitution
 
 -- | Algebraic expressions, which support unification

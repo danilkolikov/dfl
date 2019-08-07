@@ -8,7 +8,7 @@ Function for signatures checking
 -}
 module Frontend.Inference.Type.Signatures where
 
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
 import qualified Data.HashMap.Lazy as HM
 import Data.Maybe (fromJust, mapMaybe)
 
@@ -42,12 +42,14 @@ inferTypeSignatures signatures typeSynonyms expressions =
 
 -- | Describes inference of kinds of explicit type signatures
 signatureKindInferenceDescriptor ::
-       SingleGroupInferenceDescriptor (Signatures F.TypeSignature) TypeConstructorSignature
+       SingleGroupInferenceDescriptor (Signatures F.TypeSignature) TypeConstructorSignature ()
 signatureKindInferenceDescriptor =
     SingleGroupInferenceDescriptor
         { getSingleGroupInferenceDescriptorEqualitiesBuilder =
               generateEqualitiesForSignatures
-        , getSingleGroupInferenceDescriptorApplySolution = applyKindSolutionAndSetTypeVariables
+        , getSingleGroupInferenceDescriptorApplySolution =
+              \def eq sol ->
+                  second $ applyKindSolutionAndSetTypeVariables def eq sol
         }
 
 -- | Infers kinds of explicit type signatures
@@ -70,7 +72,7 @@ inferTypeSignatures' signatures typeSynonymSignatures signaturesMap =
                 (HM.keys signaturesMap)
                 emptyVariableGeneratorState
         (result, debugOutput) = runSingleGroupInferenceProcessor' single
-        expandSingle (name, typeSignature) = do
+        expandSingle (name, (_, typeSignature)) = do
             let sig = fromJust $ HM.lookup name signaturesMap
             expanded <-
                 first InferenceErrorSynonyms $

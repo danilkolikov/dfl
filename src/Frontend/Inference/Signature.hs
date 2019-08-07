@@ -47,7 +47,7 @@ import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.Constraint
-import Frontend.Inference.Expression
+import Frontend.Inference.WithVariables
 import Frontend.Inference.Kind
 import Frontend.Inference.Sort
 import Frontend.Inference.Substitution

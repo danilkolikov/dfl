@@ -39,19 +39,19 @@ runSingleGroupInferenceProcessor' =
 
 -- | Does inference of a single group
 doInferSingleGroup ::
-       SingleGroupInferenceDescriptor a s
+       SingleGroupInferenceDescriptor a s x
     -> InferenceEnvironment s
-    -> Infer a s
+    -> Infer a s x
     -> a
-    -> InferenceState s
+    -> InferenceState (x, s)
     -> [Ident]
-    -> SingleGroupInferenceProcessor (InferenceState s)
+    -> SingleGroupInferenceProcessor (InferenceState (x, s))
 doInferSingleGroup descr env infer x state group
     | InferenceState { getInferenceStateSignatures = signatures
                      , getInferenceStateVariableGeneratorState = varState
                      , getInferenceStateSolutions = solutions
                      } <- state =
-        let allSignatures = getInferenceEnvironmentSignatures env <> signatures
+        let allSignatures = getInferenceEnvironmentSignatures env <> HM.map snd signatures
             newEnv = env {getInferenceEnvironmentSignatures = allSignatures}
             processor = inferSingleGroup descr newEnv infer x group varState
             (result, output) = runSingleGroupInferenceProcessor' processor
@@ -67,13 +67,13 @@ doInferSingleGroup descr env infer x state group
 
 -- | Infers a single group
 inferSingleGroup ::
-       SingleGroupInferenceDescriptor a s
+       SingleGroupInferenceDescriptor a s x
     -> InferenceEnvironment s
-    -> Infer a s
+    -> Infer a s x
     -> a
     -> [Ident]
     -> VariableGeneratorState
-    -> SingleGroupInferenceProcessor (SingleGroupInferenceOutput s)
+    -> SingleGroupInferenceProcessor (SingleGroupInferenceOutput (x, s))
 inferSingleGroup descr env runInfer x group variableGeneratorState
     | SingleGroupInferenceDescriptor { getSingleGroupInferenceDescriptorEqualitiesBuilder = buildEqualities
                                      , getSingleGroupInferenceDescriptorApplySolution = applySolution

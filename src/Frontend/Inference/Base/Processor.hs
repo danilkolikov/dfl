@@ -27,18 +27,18 @@ import Frontend.Inference.Variables
 type InferenceProcessor = ExceptT InferenceError (Writer [InferenceDebugOutput])
 
 -- | Runs inference
-runInfer :: RunInfer a s
+runInfer :: RunInfer a s x
 runInfer descr env variableState x =
     let inferenceProcessor = infer descr env variableState x
      in second mconcat . runWriter . runExceptT $ inferenceProcessor
 
 -- | Does inference
 infer ::
-       InferenceDescriptor a s
+       InferenceDescriptor a s x
     -> InferenceEnvironment s
     -> VariableGeneratorState
     -> a
-    -> InferenceProcessor (Signatures s, VariableGeneratorState, TypeVariableEqualitiesMap)
+    -> InferenceProcessor (Signatures (x, s), VariableGeneratorState, TypeVariableEqualitiesMap)
 infer descr env variableGeneratorState x
     | InferenceDescriptor { getInferenceDescriptorSignaturesGetter = getSignatures
                           , getInferenceDescriptorDependenyGraphBuilder = buildDependencyGraph

@@ -8,7 +8,7 @@ Processor of kind inference
 -}
 module Frontend.Inference.Kind.Processor where
 
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -43,7 +43,7 @@ inferKinds dataTypes typeSynonyms classes initialState =
                 { getInferenceEnvironmentSignatures = initialState
                 , getInferenceEnvironmentTypeVariables = HM.empty
                 }
-     in first (fmap (\(x, _, _) -> x)) $
+     in first (fmap (\(x, _, _) -> HM.map snd x)) $
         runInfer
             kindInferenceDescriptor
             inferenceEnvironment
@@ -52,7 +52,7 @@ inferKinds dataTypes typeSynonyms classes initialState =
 
 -- | Describes the process of kind inference
 kindInferenceDescriptor ::
-       InferenceDescriptor Environment TypeConstructorSignature
+       InferenceDescriptor Environment TypeConstructorSignature ()
 kindInferenceDescriptor =
     InferenceDescriptor
         { getInferenceDescriptorSignaturesGetter =
@@ -64,6 +64,8 @@ kindInferenceDescriptor =
                   { getSingleGroupInferenceDescriptorEqualitiesBuilder =
                         generateEqualitiesForGroup
                   , getSingleGroupInferenceDescriptorApplySolution =
-                        applyKindSolutionAndSetTypeVariables
+                        \def eq sol ->
+                            second $
+                            applyKindSolutionAndSetTypeVariables def eq sol
                   }
         }
