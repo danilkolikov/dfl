@@ -12,7 +12,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
 import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
-import Data.Bifunctor (bimap, second)
+import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -162,9 +162,16 @@ typeInferenceDescriptor signatures typeSynonyms =
                   { getSingleGroupInferenceDescriptorEqualitiesBuilder =
                         generateEqualitiesForExpressions
                   , getSingleGroupInferenceDescriptorApplySolution =
-                        \_ eq sol ->
-                            bimap
-                                (applyTypeSolution sol)
-                                (applyTypeSolutionAndGeneralise eq sol)
+                        applySolution
                   }
         }
+
+-- | Applies solution of the system of equalities to a pair of
+-- | an expression and a type signature
+applySolution :: SolutionApplier (Exp, TypeSignature)
+applySolution _ eq sol (exp', typeSig) =
+    let appliedExp = applyTypeSolution sol exp'
+        appliedTypeSig = applyTypeSolutionAndGeneralise eq sol typeSig
+        constraints = getRelevantTypeConstraints sol appliedTypeSig
+        finalTypeSig = appliedTypeSig {getTypeSignatureContext = constraints}
+     in (appliedExp, finalTypeSig)

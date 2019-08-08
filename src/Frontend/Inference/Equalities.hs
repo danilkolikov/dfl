@@ -16,10 +16,11 @@ import Control.Monad.Trans.State.Lazy (StateT, modify, runStateT)
 import Control.Monad.Trans.Writer.Lazy (WriterT, runWriterT, tell)
 import Data.Bifunctor (first, second)
 import qualified Data.HashMap.Lazy as HM
+import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Signature
 import Frontend.Inference.Expression (External(..))
+import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.Position
@@ -31,14 +32,21 @@ data Equalities = Equalities
     , getSortEqualities :: [(Sort, Sort)]
     , getHasKindEqualities :: [(Type, Kind)]
     , getHasSortEqualities :: [(Kind, Sort)]
+    , getTypeConstraints :: [Constraint]
     } deriving (Eq, Show)
 
 instance Semigroup Equalities where
-    Equalities t1 k1 s1 hk1 hs1 <> Equalities t2 k2 s2 hk2 hs2 =
-        Equalities (t1 <> t2) (k1 <> k2) (s1 <> s2) (hk1 <> hk2) (hs1 <> hs2)
+    Equalities t1 k1 s1 hk1 hs1 tc1 <> Equalities t2 k2 s2 hk2 hs2 tc2 =
+        Equalities
+            (t1 <> t2)
+            (k1 <> k2)
+            (s1 <> s2)
+            (hk1 <> hk2)
+            (hs1 <> hs2)
+            (tc1 <> tc2)
 
 instance Monoid Equalities where
-    mempty = Equalities mempty mempty mempty mempty mempty
+    mempty = Equalities mempty mempty mempty mempty mempty mempty
 
 -- | Types, kinds and sorts of type variables
 type TypeVariables = HM.HashMap Ident (Type, Kind, Sort)
@@ -149,6 +157,11 @@ writeHasKindEqualities equalities =
 writeHasSortEqualities :: [(Kind, Sort)] -> EqualitiesGenerator d e ()
 writeHasSortEqualities equalities =
     lift $ tell mempty {getHasSortEqualities = equalities}
+
+-- | Saves type constraints
+writeTypeConstraints :: [Constraint] -> EqualitiesGenerator d e ()
+writeTypeConstraints constraints =
+    lift $ tell mempty {getTypeConstraints = constraints}
 
 -- | Writes equalities "kind = *" for all provided kinds
 writeKindStar :: [Kind] -> EqualitiesGenerator d e ()
@@ -310,10 +323,11 @@ lookupExpressionSignature name = do
 
 -- | Looks up type of an external expression
 lookupTypeOfExpression ::
-       WithLocation Ident -> EqualitiesGenerator d e ( (Type, Kind, Sort)
-                               , External)
+       WithLocation Ident
+    -> EqualitiesGenerator d e ((Type, Kind, Sort), External)
 lookupTypeOfExpression name = do
-    (res, (typeSub, kindSub)) <- lookupExpressionSignature name >>= specialiseExpressionSignature
+    (res, (typeSub, kindSub)) <-
+        lookupExpressionSignature name >>= specialiseExpressionSignature
     return (res, External (getValue name) typeSub kindSub)
 
 -- | Generates new kind and sort variables for an ident
@@ -352,7 +366,7 @@ specialiseTypeConstructorSignature expectedSort sig = do
 
 -- | Specialises the signature of a type
 specialiseTypeSignature ::
-       (WithType a, WithTypeParams a)
+       (WithType a, WithTypeParams a, WithContext a)
     => ((Kind, Sort), Substitution Kind)
     -> a
     -> EqualitiesGenerator d e ( (Type, Kind, Sort)
@@ -365,9 +379,13 @@ specialiseTypeSignature ((expectedKind, expectedSort), kindSubstitution) sig = d
         resultKind = foldr KindFunction resKind resultParamKinds
     writeKindEqualities [(resultKind, expectedKind)]
     -- Substitute types with new parameters
-    let typeSubstitution =
-            HM.fromList $ map (second (\(t, _, _) -> t)) specialisedType
+    let typeVariables = HM.fromList specialisedType
+        typeSubstitution = HM.map (\(t, _, _) -> t) typeVariables
         resultType = substitute typeSubstitution (getType sig)
+        constraints = getContext sig
+    -- Ensure correctness of the context
+    mapM_ (writeConstraintEqualities typeVariables) constraints
+    writeTypeConstraints constraints
     -- Saves information about the kind
     writeHasKindEqualities [(resultType, resKind)]
     return
@@ -387,10 +405,43 @@ specialiseDataTypeSignature signature = do
 -- | Specialises the type of an expression. Function creates new type, kind and sort
 -- | variables and specialises the type with them.
 specialiseExpressionSignature ::
-       (WithSort a, WithKindParams a, WithKind a, WithTypeParams a, WithType a)
+       ( WithSort a
+       , WithKindParams a
+       , WithKind a
+       , WithTypeParams a
+       , WithType a
+       , WithContext a
+       )
     => a
     -> EqualitiesGenerator d e ( (Type, Kind, Sort)
                                , (Substitution Type, Substitution Kind))
 specialiseExpressionSignature signature = do
     kind <- specialiseDataTypeSignature signature
     specialiseTypeSignature kind signature
+
+-- | Writes equalities of a type constraint
+writeConstraintEqualities ::
+       TypeVariables -> Constraint -> EqualitiesGenerator d e ()
+writeConstraintEqualities tv constraint = do
+    let lookupVariable type' =
+            case type' of
+                TypeVar name -> (\(_, k, _) -> k) . fromJust $ HM.lookup name tv
+                _ -> error "Unexpected type in a constraint"
+        getClassParameter constr =
+            case constr of
+                ConstraintVariable className var ->
+                    return (className, lookupVariable var)
+                ConstraintType className typeName typeArgs -> do
+                    ((typeKind, _), _) <-
+                        lookupKindOfType (withDummyLocation typeName)
+                    resKind <- liftGen generateKindVariable
+                    let args = fmap lookupVariable typeArgs
+                        gotKind = foldr KindFunction resKind args
+                    writeKindEqualities [(typeKind, gotKind)]
+                    return (className, resKind)
+    (className, resKind) <- getClassParameter constraint
+    classSignature <-
+        lookupTypeConstructorSignature (withDummyLocation className)
+    let expectedKind = getFullKind classSignature
+        gotKind = KindFunction resKind KindStar
+    writeKindEqualities [(gotKind, expectedKind)]
