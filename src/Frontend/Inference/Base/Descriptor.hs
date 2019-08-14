@@ -26,31 +26,36 @@ type SignaturesGetter a s
 -- | A function which builds a dependency graph
 type DependencyGraphBuilder a s = Signatures s -> a -> DependencyGraph
 
+-- | A base output of inference
+type BaseInferOutput a = (Either InferenceError a, InferenceDebugOutput)
+
 -- | An output of inference
 type InferOutput s
-     = ( Either InferenceError ( Signatures s
-                               , VariableGeneratorState
-                               , TypeVariableEqualitiesMap)
-       , InferenceDebugOutput)
+     = BaseInferOutput ( Signatures s
+                       , VariableGeneratorState
+                       , TypeVariableEqualitiesMap)
+
+-- | A function which does inference without specifying initial state
+type SimpleInfer a s x = a -> InferOutput (x, s)
 
 -- | A function that does inference
 type Infer a s x
-     = InferenceEnvironment s -> VariableGeneratorState -> a -> InferOutput (x, s)
+     = InferenceEnvironment s -> VariableGeneratorState -> SimpleInfer a s x
 
 -- | A function that runs inference
 type RunInfer a s x = InferenceDescriptor a s x -> Infer a s x
 
 -- | An output of a function which creates a system of equalities
 type EqualitiesBuilderOutput s
-     = ( ( Either InferenceEqualitiesGenerationError ( Signatures ( s
-                                                                  , [Ident])
+     = ( ( Either InferenceEqualitiesGenerationError ( Signatures (s, [Ident])
                                                      , Equalities)
          , [InferenceDebugOutput])
        , VariableGeneratorState)
 
 -- | A function which creates a system of equalities
 type EqualitiesBuilder a s x
-     = Infer a s x -> InferenceEnvironment s -> a -> [Ident] -> VariableGeneratorState -> EqualitiesBuilderOutput (x, s)
+     = Infer a s x -> InferenceEnvironment s -> a -> [Ident] -> VariableGeneratorState -> EqualitiesBuilderOutput ( x
+                                                                                                                  , s)
 
 -- | A function which applies a solution of a system of equalities
 type SolutionApplier s = [Ident] -> HS.HashSet Ident -> Solution -> s -> s

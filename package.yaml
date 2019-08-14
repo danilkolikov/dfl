@@ -74,10 +74,12 @@ library:
   - Frontend.Inference.Base.Processor
   - Frontend.Inference.Base.SingleGroupProcessor
   - Frontend.Inference.Base.Variables
+  - Frontend.Inference.Class
   - Frontend.Inference.Constraint
   - Frontend.Inference.DependencyResolver
   - Frontend.Inference.Equalities
   - Frontend.Inference.Expression
+  - Frontend.Inference.Instance
   - Frontend.Inference.Kind
   - Frontend.Inference.Kind.Environment
   - Frontend.Inference.Kind.Equalities

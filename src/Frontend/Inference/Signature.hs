@@ -7,7 +7,8 @@ License     :  MIT
 Module with the definition of signatures of sorts, kinds and types
 -}
 module Frontend.Inference.Signature
-    ( Params
+    ( Signatures
+    , Params
     , ParamsMap
     , Sort(..)
     , SortSubstitutable(..)
@@ -52,6 +53,9 @@ import Frontend.Inference.Kind
 import Frontend.Inference.Sort
 import Frontend.Inference.Substitution
 import Frontend.Inference.Type
+
+-- | A map of signatures
+type Signatures s = HM.HashMap Ident s
 
 -- | A class of types which support substitution of sort variables with sorts
 class SortSubstitutable a where

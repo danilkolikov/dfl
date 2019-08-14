@@ -6,19 +6,22 @@ License     :  MIT
 
 Common definitions
 -}
-module Frontend.Inference.Base.Common where
-
-import qualified Data.HashMap.Lazy as HM
+module Frontend.Inference.Base.Common
+    ( Signatures
+    , InferenceEnvironment(..)
+    , InferenceState(..)
+    , SingleGroupInferenceOutput
+    , InferenceError(..)
+    , InferenceEqualitiesGenerationError
+    ) where
 
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
+import Frontend.Inference.Signature
 import Frontend.Inference.Solver
 import Frontend.Inference.TypeSynonyms.Expand
 import Frontend.Inference.Unification
 import Frontend.Inference.Variables
-
--- | A map of signatures
-type Signatures s = HM.HashMap Ident s
 
 -- | An environment of type inference
 data InferenceEnvironment s = InferenceEnvironment
@@ -34,7 +37,8 @@ data InferenceState s = InferenceState
     }
 
 -- | An output of inference of a single group
-type SingleGroupInferenceOutput s = (Signatures s, VariableGeneratorState, Solution)
+type SingleGroupInferenceOutput s
+     = (Signatures s, VariableGeneratorState, Solution)
 
 -- | A type of errors which may be encountered during type inference
 data InferenceError

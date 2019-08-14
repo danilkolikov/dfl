@@ -12,8 +12,8 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast (Ident)
-import Frontend.Inference.WithVariables
 import Frontend.Inference.Type
+import Frontend.Inference.WithVariables
 
 -- | A type constraint
 data Constraint
@@ -34,3 +34,9 @@ instance WithVariables Constraint where
                 getFreeVariables var
             ConstraintType {getConstraintTypeArgs = args} ->
                 HS.unions . NE.toList . fmap getFreeVariables $ args
+
+-- | A constraint defining type class hierarchy
+data SimpleConstraint = SimpleConstraint
+    { getSimpleConstraintClass :: Ident -- ^ A class name
+    , getSimpleConstraintVariable :: Ident -- ^ A constrained variable
+    } deriving (Eq, Show)

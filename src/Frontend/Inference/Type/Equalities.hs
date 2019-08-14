@@ -27,14 +27,17 @@ import Frontend.Syntax.Position
 
 -- | Collects equalities between types of expressions
 generateEqualitiesForExpressions ::
-       EqualitiesBuilder F.Expressions TypeSignature Exp
-generateEqualitiesForExpressions inferTypes env exprs items
+       Signatures TypeConstructorSignature
+    -> EqualitiesBuilder F.Expressions TypeSignature Exp
+generateEqualitiesForExpressions tyConSignatures inferTypes env exprs items
     | InferenceEnvironment { getInferenceEnvironmentSignatures = signatures
                            , getInferenceEnvironmentTypeVariables = typeVariables
                            } <- env =
         let localEnvironment =
                 emptyEqualitiesGeneratorEnvironment
-                    {getExpressionSignatures = signatures}
+                    { getExpressionSignatures = signatures
+                    , getTypeConstructorSignatures = tyConSignatures
+                    }
          in runEqualitiesGenerator
                 (generateEqualitiesForExpressions'
                      inferTypes

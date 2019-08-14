@@ -12,7 +12,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
 import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
-import Data.Bifunctor (second)
+import Data.Bifunctor (bimap, second)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -20,6 +20,7 @@ import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
 import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
+import Frontend.Inference.Class
 import Frontend.Inference.Expression
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver hiding (writeDebugOutput)
@@ -36,6 +37,7 @@ data TypeSignatures = TypeSignatures
     { getTypeSignaturesConstructors :: HM.HashMap Ident TypeSignature
     , getTypeSignaturesMethods :: HM.HashMap Ident TypeSignature
     , getTypeSignaturesExpressions :: HM.HashMap Ident (Exp, TypeSignature)
+    , getTypeSignaturesClasses :: HM.HashMap Ident Class
     } deriving (Eq, Show)
 
 -- | A debug output of type inference
@@ -43,11 +45,16 @@ data TypeInferenceDebugOutput = TypeInferenceDebugOutput
     { getTypeInferenceDebugOutputConstructorsOutput :: Maybe SingleGroupInferenceDebugOutput
     , getTypeInferenceDebugOutputMethodsOutput :: Maybe SingleGroupInferenceDebugOutput
     , getTypeInferenceDebugOutputExpressions :: Maybe InferenceDebugOutput
+    , getTypeInferenceDebugOutputClasses :: Maybe (HM.HashMap Ident InferenceDebugOutput)
     }
 
 instance Semigroup TypeInferenceDebugOutput where
-    TypeInferenceDebugOutput c1 m1 e1 <> TypeInferenceDebugOutput c2 m2 e2 =
-        TypeInferenceDebugOutput (c1 <|> c2) (m1 <|> m2) (e1 <|> e2)
+    TypeInferenceDebugOutput c1 m1 e1 cl1 <> TypeInferenceDebugOutput c2 m2 e2 cl2 =
+        TypeInferenceDebugOutput
+            (c1 <|> c2)
+            (m1 <|> m2)
+            (e1 <|> e2)
+            (cl1 <|> cl2)
 
 instance Monoid TypeInferenceDebugOutput where
     mempty =
@@ -55,6 +62,7 @@ instance Monoid TypeInferenceDebugOutput where
             { getTypeInferenceDebugOutputConstructorsOutput = Nothing
             , getTypeInferenceDebugOutputMethodsOutput = Nothing
             , getTypeInferenceDebugOutputExpressions = Nothing
+            , getTypeInferenceDebugOutputClasses = Nothing
             }
 
 -- | An empty type signature
@@ -64,6 +72,7 @@ emptyTypeSignatures =
         { getTypeSignaturesConstructors = HM.empty
         , getTypeSignaturesMethods = HM.empty
         , getTypeSignaturesExpressions = HM.empty
+        , getTypeSignaturesClasses = HM.empty
         }
 
 -- | A processor of type inference
@@ -121,29 +130,31 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
         methodSignatures <- except inferMethods
         let descriptor =
                 typeInferenceDescriptor signatures typeSynonymSignatures
-            inferenceEnvironment =
-                InferenceEnvironment
-                    { getInferenceEnvironmentSignatures =
-                          initialConstructorSignatures <> constructorSignatures <>
-                          initialMethodSignatures <>
-                          methodSignatures <>
-                          HM.map snd initialExpressionSignatures
-                    , getInferenceEnvironmentTypeVariables = HM.empty
-                    }
+            preparedTypeSignatures =
+                initialConstructorSignatures <> constructorSignatures <>
+                initialMethodSignatures <>
+                methodSignatures <>
+                HM.map snd initialExpressionSignatures
             (result, debugOutput) =
-                runInfer
-                    descriptor
-                    inferenceEnvironment
-                    emptyVariableGeneratorState
-                    expressions
+                doTypeInference descriptor preparedTypeSignatures expressions
         writeDebugOutput
             mempty {getTypeInferenceDebugOutputExpressions = Just debugOutput}
         (expressionSignatures, _, _) <- except result
+        let finalTypeSignatures =
+                preparedTypeSignatures <> HM.map snd expressionSignatures
+            (classResult, classDebugOutput) =
+                processMultiple
+                    (inferClass (doTypeInference descriptor finalTypeSignatures))
+                    classes
+        writeDebugOutput
+            mempty {getTypeInferenceDebugOutputClasses = Just classDebugOutput}
+        inferredClasses <- except classResult
         return
             TypeSignatures
                 { getTypeSignaturesConstructors = constructorSignatures
                 , getTypeSignaturesMethods = methodSignatures
                 , getTypeSignaturesExpressions = expressionSignatures
+                , getTypeSignaturesClasses = inferredClasses
                 }
 
 -- | Describes the process of a type inference
@@ -160,11 +171,23 @@ typeInferenceDescriptor signatures typeSynonyms =
         , getInferenceDescriptorSingleGroup =
               SingleGroupInferenceDescriptor
                   { getSingleGroupInferenceDescriptorEqualitiesBuilder =
-                        generateEqualitiesForExpressions
+                        generateEqualitiesForExpressions signatures
                   , getSingleGroupInferenceDescriptorApplySolution =
                         applySolution
                   }
         }
+
+-- | Does type inference
+doTypeInference ::
+       InferenceDescriptor a s x -> Signatures s -> SimpleInfer a s x
+doTypeInference descriptor sigs =
+    runInfer
+        descriptor
+        (InferenceEnvironment
+             { getInferenceEnvironmentSignatures = sigs
+             , getInferenceEnvironmentTypeVariables = HM.empty
+             })
+        emptyVariableGeneratorState
 
 -- | Applies solution of the system of equalities to a pair of
 -- | an expression and a type signature
@@ -175,3 +198,17 @@ applySolution _ eq sol (exp', typeSig) =
         constraints = getRelevantTypeConstraints sol appliedTypeSig
         finalTypeSig = appliedTypeSig {getTypeSignatureContext = constraints}
      in (appliedExp, finalTypeSig)
+
+-- | Does inference of each entry in a provided map and combines results
+processMultiple ::
+       (a -> BaseInferOutput b)
+    -> HM.HashMap Ident a
+    -> ( Either InferenceError (HM.HashMap Ident b)
+       , HM.HashMap Ident InferenceDebugOutput)
+processMultiple f m =
+    let processSingle (name, obj) =
+            bimap (second (HM.singleton name)) (HM.singleton name) $ f obj
+        results = map processSingle $ HM.toList m
+        debug = HM.unions $ map snd results
+        result = HM.unions <$> mapM fst results
+     in (result, debug)

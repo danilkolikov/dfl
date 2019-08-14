@@ -68,6 +68,7 @@ defaultTypeSignatures =
               HM.mapWithKey
                   (\name val -> (ExpVar name, val)) -- As a temporary fix
                   defaultExpressions
+        , getTypeSignaturesClasses = HM.empty -- No default classes now
         }
 
 -- | Default constructors
