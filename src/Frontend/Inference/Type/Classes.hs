@@ -68,10 +68,7 @@ inferClass inferExp Class { getClassContext = context
                           , getClassParam = classParam
                           , getClassMethods = methods
                           } =
-    let processConstraint sc
-            | SimpleConstraint name param <- getValue sc =
-                Cn.SimpleConstraint (getValue name) (getValue param)
-        newContext = map processConstraint context
+    let newContext = map Cn.convertConstraint context
         newName = getValue className
         newParam = getValue classParam
         expsToInstance exps =

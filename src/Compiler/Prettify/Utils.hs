@@ -67,6 +67,7 @@ instance Prettifiable IdentEnvironment where
             IdentEnvironmentTypeVariable -> "type"
             IdentEnvironmentKindVariable -> "kind"
             IdentEnvironmentSortVariable -> "sort"
+            IdentEnvironmentInstances -> "instance"
 
 prettifyForAll :: [(Ident, a)] -> String
 prettifyForAll [] = ""

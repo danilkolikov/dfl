@@ -69,6 +69,7 @@ defaultTypeSignatures =
                   (\name val -> (ExpVar name, val)) -- As a temporary fix
                   defaultExpressions
         , getTypeSignaturesClasses = HM.empty -- No default classes now
+        , getTypeSignaturesInstances = HM.empty -- No default instances now
         }
 
 -- | Default constructors

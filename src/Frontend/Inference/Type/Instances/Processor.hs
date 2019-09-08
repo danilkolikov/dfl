@@ -1,0 +1,216 @@
+{- |
+Module      :  Frontend.Inference.Instances.Processor
+Description :  Functions for checking of instances
+Copyright   :  (c) Danil Kolikov, 2019
+License     :  MIT
+
+Function for checking of instances
+-}
+module Frontend.Inference.Type.Instances.Processor where
+
+import Control.Applicative ((<|>))
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
+import Control.Monad.Trans.Writer (Writer, runWriter, tell)
+import Data.Bifunctor (bimap, first)
+import qualified Data.HashMap.Lazy as HM
+import qualified Data.List.NonEmpty as NE
+import Data.Maybe (fromJust)
+import Data.Tuple (swap)
+
+import qualified Frontend.Desugaring.Final.Ast as F
+import Frontend.Inference.Base.Common
+import Frontend.Inference.Base.DebugOutput
+import Frontend.Inference.Base.Descriptor
+import Frontend.Inference.Base.SingleGroupProcessor
+import Frontend.Inference.Class
+import Frontend.Inference.Constraint
+import Frontend.Inference.Equalities (EqualitiesGenerationError(..))
+import Frontend.Inference.Expression
+import Frontend.Inference.Instance
+import Frontend.Inference.Signature
+import Frontend.Inference.Type.Instances.Equalities
+import Frontend.Inference.Variables
+import Frontend.Syntax.Position (WithLocation(..))
+
+-- | A type of debug output of instance inference
+data InstanceInferenceDebugOutput = InstanceInferenceDebugOutput
+    { getInstanceInferenceDebugOutputKinds :: Maybe SingleGroupInferenceDebugOutput
+    , getInstanceInferenceDebugOutputInstances :: Maybe (HM.HashMap Ident InferenceDebugOutput)
+    }
+
+instance Semigroup InstanceInferenceDebugOutput where
+    InstanceInferenceDebugOutput k1 i1 <> InstanceInferenceDebugOutput k2 i2 =
+        InstanceInferenceDebugOutput (k1 <|> k2) (i1 <|> i2)
+
+instance Monoid InstanceInferenceDebugOutput where
+    mempty = InstanceInferenceDebugOutput mempty mempty
+
+-- | A processor of instance inference
+type Processor = ExceptT InferenceError (Writer InstanceInferenceDebugOutput)
+
+-- | A processor of inference of a single instance
+type SingleInstanceProcessor
+     = ExceptT InferenceError (Writer InferenceDebugOutput)
+
+-- | Writes debug output
+writeDebugOutput :: (Monoid a) => a -> ExceptT InferenceError (Writer a) ()
+writeDebugOutput = lift . tell
+
+-- | Infers kinds and types of an instance
+inferInstances ::
+       (Signatures TypeSignature -> SimpleInfer F.Expressions TypeSignature Exp)
+    -> Signatures TypeConstructorSignature
+    -> HM.HashMap Ident Class
+    -> F.Instances
+    -> ( Either InferenceError (HM.HashMap Ident Instance)
+       , InstanceInferenceDebugOutput)
+inferInstances infer signatures classes instances =
+    runWriter . runExceptT $ inferInstances' infer classes signatures instances
+
+-- | Descriptor of kind inference of an instance
+instanceKindInferenceDescriptor ::
+       Signatures TypeConstructorSignature
+    -> SingleGroupInferenceDescriptor F.Instances () ()
+instanceKindInferenceDescriptor signatures =
+    SingleGroupInferenceDescriptor
+        { getSingleGroupInferenceDescriptorEqualitiesBuilder =
+              generateEqualitiesForInstances signatures
+        , getSingleGroupInferenceDescriptorApplySolution =
+              const . const . const $ id
+        }
+
+-- | Infers kinds and types of an instance
+inferInstances' ::
+       (Signatures TypeSignature -> SimpleInfer F.Expressions TypeSignature Exp)
+    -> HM.HashMap Ident Class
+    -> Signatures TypeConstructorSignature
+    -> F.Instances
+    -> Processor (HM.HashMap Ident Instance)
+inferInstances' infer classes signatures instances = do
+    let checkSingle =
+            inferSingleGroup
+                (instanceKindInferenceDescriptor signatures)
+                InferenceEnvironment
+                    { getInferenceEnvironmentSignatures = HM.empty
+                    , getInferenceEnvironmentTypeVariables = HM.empty
+                    }
+                undefined -- recursive call is not used
+                instances
+                (HM.keys instances)
+                emptyVariableGeneratorState
+        (checkResult, checkDebugOutput) =
+            runSingleGroupInferenceProcessor' checkSingle
+    writeDebugOutput
+        mempty {getInstanceInferenceDebugOutputKinds = Just checkDebugOutput}
+    _ <- except checkResult
+    let inferSingleInstance' (name, inst) =
+            let (result, debug) =
+                    runWriter . runExceptT $
+                    inferSingleInstance infer classes inst
+             in ((\x -> (name, x)) <$> result, (name, debug))
+        (inferred, debugOutputs) =
+            unzip . map inferSingleInstance' . HM.toList $ instances
+    writeDebugOutput
+        mempty
+            { getInstanceInferenceDebugOutputInstances =
+                  Just $ HM.fromList debugOutputs
+            }
+    HM.fromList <$> except (sequence inferred)
+
+-- | Infers types of methods of a single instance
+inferSingleInstance ::
+       (Signatures TypeSignature -> SimpleInfer F.Expressions TypeSignature Exp)
+    -> HM.HashMap Ident Class
+    -> F.Instance
+    -> SingleInstanceProcessor Instance
+inferSingleInstance infer classes F.Instance { F.getInstanceContext = context
+                                             , F.getInstanceClass = className
+                                             , F.getInstanceType = typeName
+                                             , F.getInstanceTypeArgs = typeArgs
+                                             , F.getInstanceMethods = methods
+                                             } = do
+    let newContext = map convertConstraint context
+        newClassName = getValue className
+        newTypeName = getValue typeName
+        newTypeArgs = map getValue typeArgs
+        substitutedMethods =
+            getSubstitutedMethodSignatures
+                classes
+                newClassName
+                newTypeName
+                newTypeArgs
+    (foundMethods, foundSignatures) <-
+        except $ findSignatures substitutedMethods methods
+    let (nameToIdent, identToName) =
+            createNameToIdentMappings (HM.keys foundMethods)
+        renamedMethods = mapKeys nameToIdent foundMethods
+        renamedSignatures = mapKeys nameToIdent foundSignatures
+    let (result, debugOutput) = infer renamedSignatures renamedMethods
+    writeDebugOutput debugOutput
+    (signatures, _, _) <- except result
+    let newMethods = mapKeys identToName signatures
+    return $
+        Instance
+            { getInstanceContext = newContext
+            , getInstanceClass = newClassName
+            , getInstanceType = newTypeName
+            , getInstanceTypeArgs = newTypeArgs
+            , getInstanceMethods = newMethods
+            }
+
+-- | Substitutes type parameters with a type of an instance
+getSubstitutedMethodSignatures ::
+       HM.HashMap Ident Class
+    -> Ident
+    -> Ident
+    -> [Ident]
+    -> Signatures TypeSignature
+getSubstitutedMethodSignatures classes className typeName typeArgs =
+    let Class {getClassParam = param, getClassMethods = classMethods} =
+            fromJust $ HM.lookup className classes -- Existence was checked earlier
+        constrType = TypeConstr typeName
+        paramType =
+            case map TypeVar typeArgs of
+                [] -> constrType
+                (f:rest) -> TypeApplication constrType (f NE.:| rest)
+        sub = HM.singleton param paramType
+     in HM.map (substituteType sub) classMethods
+
+-- | Finds signatures of methods of an instance
+findSignatures ::
+       Signatures TypeSignature
+    -> F.Expressions
+    -> Either InferenceError ( HM.HashMap Ident F.Expression
+                             , Signatures TypeSignature)
+findSignatures signatures expressions =
+    let findMethodSignature e@F.Expression {F.getExpressionName = name@(WithLocation name' _)} =
+            case HM.lookup name' signatures of
+                Just signature ->
+                    return
+                        ( ( name'
+                          , e
+                                { F.getExpressionType = Nothing -- It should be Nothing in case of methods
+                                })
+                        , (name', signature))
+                Nothing ->
+                    Left .
+                    InferenceErrorEqualityGeneration .
+                    EqualitiesGenerationErrorUnknownName $
+                    name
+     in bimap HM.fromList HM.fromList . unzip <$>
+        mapM findMethodSignature (HM.elems expressions)
+
+-- | Creates new idents to methods and returns mappings to and from created idents
+createNameToIdentMappings :: [Ident] -> (Ident -> Ident, Ident -> Ident)
+createNameToIdentMappings names =
+    let (nameToIdentMapping, identToNameMapping) =
+            bimap HM.fromList HM.fromList . unzip . map (\p -> (p, swap p)) $
+            zip names (map (IdentGenerated IdentEnvironmentInstances) [1 ..])
+        nameToIdent name = fromJust $ HM.lookup name nameToIdentMapping
+        identToName ident = fromJust $ HM.lookup ident identToNameMapping
+     in (nameToIdent, identToName)
+
+-- | Maps keys of a hashmap
+mapKeys :: (Ident -> Ident) -> HM.HashMap Ident b -> HM.HashMap Ident b
+mapKeys f = HM.fromList . map (first f) . HM.toList

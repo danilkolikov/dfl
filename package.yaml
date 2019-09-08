@@ -94,6 +94,8 @@ library:
   - Frontend.Inference.Type.Classes
   - Frontend.Inference.Type.DataTypes
   - Frontend.Inference.Type.Equalities
+  - Frontend.Inference.Type.Instances.Equalities
+  - Frontend.Inference.Type.Instances.Processor
   - Frontend.Inference.Type.Processor
   - Frontend.Inference.Type.Signatures
   - Frontend.Inference.Type.WithDependencies

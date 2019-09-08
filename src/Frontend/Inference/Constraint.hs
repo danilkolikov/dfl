@@ -11,17 +11,21 @@ module Frontend.Inference.Constraint where
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Desugaring.Final.Ast (Ident)
+import qualified Frontend.Desugaring.Final.Ast as F
+    ( Ident
+    , SimpleConstraint(..)
+    )
 import Frontend.Inference.Type
 import Frontend.Inference.WithVariables
+import Frontend.Syntax.Position (WithLocation(..))
 
 -- | A type constraint
 data Constraint
-    = ConstraintVariable { getConstraintClass :: Ident -- ^ A class name
+    = ConstraintVariable { getConstraintClass :: F.Ident -- ^ A class name
                          , getConstraintVariable :: Type -- ^ A constrained variable
                           } -- ^ A constrained type variable
-    | ConstraintType { getConstraintClass :: Ident -- ^ A class name
-                     , getConstraintType :: Ident -- ^ A type name
+    | ConstraintType { getConstraintClass :: F.Ident -- ^ A class name
+                     , getConstraintType :: F.Ident -- ^ A type name
                      , getConstraintTypeArgs :: NE.NonEmpty Type -- ^ Type aguments
                       } -- ^ A constrained data type
     deriving (Eq, Show)
@@ -37,6 +41,12 @@ instance WithVariables Constraint where
 
 -- | A constraint defining type class hierarchy
 data SimpleConstraint = SimpleConstraint
-    { getSimpleConstraintClass :: Ident -- ^ A class name
-    , getSimpleConstraintVariable :: Ident -- ^ A constrained variable
+    { getSimpleConstraintClass :: F.Ident -- ^ A class name
+    , getSimpleConstraintVariable :: F.Ident -- ^ A constrained variable
     } deriving (Eq, Show)
+
+-- | Converts simple constraints
+convertConstraint :: WithLocation F.SimpleConstraint -> SimpleConstraint
+convertConstraint sc
+    | F.SimpleConstraint name param <- getValue sc =
+        SimpleConstraint (getValue name) (getValue param)

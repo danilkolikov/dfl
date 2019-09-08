@@ -22,11 +22,16 @@ import Frontend.Inference.Base.Descriptor
 import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
 import Frontend.Inference.Class
 import Frontend.Inference.Expression
+import Frontend.Inference.Instance
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver hiding (writeDebugOutput)
 import Frontend.Inference.Type.Classes
 import Frontend.Inference.Type.DataTypes
 import Frontend.Inference.Type.Equalities
+import Frontend.Inference.Type.Instances.Processor
+    ( InstanceInferenceDebugOutput(..)
+    , inferInstances
+    )
 import Frontend.Inference.Type.Signatures
 import Frontend.Inference.Type.WithDependencies
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
@@ -38,6 +43,7 @@ data TypeSignatures = TypeSignatures
     , getTypeSignaturesMethods :: HM.HashMap Ident TypeSignature
     , getTypeSignaturesExpressions :: HM.HashMap Ident (Exp, TypeSignature)
     , getTypeSignaturesClasses :: HM.HashMap Ident Class
+    , getTypeSignaturesInstances :: HM.HashMap Ident Instance
     } deriving (Eq, Show)
 
 -- | A debug output of type inference
@@ -46,15 +52,17 @@ data TypeInferenceDebugOutput = TypeInferenceDebugOutput
     , getTypeInferenceDebugOutputMethodsOutput :: Maybe SingleGroupInferenceDebugOutput
     , getTypeInferenceDebugOutputExpressions :: Maybe InferenceDebugOutput
     , getTypeInferenceDebugOutputClasses :: Maybe (HM.HashMap Ident InferenceDebugOutput)
+    , getTypeInferenceDebugOutputInstances :: Maybe InstanceInferenceDebugOutput
     }
 
 instance Semigroup TypeInferenceDebugOutput where
-    TypeInferenceDebugOutput c1 m1 e1 cl1 <> TypeInferenceDebugOutput c2 m2 e2 cl2 =
+    TypeInferenceDebugOutput c1 m1 e1 cl1 i1 <> TypeInferenceDebugOutput c2 m2 e2 cl2 i2 =
         TypeInferenceDebugOutput
             (c1 <|> c2)
             (m1 <|> m2)
             (e1 <|> e2)
             (cl1 <|> cl2)
+            (i1 <|> i2)
 
 instance Monoid TypeInferenceDebugOutput where
     mempty =
@@ -63,6 +71,7 @@ instance Monoid TypeInferenceDebugOutput where
             , getTypeInferenceDebugOutputMethodsOutput = Nothing
             , getTypeInferenceDebugOutputExpressions = Nothing
             , getTypeInferenceDebugOutputClasses = Nothing
+            , getTypeInferenceDebugOutputInstances = Nothing
             }
 
 -- | An empty type signature
@@ -73,6 +82,7 @@ emptyTypeSignatures =
         , getTypeSignaturesMethods = HM.empty
         , getTypeSignaturesExpressions = HM.empty
         , getTypeSignaturesClasses = HM.empty
+        , getTypeSignaturesInstances = HM.empty
         }
 
 -- | A processor of type inference
@@ -110,6 +120,7 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
     , F.Module { F.getModuleDataTypes = dataTypes
                , F.getModuleClasses = classes
                , F.getModuleExpressions = expressions
+               , F.getModuleInstances = instances
                } <- module' = do
         let constructors =
                 HM.unions . map createConstructorSignatures . HM.elems $
@@ -149,12 +160,28 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
         writeDebugOutput
             mempty {getTypeInferenceDebugOutputClasses = Just classDebugOutput}
         inferredClasses <- except classResult
+        let (instancesResult, instancesDebugOutput) =
+                inferInstances
+                    (\extra ->
+                         doTypeInference
+                             descriptor
+                             (finalTypeSignatures <> extra))
+                    signatures
+                    inferredClasses
+                    instances
+        writeDebugOutput
+            mempty
+                { getTypeInferenceDebugOutputInstances =
+                      Just instancesDebugOutput
+                }
+        inferredInstances <- except instancesResult
         return
             TypeSignatures
                 { getTypeSignaturesConstructors = constructorSignatures
                 , getTypeSignaturesMethods = methodSignatures
                 , getTypeSignaturesExpressions = expressionSignatures
                 , getTypeSignaturesClasses = inferredClasses
+                , getTypeSignaturesInstances = inferredInstances
                 }
 
 -- | Describes the process of a type inference
