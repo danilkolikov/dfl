@@ -103,6 +103,7 @@ library:
   - Frontend.Inference.TypeSynonyms.Expand
   - Frontend.Inference.TypeSynonyms.Processor
   - Frontend.Inference.Unification
+  - Frontend.Inference.Util.Debug
   - Frontend.Inference.Variables
   - Frontend.Inference.WithVariables
   - Frontend.Syntax.Ast

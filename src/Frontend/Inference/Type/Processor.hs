@@ -9,9 +9,6 @@ Processor of type inference
 module Frontend.Inference.Type.Processor where
 
 import Control.Applicative ((<|>))
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
-import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
 import Data.Bifunctor (bimap, second)
 import qualified Data.HashMap.Lazy as HM
 
@@ -19,12 +16,12 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
-import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
+import Frontend.Inference.Base.Processor
 import Frontend.Inference.Class
 import Frontend.Inference.Expression
 import Frontend.Inference.Instance
 import Frontend.Inference.Signature
-import Frontend.Inference.Solver hiding (writeDebugOutput)
+import Frontend.Inference.Solver
 import Frontend.Inference.Type.Classes
 import Frontend.Inference.Type.DataTypes
 import Frontend.Inference.Type.Equalities
@@ -35,6 +32,7 @@ import Frontend.Inference.Type.Instances.Processor
 import Frontend.Inference.Type.Signatures
 import Frontend.Inference.Type.WithDependencies
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
 -- | An output of the type inference processor
@@ -86,11 +84,7 @@ emptyTypeSignatures =
         }
 
 -- | A processor of type inference
-type Processor = ExceptT InferenceError (Writer [TypeInferenceDebugOutput])
-
--- | Writes debug output
-writeDebugOutput :: TypeInferenceDebugOutput -> Processor ()
-writeDebugOutput = lift . tell . return
+type Processor = WithDebugOutput InferenceError TypeInferenceDebugOutput
 
 -- | Infers types of functions in the module
 inferTypes ::
@@ -100,10 +94,8 @@ inferTypes ::
     -> F.Module
     -> (Either InferenceError TypeSignatures, TypeInferenceDebugOutput)
 inferTypes signatures typeSynonymSignatures typeSignatures module' =
-    let processor =
-            inferTypes' signatures typeSynonymSignatures typeSignatures module'
-        result = runWriter $ runExceptT processor
-     in second mconcat result
+    runWithDebugOutput $
+    inferTypes' signatures typeSynonymSignatures typeSignatures module'
 
 -- | Infer types of functions in the module
 inferTypes' ::
@@ -128,17 +120,20 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
             methods = HM.unions . map createClassSignatures . HM.elems $ classes
             inferSignatures =
                 inferTypeSignatures' signatures typeSynonymSignatures
-            (inferConstructors, constructorOutput) =
-                inferSignatures constructors
-            (inferMethods, methodsOutput) = inferSignatures methods
-        writeDebugOutput
-            mempty
-                { getTypeInferenceDebugOutputConstructorsOutput =
-                      Just constructorOutput
-                , getTypeInferenceDebugOutputMethodsOutput = Just methodsOutput
-                }
-        constructorSignatures <- except inferConstructors
-        methodSignatures <- except inferMethods
+        constructorSignatures <-
+            mapDebugOutput
+                (\debug ->
+                     mempty
+                         { getTypeInferenceDebugOutputConstructorsOutput =
+                               Just debug
+                         }) $
+            inferSignatures constructors
+        methodSignatures <-
+            mapDebugOutput
+                (\debug ->
+                     mempty
+                         {getTypeInferenceDebugOutputMethodsOutput = Just debug}) $
+            inferSignatures methods
         let descriptor =
                 typeInferenceDescriptor signatures typeSynonymSignatures
             preparedTypeSignatures =
@@ -146,35 +141,31 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
                 initialMethodSignatures <>
                 methodSignatures <>
                 HM.map snd initialExpressionSignatures
-            (result, debugOutput) =
-                doTypeInference descriptor preparedTypeSignatures expressions
-        writeDebugOutput
-            mempty {getTypeInferenceDebugOutputExpressions = Just debugOutput}
-        (expressionSignatures, _, _) <- except result
+        (expressionSignatures, _, _) <-
+            wrapDebugOutput
+                (\debug ->
+                     mempty
+                         {getTypeInferenceDebugOutputExpressions = Just debug}) $
+            doTypeInference descriptor preparedTypeSignatures expressions
         let finalTypeSignatures =
                 preparedTypeSignatures <> HM.map snd expressionSignatures
-            (classResult, classDebugOutput) =
-                processMultiple
-                    (inferClass (doTypeInference descriptor finalTypeSignatures))
-                    classes
-        writeDebugOutput
-            mempty {getTypeInferenceDebugOutputClasses = Just classDebugOutput}
-        inferredClasses <- except classResult
-        let (instancesResult, instancesDebugOutput) =
-                inferInstances
-                    (\extra ->
-                         doTypeInference
-                             descriptor
-                             (finalTypeSignatures <> extra))
-                    signatures
-                    inferredClasses
-                    instances
-        writeDebugOutput
-            mempty
-                { getTypeInferenceDebugOutputInstances =
-                      Just instancesDebugOutput
-                }
-        inferredInstances <- except instancesResult
+        inferredClasses <-
+            wrapDebugOutput
+                (\debug ->
+                     mempty {getTypeInferenceDebugOutputClasses = Just debug}) $
+            processMultiple
+                (inferClass (doTypeInference descriptor finalTypeSignatures))
+                classes
+        inferredInstances <-
+            wrapDebugOutput
+                (\debug ->
+                     mempty {getTypeInferenceDebugOutputInstances = Just debug}) $
+            inferInstances
+                (\extra ->
+                     doTypeInference descriptor (finalTypeSignatures <> extra))
+                signatures
+                inferredClasses
+                instances
         return
             TypeSignatures
                 { getTypeSignaturesConstructors = constructorSignatures

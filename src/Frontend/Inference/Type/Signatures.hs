@@ -8,7 +8,7 @@ Function for signatures checking
 -}
 module Frontend.Inference.Type.Signatures where
 
-import Data.Bifunctor (first, second)
+import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
 import Data.Maybe (fromJust, mapMaybe)
 
@@ -23,6 +23,7 @@ import Frontend.Inference.Signature
 import Frontend.Inference.Solver
 import Frontend.Inference.TypeSynonyms.Expand
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 import Frontend.Syntax.Position (WithLocation(..))
 
@@ -38,7 +39,8 @@ inferTypeSignatures signatures typeSynonyms expressions =
             (\t -> (name, t)) <$> maybeType
         expressionSignatures =
             HM.fromList . mapMaybe getSignature . HM.toList $ expressions
-     in inferTypeSignatures' signatures typeSynonyms expressionSignatures
+     in runWithDebugOutput $
+        inferTypeSignatures' signatures typeSynonyms expressionSignatures
 
 -- | Describes inference of kinds of explicit type signatures
 signatureKindInferenceDescriptor ::
@@ -57,9 +59,8 @@ inferTypeSignatures' ::
        Signatures TypeConstructorSignature
     -> TypeSynonymSignatures
     -> Signatures F.TypeSignature
-    -> ( Either InferenceError (Signatures TypeSignature)
-       , SingleGroupInferenceDebugOutput)
-inferTypeSignatures' signatures typeSynonymSignatures signaturesMap =
+    -> WithDebugOutput InferenceError SingleGroupInferenceDebugOutput (Signatures TypeSignature)
+inferTypeSignatures' signatures typeSynonymSignatures signaturesMap = do
     let single =
             inferSingleGroup
                 signatureKindInferenceDescriptor
@@ -71,16 +72,14 @@ inferTypeSignatures' signatures typeSynonymSignatures signaturesMap =
                 signaturesMap
                 (HM.keys signaturesMap)
                 emptyVariableGeneratorState
-        (result, debugOutput) = runSingleGroupInferenceProcessor' single
-        expandSingle (name, (_, typeSignature)) = do
+    (result, _, _) <- single
+    let expandSingle (name, (_, typeSignature)) = do
             let sig = fromJust $ HM.lookup name signaturesMap
             expanded <-
-                first InferenceErrorSynonyms $
+                wrapEither InferenceErrorSynonyms $
                 expandSignatureType typeSynonymSignatures sig typeSignature
             return (name, expanded)
-     in ( do (output, _, _) <- result
-             HM.fromList <$> mapM expandSingle (HM.toList output)
-        , debugOutput)
+    HM.fromList <$> mapM expandSingle (HM.toList result)
 
 -- | Expands explicit type signature
 expandSignatureType ::

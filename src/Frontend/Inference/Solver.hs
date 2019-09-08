@@ -9,9 +9,6 @@ The solver of type, kind and sort equalities
 module Frontend.Inference.Solver where
 
 import Control.Applicative ((<|>))
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
-import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
 import Data.Bifunctor (first, second)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
@@ -23,6 +20,7 @@ import Frontend.Inference.Equalities
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Frontend.Inference.Unification
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.WithVariables
 
 -- | A solution of a system of type, kind and sort equalities
@@ -63,7 +61,7 @@ instance Monoid SolverDebugOutput where
 -- | Solves the provided system of equalities
 solveEqualities ::
        Equalities -> (Either UnificationError Solution, SolverDebugOutput)
-solveEqualities = runWriter . runExceptT . solveEqualities'
+solveEqualities = runWithDebugOutput . solveEqualities'
 
 -- | Applies the solution of a system to the object, supporting substitution of sorts
 applySortSolution :: (SortSubstitutable a) => Solution -> a -> a
@@ -155,16 +153,12 @@ getRelevantTypeConstraints Solution {getSolutionTypeConstraints = constraints} s
      in filter isRelevant constraints
 
 -- | A type of the solver of equalities
-type Solver = ExceptT UnificationError (Writer SolverDebugOutput)
-
--- | Writes a debug output
-writeDebugOutput :: SolverDebugOutput -> Solver ()
-writeDebugOutput = lift . tell
+type Solver = WithDebugOutput UnificationError SolverDebugOutput
 
 -- | Unifies the system of equalities
 unifyEqualitiesSystem ::
        (IsAlgebraicExp a) => [(a, a)] -> Solver (Substitution a)
-unifyEqualitiesSystem = except . unifyEqualities
+unifyEqualitiesSystem = wrapEither id . unifyEqualities
 
 -- | Solves the provided system of equalities
 solveEqualities' :: Equalities -> Solver Solution

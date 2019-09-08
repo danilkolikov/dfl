@@ -8,11 +8,7 @@ Base processor of type and kind inference
 -}
 module Frontend.Inference.Base.Processor where
 
-import Control.Monad (foldM)
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
-import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
-import Data.Bifunctor (first, second)
+import Data.Bifunctor (second)
 import qualified Data.HashSet as HS
 
 import Frontend.Inference.Base.Common
@@ -21,16 +17,16 @@ import Frontend.Inference.Base.Descriptor
 import Frontend.Inference.Base.SingleGroupProcessor
 import Frontend.Inference.Base.Variables
 import Frontend.Inference.DependencyResolver
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
 -- | A processor of inference
-type InferenceProcessor = ExceptT InferenceError (Writer [InferenceDebugOutput])
+type InferenceProcessor = WithDebugOutput InferenceError InferenceDebugOutput
 
 -- | Runs inference
 runInfer :: RunInfer a s x
 runInfer descr env variableState x =
-    let inferenceProcessor = infer descr env variableState x
-     in second mconcat . runWriter . runExceptT $ inferenceProcessor
+    runWithDebugOutput $ infer descr env variableState x
 
 -- | Does inference
 infer ::
@@ -38,7 +34,9 @@ infer ::
     -> InferenceEnvironment s
     -> VariableGeneratorState
     -> a
-    -> InferenceProcessor (Signatures (x, s), VariableGeneratorState, TypeVariableEqualitiesMap)
+    -> InferenceProcessor ( Signatures (x, s)
+                          , VariableGeneratorState
+                          , TypeVariableEqualitiesMap)
 infer descr env variableGeneratorState x
     | InferenceDescriptor { getInferenceDescriptorSignaturesGetter = getSignatures
                           , getInferenceDescriptorDependenyGraphBuilder = buildDependencyGraph
@@ -49,11 +47,11 @@ infer descr env variableGeneratorState x
                            } <- env
         -- Check explicit signatures for expressions
      = do
-        let (inferSignatures, signaturesDebugOutput) = getSignatures x
-        writeDebugOutput
-            mempty
-                {getInferenceDebugOutputSignatures = Just signaturesDebugOutput}
-        signatures <- except inferSignatures
+        signatures <-
+            wrapDebugOutput
+                (\debug ->
+                     mempty {getInferenceDebugOutputSignatures = Just debug}) $
+            getSignatures x
         -- Build dependency graph, excluding expressions with explicit signatures
         let knownSignatures = definedSignatures <> signatures
             dependencyGraph = buildDependencyGraph knownSignatures x
@@ -62,7 +60,7 @@ infer descr env variableGeneratorState x
                 {getInferenceDebugOutputDependencyGraph = Just dependencyGraph}
         -- Order dependency groups
         groups <-
-            wrapError InferenceErrorDependencyResolution $
+            wrapEither InferenceErrorDependencyResolution $
             getDependencyGroups dependencyGraph
         writeDebugOutput
             mempty {getInferenceDebugOutputDependencyGroups = Just groups}
@@ -77,23 +75,26 @@ infer descr env variableGeneratorState x
                     }
             inferenceStep =
                 doInferSingleGroup singleGroupDescr newEnv (runInfer descr) x
-            inferGroups =
-                foldM
-                    inferenceStep
-                    initialInferenceState
-                    (map HS.toList $ reverse groups)
-            (result, groupOutputs) =
-                runSingleGroupInferenceProcessor inferGroups
-        writeDebugOutput
-            mempty
-                { getInferenceDebugOutputDependencyGroupOutputs =
-                      Just groupOutputs
-                }
+            inferGroups state [] = (Right state, [])
+            inferGroups state (group:rest) =
+                let (result, debug) =
+                        runWithDebugOutput $ inferenceStep state group
+                 in case result of
+                        Left _ -> (result, [debug])
+                        Right newState ->
+                            second (debug :) $ inferGroups newState rest
         -- Aggregate state of the inference
         InferenceState { getInferenceStateSignatures = newSignatures
                        , getInferenceStateVariableGeneratorState = newVariableGeneratorState
                        , getInferenceStateSolutions = solutions
-                       } <- except result
+                       } <-
+            wrapDebugOutput
+                (\debug ->
+                     mempty
+                         { getInferenceDebugOutputDependencyGroupOutputs =
+                               Just debug
+                         }) $
+            inferGroups initialInferenceState (map HS.toList $ reverse groups)
         let typeVariableEqualities =
                 collectTypeVariableEqualities definedTypeVariables solutions
         writeDebugOutput
@@ -103,11 +104,3 @@ infer descr env variableGeneratorState x
                 }
         return
             (newSignatures, newVariableGeneratorState, typeVariableEqualities)
-
--- | Wraps an error, encountered during inference
-wrapError :: (a -> InferenceError) -> Either a b -> InferenceProcessor b
-wrapError f = except . first f
-
--- | Writes a debug output
-writeDebugOutput :: InferenceDebugOutput -> InferenceProcessor ()
-writeDebugOutput = lift . tell . return

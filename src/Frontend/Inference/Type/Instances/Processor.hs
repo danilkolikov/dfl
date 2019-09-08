@@ -9,9 +9,6 @@ Function for checking of instances
 module Frontend.Inference.Type.Instances.Processor where
 
 import Control.Applicative ((<|>))
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
-import Control.Monad.Trans.Writer (Writer, runWriter, tell)
 import Data.Bifunctor (bimap, first)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
@@ -30,6 +27,7 @@ import Frontend.Inference.Expression
 import Frontend.Inference.Instance
 import Frontend.Inference.Signature
 import Frontend.Inference.Type.Instances.Equalities
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 import Frontend.Syntax.Position (WithLocation(..))
 
@@ -47,15 +45,11 @@ instance Monoid InstanceInferenceDebugOutput where
     mempty = InstanceInferenceDebugOutput mempty mempty
 
 -- | A processor of instance inference
-type Processor = ExceptT InferenceError (Writer InstanceInferenceDebugOutput)
+type Processor = WithDebugOutput InferenceError InstanceInferenceDebugOutput
 
 -- | A processor of inference of a single instance
 type SingleInstanceProcessor
-     = ExceptT InferenceError (Writer InferenceDebugOutput)
-
--- | Writes debug output
-writeDebugOutput :: (Monoid a) => a -> ExceptT InferenceError (Writer a) ()
-writeDebugOutput = lift . tell
+     = WithDebugOutput InferenceError InferenceDebugOutput
 
 -- | Infers kinds and types of an instance
 inferInstances ::
@@ -66,7 +60,7 @@ inferInstances ::
     -> ( Either InferenceError (HM.HashMap Ident Instance)
        , InstanceInferenceDebugOutput)
 inferInstances infer signatures classes instances =
-    runWriter . runExceptT $ inferInstances' infer classes signatures instances
+    runWithDebugOutput $ inferInstances' infer classes signatures instances
 
 -- | Descriptor of kind inference of an instance
 instanceKindInferenceDescriptor ::
@@ -99,24 +93,21 @@ inferInstances' infer classes signatures instances = do
                 instances
                 (HM.keys instances)
                 emptyVariableGeneratorState
-        (checkResult, checkDebugOutput) =
-            runSingleGroupInferenceProcessor' checkSingle
-    writeDebugOutput
-        mempty {getInstanceInferenceDebugOutputKinds = Just checkDebugOutput}
-    _ <- except checkResult
+    _ <-
+        mapDebugOutput
+            (\debug ->
+                 mempty {getInstanceInferenceDebugOutputKinds = Just debug}) $
+        checkSingle
     let inferSingleInstance' (name, inst) =
             let (result, debug) =
-                    runWriter . runExceptT $
-                    inferSingleInstance infer classes inst
+                    runWithDebugOutput $ inferSingleInstance infer classes inst
              in ((\x -> (name, x)) <$> result, (name, debug))
-        (inferred, debugOutputs) =
-            unzip . map inferSingleInstance' . HM.toList $ instances
-    writeDebugOutput
-        mempty
-            { getInstanceInferenceDebugOutputInstances =
-                  Just $ HM.fromList debugOutputs
-            }
-    HM.fromList <$> except (sequence inferred)
+    wrapDebugOutput
+        (\debug ->
+             mempty {getInstanceInferenceDebugOutputInstances = Just debug}) .
+        bimap ((HM.fromList <$>) . sequence) HM.fromList .
+        unzip . map inferSingleInstance' . HM.toList $
+        instances
 
 -- | Infers types of methods of a single instance
 inferSingleInstance ::
@@ -141,14 +132,12 @@ inferSingleInstance infer classes F.Instance { F.getInstanceContext = context
                 newTypeName
                 newTypeArgs
     (foundMethods, foundSignatures) <-
-        except $ findSignatures substitutedMethods methods
+        wrapEither id $ findSignatures substitutedMethods methods
     let (nameToIdent, identToName) =
             createNameToIdentMappings (HM.keys foundMethods)
         renamedMethods = mapKeys nameToIdent foundMethods
         renamedSignatures = mapKeys nameToIdent foundSignatures
-    let (result, debugOutput) = infer renamedSignatures renamedMethods
-    writeDebugOutput debugOutput
-    (signatures, _, _) <- except result
+    (signatures, _, _) <- wrapResult $ infer renamedSignatures renamedMethods
     let newMethods = mapKeys identToName signatures
     return $
         Instance
