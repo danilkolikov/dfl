@@ -10,7 +10,6 @@ definitions
 module Frontend.Inference.Type.Instances.Equalities where
 
 import qualified Data.HashMap.Lazy as HM
-import Data.Maybe (fromMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Base.Common
@@ -26,34 +25,21 @@ import Frontend.Syntax.Position
 generateEqualitiesForInstances ::
        Signatures TypeConstructorSignature
     -> EqualitiesBuilder F.Instances () ()
-generateEqualitiesForInstances tyConSignatures _ _ instances items =
+generateEqualitiesForInstances tyConSignatures _ _ instances _ =
     let localEnvironment =
             emptyEqualitiesGeneratorEnvironment
                 {getTypeConstructorSignatures = tyConSignatures}
      in runEqualitiesGenerator
-            (generateEqualitiesForInstances' instances items)
+            (generateEqualitiesForInstances' instances)
             localEnvironment
             []
 
 -- | Collects kind equalities for a type of an instance
 generateEqualitiesForInstances' ::
        F.Instances
-    -> [Ident]
     -> InferenceEqualitiesGenerator (Signatures (((), ()), [Ident]))
-generateEqualitiesForInstances' instances items = do
-    results <- HM.fromList <$> mapM (generateEqualitiesForIdent instances) items
-    return $ HM.map (\s -> (s, [])) results
-
--- | Generates equalities for an ident
-generateEqualitiesForIdent ::
-       F.Instances -> Ident -> InferenceEqualitiesGenerator (Ident, ((), ()))
-generateEqualitiesForIdent instances name =
-    let maybeExpr =
-            ((\x -> (name, x)) <$>) . generateEqualitiesForInstance <$>
-            HM.lookup name instances
-       -- This error should not occur, because we expect that all idents are
-       -- defined instances
-     in fromMaybe (error $ "Unexpected identifier " ++ show name) maybeExpr
+generateEqualitiesForInstances' instances =
+    mapM_ generateEqualitiesForInstance instances >> return HM.empty
 
 -- | Generates equalities for an instance
 generateEqualitiesForInstance ::

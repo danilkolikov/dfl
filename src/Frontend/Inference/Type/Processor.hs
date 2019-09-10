@@ -41,7 +41,7 @@ data TypeSignatures = TypeSignatures
     , getTypeSignaturesMethods :: HM.HashMap Ident TypeSignature
     , getTypeSignaturesExpressions :: HM.HashMap Ident (Exp, TypeSignature)
     , getTypeSignaturesClasses :: HM.HashMap Ident Class
-    , getTypeSignaturesInstances :: HM.HashMap Ident Instance
+    , getTypeSignaturesInstances :: [Instance]
     } deriving (Eq, Show)
 
 -- | A debug output of type inference
@@ -80,7 +80,7 @@ emptyTypeSignatures =
         , getTypeSignaturesMethods = HM.empty
         , getTypeSignaturesExpressions = HM.empty
         , getTypeSignaturesClasses = HM.empty
-        , getTypeSignaturesInstances = HM.empty
+        , getTypeSignaturesInstances = []
         }
 
 -- | A processor of type inference

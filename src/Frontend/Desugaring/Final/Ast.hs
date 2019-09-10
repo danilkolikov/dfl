@@ -130,7 +130,7 @@ data Instance = Instance
     } deriving (Show, Eq)
 
 -- | Map of instances
-type Instances = HashMap Ident Instance
+type Instances = [Instance]
 
 -- | Type signature
 data TypeSignature = TypeSignature

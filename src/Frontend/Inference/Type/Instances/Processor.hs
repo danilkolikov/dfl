@@ -1,10 +1,10 @@
 {- |
 Module      :  Frontend.Inference.Instances.Processor
-Description :  Functions for checking of instances
+Description :  Functions for type checking of instances
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Function for checking of instances
+Function for type checking of instances
 -}
 module Frontend.Inference.Type.Instances.Processor where
 
@@ -34,7 +34,7 @@ import Frontend.Syntax.Position (WithLocation(..))
 -- | A type of debug output of instance inference
 data InstanceInferenceDebugOutput = InstanceInferenceDebugOutput
     { getInstanceInferenceDebugOutputKinds :: Maybe SingleGroupInferenceDebugOutput
-    , getInstanceInferenceDebugOutputInstances :: Maybe (HM.HashMap Ident InferenceDebugOutput)
+    , getInstanceInferenceDebugOutputInstances :: Maybe [InferenceDebugOutput]
     }
 
 instance Semigroup InstanceInferenceDebugOutput where
@@ -57,8 +57,7 @@ inferInstances ::
     -> Signatures TypeConstructorSignature
     -> HM.HashMap Ident Class
     -> F.Instances
-    -> ( Either InferenceError (HM.HashMap Ident Instance)
-       , InstanceInferenceDebugOutput)
+    -> (Either InferenceError [Instance], InstanceInferenceDebugOutput)
 inferInstances infer signatures classes instances =
     runWithDebugOutput $ inferInstances' infer classes signatures instances
 
@@ -80,7 +79,7 @@ inferInstances' ::
     -> HM.HashMap Ident Class
     -> Signatures TypeConstructorSignature
     -> F.Instances
-    -> Processor (HM.HashMap Ident Instance)
+    -> Processor [Instance]
 inferInstances' infer classes signatures instances = do
     let checkSingle =
             inferSingleGroup
@@ -91,22 +90,19 @@ inferInstances' infer classes signatures instances = do
                     }
                 undefined -- recursive call is not used
                 instances
-                (HM.keys instances)
+                []
                 emptyVariableGeneratorState
     _ <-
         mapDebugOutput
             (\debug ->
-                 mempty {getInstanceInferenceDebugOutputKinds = Just debug}) $
-        checkSingle
-    let inferSingleInstance' (name, inst) =
-            let (result, debug) =
-                    runWithDebugOutput $ inferSingleInstance infer classes inst
-             in ((\x -> (name, x)) <$> result, (name, debug))
+                 mempty {getInstanceInferenceDebugOutputKinds = Just debug})
+            checkSingle
+    let inferSingleInstance' inst =
+            runWithDebugOutput $ inferSingleInstance infer classes inst
     wrapDebugOutput
         (\debug ->
              mempty {getInstanceInferenceDebugOutputInstances = Just debug}) .
-        bimap ((HM.fromList <$>) . sequence) HM.fromList .
-        unzip . map inferSingleInstance' . HM.toList $
+        first sequence . unzip . map inferSingleInstance' $
         instances
 
 -- | Infers types of methods of a single instance

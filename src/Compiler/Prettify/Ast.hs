@@ -591,6 +591,9 @@ printIndentedMap :: (PrettyPrintable a) => HM.HashMap b a -> PrettyPrinter
 printIndentedMap =
     withIndent . multiplePrinters . map (prettyPrint . snd) . HM.toList
 
+printList :: (PrettyPrintable a) => [a] -> PrettyPrinter
+printList = multiplePrinters . map prettyPrint
+
 instance PrettyPrintable F.Exp where
     prettyPrint exp' =
         case exp' of
@@ -750,7 +753,7 @@ instance PrettyPrintable F.Module where
             , newLine
             , printIndentedMap classes
             , newLine
-            , printIndentedMap instances
+            , printList instances
             , newLine
             , printIndentedMap exps
             ]
