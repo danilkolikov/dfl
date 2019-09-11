@@ -22,6 +22,7 @@ compileSourceFile = do
     let initialInfixOperators = HM.empty
         initialDesugaringState = emptyDesugaringState
         initialKindInferenceState = defaultKindSignatures
+        initialTypeSynonyms = defaultTypeSynonyms
         initialTypeInferenceState = defaultTypeSignatures
     fileName <- getSourceFileName
     fileContent <- readFileContent fileName
@@ -37,7 +38,8 @@ compileSourceFile = do
         traceStepWithDebugOutput $
         inferKinds desugared initialKindInferenceState
     ExpandTypeSynonymsOutput {getExpandTypeSynonymSignatures = expandedTypeSynonyms} <-
-        traceStep $ expandTypeSynonyms desugared inferredKinds
+        traceStep $
+        expandTypeSynonyms desugared inferredKinds initialTypeSynonyms
     inferredTypes <-
         traceStepWithDebugOutput $
         inferTypes

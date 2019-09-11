@@ -8,6 +8,7 @@ Resolver of dependencies between declarations
 -}
 module Frontend.Inference.DependencyResolver where
 
+import Control.Monad (foldM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (Except, runExcept, throwE)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
@@ -150,3 +151,16 @@ getSortedStrongConComp =
 getDependencyGroups ::
        DependencyGraph -> Either DependencyResolverError [HS.HashSet Ident]
 getDependencyGroups = runDependencyResolver getSortedStrongConComp
+
+-- | Finds dependency groups in the graph and traverses them in the reverse order 
+traverseGraph ::
+       (Monad m)
+    => (a -> [Ident] -> m a)
+    -> a
+    -> DependencyGraph
+    -> Either DependencyResolverError ([HS.HashSet Ident], m a)
+traverseGraph f initial graph = do
+    dependencyGroups <- getDependencyGroups graph
+    let reversedOrder = map HS.toList $ reverse dependencyGroups
+        traversed = foldM f initial reversedOrder
+    return (dependencyGroups, traversed)

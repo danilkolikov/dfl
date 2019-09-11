@@ -8,9 +8,6 @@ Base processor of type and kind inference
 -}
 module Frontend.Inference.Base.Processor where
 
-import Data.Bifunctor (second)
-import qualified Data.HashSet as HS
-
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
@@ -58,12 +55,6 @@ infer descr env variableGeneratorState x
         writeDebugOutput
             mempty
                 {getInferenceDebugOutputDependencyGraph = Just dependencyGraph}
-        -- Order dependency groups
-        groups <-
-            wrapEither InferenceErrorDependencyResolution $
-            getDependencyGroups dependencyGraph
-        writeDebugOutput
-            mempty {getInferenceDebugOutputDependencyGroups = Just groups}
         -- Infer each group
         let newEnv = env {getInferenceEnvironmentSignatures = knownSignatures}
             initialInferenceState =
@@ -73,28 +64,33 @@ infer descr env variableGeneratorState x
                           variableGeneratorState
                     , getInferenceStateSolutions = []
                     }
-            inferenceStep =
-                doInferSingleGroup singleGroupDescr newEnv (runInfer descr) x
-            inferGroups state [] = (Right state, [])
-            inferGroups state (group:rest) =
-                let (result, debug) =
-                        runWithDebugOutput $ inferenceStep state group
-                 in case result of
-                        Left _ -> (result, [debug])
-                        Right newState ->
-                            second (debug :) $ inferGroups newState rest
-        -- Aggregate state of the inference
+            inferenceStep state group =
+                mapDebugOutput return $
+                doInferSingleGroup
+                    singleGroupDescr
+                    newEnv
+                    (runInfer descr)
+                    x
+                    state
+                    group
+        -- Traverse dependency graph
+        (groups, inferenceResult) <-
+            wrapEither InferenceErrorDependencyResolution $
+            traverseGraph inferenceStep initialInferenceState dependencyGraph
+        writeDebugOutput
+            mempty {getInferenceDebugOutputDependencyGroups = Just groups}
+        -- Get the final state of inference
         InferenceState { getInferenceStateSignatures = newSignatures
                        , getInferenceStateVariableGeneratorState = newVariableGeneratorState
                        , getInferenceStateSolutions = solutions
                        } <-
-            wrapDebugOutput
+            mapDebugOutput
                 (\debug ->
                      mempty
                          { getInferenceDebugOutputDependencyGroupOutputs =
                                Just debug
-                         }) $
-            inferGroups initialInferenceState (map HS.toList $ reverse groups)
+                         })
+                inferenceResult
         let typeVariableEqualities =
                 collectTypeVariableEqualities definedTypeVariables solutions
         writeDebugOutput

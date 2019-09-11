@@ -19,6 +19,7 @@ module Frontend.Inference.Processor
     , TypeConstructorSignature
     , TypeSignature
     , defaultTypeSignatures
+    , defaultTypeSynonyms
     , defaultKindSignatures
     , inferKinds
     , expandTypeSynonyms
@@ -30,11 +31,11 @@ import Data.Bifunctor (bimap, first)
 import Frontend.Desugaring.Final.Ast (Module(..))
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
+import Frontend.Inference.BuiltIns
 import qualified Frontend.Inference.Kind.Processor as Kind
 import Frontend.Inference.Signature
 import qualified Frontend.Inference.Type.Processor as Type
 import Frontend.Inference.TypeSynonyms.Processor
-import Frontend.Inference.BuiltIns
 
 -- | Errors which can be encounterd during inference
 data CombinedInferenceError
@@ -66,10 +67,14 @@ newtype ExpandTypeSynonymsOutput = ExpandTypeSynonymsOutput
 expandTypeSynonyms ::
        Module
     -> Signatures TypeConstructorSignature
+    -> TypeSynonymSignatures
     -> Either CombinedInferenceError ExpandTypeSynonymsOutput
-expandTypeSynonyms module' signatures =
+expandTypeSynonyms module' signatures initialSignatures =
     bimap CombinedInferenceErrorTypeSynonyms ExpandTypeSynonymsOutput $
-    processSignatures (getModuleTypeSynonyms module') signatures
+    processSignatures
+        initialSignatures
+        (getModuleTypeSynonyms module')
+        signatures
 
 -- | Infers types of a modules
 inferTypes ::

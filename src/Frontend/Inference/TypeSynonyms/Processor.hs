@@ -9,12 +9,8 @@ Processor of expanding of type synonyms inference
 module Frontend.Inference.TypeSynonyms.Processor where
 
 import Control.Monad (unless)
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (Except, except, runExcept, throwE)
-import Control.Monad.Trans.State.Lazy (StateT, execStateT, get, modify)
 import Data.Bifunctor (first)
 import qualified Data.HashMap.Lazy as HM
-import qualified Data.HashSet as HS
 import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -37,48 +33,49 @@ data TypeSynonymsProcessingError
 type TypeSynonymSignatures = HM.HashMap Ident TypeSignature
 
 -- | A type of objects which process type synonyms
-type TypeSynonymProcessor
-     = StateT TypeSynonymSignatures (Except TypeSynonymsProcessingError)
+type TypeSynonymProcessor = Either TypeSynonymsProcessingError
 
 -- | Processes type synonyms and expands their types
 processSignatures ::
-       F.TypeSynonyms
+       TypeSynonymSignatures
+    -> F.TypeSynonyms
     -> HM.HashMap Ident TypeConstructorSignature
-    -> Either TypeSynonymsProcessingError TypeSynonymSignatures
-processSignatures synonyms typeSynonymSignatures =
-    runExcept $
-    execStateT (processTypeSynonyms synonyms typeSynonymSignatures) HM.empty
-
--- | Processes type synonyms
-processTypeSynonyms ::
-       F.TypeSynonyms
-    -> HM.HashMap Ident TypeConstructorSignature
-    -> TypeSynonymProcessor ()
-processTypeSynonyms typeSynonyms typeSignatures =
+    -> TypeSynonymProcessor TypeSynonymSignatures
+processSignatures initialSignatures typeSynonyms typeSignatures = do
     let graph = getTypeSynonymsDependencyGraph typeSynonyms
         loops = getLoops graph
-        assertNull list = unless (null list) . lift . throwE
         lookupTypeSynonym name =
             ( fromJust $ HM.lookup name typeSynonyms
             , fromJust $ HM.lookup name typeSignatures)
-     in do assertNull loops $ TypeSynonymsProcessingErrorRecursive (head loops)
-           groups <-
-               wrapError TypeSynonymsProcessingErrorDependencyResolution $
-               getDependencyGroups graph
-           let mutuallyRecursiveGroups = filter (\g -> length g > 1) groups
-           assertNull mutuallyRecursiveGroups $
-               TypeSynonymsProcessingErrorMutuallyRecursive
-                   (HS.toList . head $ mutuallyRecursiveGroups)
-           let groupItems = map (head . HS.toList) (reverse groups)
-           mapM_ (uncurry processTypeSynonym . lookupTypeSynonym) groupItems
+    unless (null loops) . Left $
+        TypeSynonymsProcessingErrorRecursive (head loops)
+    (_, processed) <-
+        wrapError TypeSynonymsProcessingErrorDependencyResolution $
+        traverseGraph
+            (processDependencyGroup lookupTypeSynonym)
+            initialSignatures
+            graph
+    processed
+
+-- | Processes a single dependency group
+processDependencyGroup ::
+       (F.Ident -> (F.TypeSynonym, TypeConstructorSignature))
+    -> TypeSynonymSignatures
+    -> [F.Ident]
+    -> TypeSynonymProcessor TypeSynonymSignatures
+processDependencyGroup lookupTypeSynonym signatures group = do
+    unless (length group == 1) . Left $
+        TypeSynonymsProcessingErrorMutuallyRecursive group
+    processTypeSynonym signatures . lookupTypeSynonym $ head group
 
 -- | Processes a single type synonym
 processTypeSynonym ::
-       F.TypeSynonym -> TypeConstructorSignature -> TypeSynonymProcessor ()
-processTypeSynonym F.TypeSynonym { F.getTypeSynonymName = name
-                                 , F.getTypeSynonymType = type'
-                                 } signature = do
-    definedSynonyms <- get
+       TypeSynonymSignatures
+    -> (F.TypeSynonym, TypeConstructorSignature)
+    -> TypeSynonymProcessor TypeSynonymSignatures
+processTypeSynonym definedSynonyms (F.TypeSynonym { F.getTypeSynonymName = name
+                                                  , F.getTypeSynonymType = type'
+                                                  }, signature) = do
     let expanded = expandTypeSynonyms type' definedSynonyms
     processedType <- wrapError TypeSynonymsProcessingErrorExpanding expanded
     let typeSignature =
@@ -90,11 +87,11 @@ processTypeSynonym F.TypeSynonym { F.getTypeSynonymName = name
                 , getTypeSignatureType = processedType
                 , getTypeSignatureContext = [] -- Type synonyms have empty context
                 }
-    modify $ HM.insert (getValue name) typeSignature
+    return $ HM.insert (getValue name) typeSignature definedSynonyms
 
 -- | Wraps an error
 wrapError ::
        (a -> TypeSynonymsProcessingError)
     -> Either a b
     -> TypeSynonymProcessor b
-wrapError wrap = lift . except . first wrap
+wrapError = first
