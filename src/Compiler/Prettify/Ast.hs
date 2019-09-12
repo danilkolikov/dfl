@@ -613,7 +613,8 @@ instance PrettyPrintable F.Exp where
                 multiplePrinters
                     [ prettyPrint func
                     , withIndent $
-                      multiplePrinters (map (inParens.prettyPrint) $ NE.toList args)
+                      multiplePrinters
+                          (map (inParens . prettyPrint) $ NE.toList args)
                     ]
             F.ExpLet decls inner ->
                 joinPrinters
@@ -676,12 +677,12 @@ instance PrettyPrintable F.Constraint where
     prettyPrint constraint =
         case constraint of
             F.ConstraintParam class' param -> notSep [class', param]
-            F.ConstraintType class' type' params ->
+            F.ConstraintAppliedParam class' param params ->
                 joinPrinters
                     [ prettyPrint class'
                     , inParens $
                       joinPrinters
-                          [prettyPrint type', notSep $ NE.toList params]
+                          [prettyPrint param, notSep $ NE.toList params]
                     ]
 
 instance PrettyPrintable F.SimpleConstraint where

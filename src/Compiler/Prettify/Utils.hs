@@ -106,7 +106,7 @@ instance Prettifiable Constraint where
         case constraint of
             ConstraintVariable class' type' ->
                 unwords [prettify class', prettify type']
-            ConstraintType class' type' args ->
+            ConstraintAppliedVariable class' type' args ->
                 unwords
                     [ prettify class'
                     , "(" ++
@@ -148,9 +148,7 @@ prettifyContext constraints =
     " (" ++ intercalate ", " (map prettify constraints) ++ ") =>"
 
 prettifySignatures :: (Prettifiable s) => Signatures s -> String
-prettifySignatures sigs =
-    unlines
-        (map prettifySignature (HM.toList sigs))
+prettifySignatures sigs = unlines (map prettifySignature (HM.toList sigs))
 
 prettifySignature :: (Prettifiable s) => (Ident, s) -> String
 prettifySignature (name, s) = unwords [prettify name, prettify s]

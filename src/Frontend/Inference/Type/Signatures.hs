@@ -118,6 +118,8 @@ expandConstraint signatures constraint =
         F.ConstraintParam class' param ->
             return $
             ConstraintVariable (getValue class') (TypeVar $ getValue param)
-        F.ConstraintType class' type' params ->
-            ConstraintType (getValue class') (getValue type') <$>
+        F.ConstraintAppliedParam class' param params ->
+            ConstraintAppliedVariable
+                (getValue class')
+                (TypeVar $ getValue param) <$>
             mapM (`expandTypeSynonyms` signatures) params

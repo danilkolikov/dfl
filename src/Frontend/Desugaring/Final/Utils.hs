@@ -20,18 +20,18 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 -- | Desugar a constraint
 desugarConstraint :: WithLocation I.Constraint -> WithLocation Constraint
 desugarConstraint c
-    | (I.Constraint name params paramArgs) <- getValue c =
+    | (I.Constraint name param paramArgs) <- getValue c =
         c $>
         case paramArgs of
-            [] -> ConstraintParam name params
-            (s:rest) -> ConstraintType name params (s NE.:| rest)
+            [] -> ConstraintParam name param
+            (s:rest) -> ConstraintAppliedParam name param (s NE.:| rest)
 
 -- | Desugar a simple class
 desugarSimpleClass ::
        WithLocation I.SimpleClass -> WithLocation SimpleConstraint
 desugarSimpleClass c
-    | (I.SimpleClass name params) <- getValue c =
-        c $> SimpleConstraint name params
+    | (I.SimpleClass name param) <- getValue c =
+        c $> SimpleConstraint name param
 
 -- | Make custom pattern constructor
 makeIdent :: EntityName -> WithLocation Ident

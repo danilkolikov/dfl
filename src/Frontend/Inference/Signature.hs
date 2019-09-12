@@ -48,11 +48,11 @@ import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.Constraint
-import Frontend.Inference.WithVariables
 import Frontend.Inference.Kind
 import Frontend.Inference.Sort
 import Frontend.Inference.Substitution
 import Frontend.Inference.Type
+import Frontend.Inference.WithVariables
 
 -- | A map of signatures
 type Signatures s = HM.HashMap Ident s
@@ -423,8 +423,11 @@ instance TypeSubstitutable Constraint where
         case constr of
             ConstraintVariable cls var ->
                 ConstraintVariable cls (substitute sub var)
-            ConstraintType cls type' args ->
-                ConstraintType cls type' (fmap (substitute sub) args)
+            ConstraintAppliedVariable cls var args ->
+                ConstraintAppliedVariable
+                    cls
+                    (substitute sub var)
+                    (fmap (substitute sub) args)
 
 -- | Removes bound parameters from the provided list
 removeBoundParams :: HS.HashSet Ident -> Params a -> Params a

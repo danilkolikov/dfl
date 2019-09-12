@@ -431,13 +431,14 @@ writeConstraintEqualities tv constraint = do
             case constr of
                 ConstraintVariable className var ->
                     return (className, lookupVariable var)
-                ConstraintType className typeName typeArgs -> do
-                    ((typeKind, _), _) <-
-                        lookupKindOfType (withDummyLocation typeName)
+                ConstraintAppliedVariable className var varArgs -> do
+                    let varKind = lookupVariable var
+                    -- TODO: This will likely throw an error in most cases
+                    -- This block will be rewritten
                     resKind <- liftGen generateKindVariable
-                    let args = fmap lookupVariable typeArgs
+                    let args = fmap lookupVariable varArgs
                         gotKind = foldr KindFunction resKind args
-                    writeKindEqualities [(typeKind, gotKind)]
+                    writeKindEqualities [(varKind, gotKind)]
                     return (className, resKind)
     (className, resKind) <- getClassParameter constraint
     classSignature <-

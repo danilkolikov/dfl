@@ -24,10 +24,10 @@ data Constraint
     = ConstraintVariable { getConstraintClass :: F.Ident -- ^ A class name
                          , getConstraintVariable :: Type -- ^ A constrained variable
                           } -- ^ A constrained type variable
-    | ConstraintType { getConstraintClass :: F.Ident -- ^ A class name
-                     , getConstraintType :: F.Ident -- ^ A type name
-                     , getConstraintTypeArgs :: NE.NonEmpty Type -- ^ Type aguments
-                      } -- ^ A constrained data type
+    | ConstraintAppliedVariable { getConstraintClass :: F.Ident -- ^ A class name
+                                , getConstraintVariable :: Type -- ^ A constrained variable
+                                , getConstraintArgs :: NE.NonEmpty Type -- ^ Type aguments
+                                 } -- ^ A constrained data type
     deriving (Eq, Show)
 
 instance WithVariables Constraint where
@@ -36,8 +36,11 @@ instance WithVariables Constraint where
         case constr of
             ConstraintVariable {getConstraintVariable = var} ->
                 getFreeVariables var
-            ConstraintType {getConstraintTypeArgs = args} ->
-                HS.unions . NE.toList . fmap getFreeVariables $ args
+            ConstraintAppliedVariable { getConstraintVariable = var
+                                      , getConstraintArgs = args
+                                      } ->
+                HS.unions $
+                getFreeVariables var : NE.toList (fmap getFreeVariables $ args)
 
 -- | A constraint defining type class hierarchy
 data SimpleConstraint = SimpleConstraint

@@ -116,13 +116,14 @@ generateEqualitiesUsingSignature params generator signature = do
     ((expectedKind, expectedSort), _) <- specialiseDataTypeSignature signature
     writeKindEqualities [(resultKind, expectedKind)]
     writeSortEqualities [(genSort, expectedSort)]
-    return (((),signature), params)
+    return (((), signature), params)
 
 -- | Generates equalities for an ident
 generateEqualitiesForIdent ::
        Environment
     -> Ident
-    -> InferenceEqualitiesGenerator (Ident, (((), TypeConstructorSignature), [Ident]))
+    -> InferenceEqualitiesGenerator ( Ident
+                                    , (((), TypeConstructorSignature), [Ident]))
 generateEqualitiesForIdent env name =
     let maybeResolveSingle getMap =
             generateEqualitiesAndSignature <$> HM.lookup name (getMap env)
@@ -166,7 +167,9 @@ lookupSignatureAndGenerateEqualities name params generator =
 -- | A class of types which have both equalities and signatures
 class WithEqualitiesAndSignature a where
     generateEqualitiesAndSignature ::
-           a -> InferenceEqualitiesGenerator (((), TypeConstructorSignature), [Ident])
+           a
+        -> InferenceEqualitiesGenerator ( ((), TypeConstructorSignature)
+                                        , [Ident])
 
 instance WithEqualitiesAndSignature TypeSynonym where
     generateEqualitiesAndSignature TypeSynonym { getTypeSynonymName = name
@@ -211,12 +214,12 @@ instance WithEqualities Constraint where
                         makePseudoType
                             class'
                             (withDummyLocation $ TypeVar param)
-                    ConstraintType class' type' params ->
+                    ConstraintAppliedParam class' param params ->
                         makePseudoType
                             class'
                             (withDummyLocation $
                              TypeApplication
-                                 (withDummyLocation $ TypeConstr type')
+                                 (withDummyLocation $ TypeVar param)
                                  params)
          in void $ generateTypeEqualities pseudoType
 
@@ -294,5 +297,7 @@ getFreeTypeVariablesOfConstraint :: WithLocation Constraint -> HS.HashSet Ident
 getFreeTypeVariablesOfConstraint constraint =
     case getValue constraint of
         ConstraintParam _ param -> HS.singleton (getValue param)
-        ConstraintType _ _ args ->
-            HS.unions . map getFreeTypeVariables $ NE.toList args
+        ConstraintAppliedParam _ param args ->
+            HS.unions $
+            HS.singleton (getValue param) :
+            map getFreeTypeVariables (NE.toList args)

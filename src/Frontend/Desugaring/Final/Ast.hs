@@ -97,10 +97,10 @@ data Constraint
     = ConstraintParam { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
                       , getConstraintParam :: WithLocation Ident -- ^ Constrained parameter
                        } -- ^ Constrained parameter
-    | ConstraintType { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
-                     , getConstraintType :: WithLocation Ident -- ^ Name of a constrained type
-                     , getConstraintParams :: NonEmpty (WithLocation Type) -- ^ Parameters of a type
-                      } -- ^ Constrained type
+    | ConstraintAppliedParam { getConstraintClass :: WithLocation Ident -- ^ Name of a type class
+                             , getConstraintParam :: WithLocation Ident -- ^ Name of a constrained variable
+                             , getConstraintArgs :: NonEmpty (WithLocation Type) -- ^ Parameters of a variable
+                              } -- ^ Constrained type
     deriving (Show, Eq)
 
 -- | Simple constraint

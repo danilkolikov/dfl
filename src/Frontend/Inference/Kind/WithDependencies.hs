@@ -85,8 +85,8 @@ getConstructorDependencies c =
 getConstraintDependencies :: Constraint -> Dependencies
 getConstraintDependencies (ConstraintParam className _) =
     HS.singleton (getValue className)
-getConstraintDependencies (ConstraintType className typeName _) =
-    HS.fromList $ map getValue [className, typeName]
+getConstraintDependencies (ConstraintAppliedParam className _ _) =
+    HS.fromList $ map getValue [className]
 
 -- | Get dependencies of a simple constraint
 getSimpleConstraintDependencies :: SimpleConstraint -> Dependencies

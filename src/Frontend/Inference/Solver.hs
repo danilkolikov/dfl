@@ -263,5 +263,5 @@ getConstraintsWithVariables constraints sub =
         hasOnlyVariables constr =
             case constr of
                 ConstraintVariable _ t -> isVariable t
-                ConstraintType _ _ args -> all isVariable args
+                ConstraintAppliedVariable _ t _ -> isVariable t
      in filter hasOnlyVariables substituted
