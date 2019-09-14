@@ -11,6 +11,7 @@ module Frontend.Inference.TypeSynonyms.Processor where
 import Control.Monad (unless)
 import Data.Bifunctor (first)
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
@@ -61,12 +62,13 @@ processSignatures initialSignatures typeSynonyms typeSignatures = do
 processDependencyGroup ::
        (F.Ident -> (F.TypeSynonym, TypeConstructorSignature))
     -> TypeSynonymSignatures
-    -> [F.Ident]
+    -> HS.HashSet F.Ident
     -> TypeSynonymProcessor TypeSynonymSignatures
 processDependencyGroup lookupTypeSynonym signatures group = do
-    unless (length group == 1) . Left $
-        TypeSynonymsProcessingErrorMutuallyRecursive group
-    processTypeSynonym signatures . lookupTypeSynonym $ head group
+    let groupList = HS.toList group
+    unless (length groupList == 1) . Left $
+        TypeSynonymsProcessingErrorMutuallyRecursive groupList
+    processTypeSynonym signatures . lookupTypeSynonym $ head groupList
 
 -- | Processes a single type synonym
 processTypeSynonym ::

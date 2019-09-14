@@ -79,6 +79,7 @@ library:
   - Frontend.Inference.DependencyResolver
   - Frontend.Inference.Equalities
   - Frontend.Inference.Expression
+  - Frontend.Inference.InferenceProcessor
   - Frontend.Inference.Instance
   - Frontend.Inference.Kind
   - Frontend.Inference.Kind.Environment

@@ -8,6 +8,8 @@ Base processor of type and kind inference
 -}
 module Frontend.Inference.Base.Processor where
 
+import qualified Data.HashSet as HS
+
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
@@ -72,7 +74,7 @@ infer descr env variableGeneratorState x
                     (runInfer descr)
                     x
                     state
-                    group
+                    (HS.toList group)
         -- Traverse dependency graph
         (groups, inferenceResult) <-
             wrapEither InferenceErrorDependencyResolution $

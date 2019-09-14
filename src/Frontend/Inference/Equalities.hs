@@ -127,11 +127,21 @@ runEqualitiesGenerator ::
     -> ( (Either (EqualitiesGenerationError e) (a, Equalities), d)
        , VariableGeneratorState)
 runEqualitiesGenerator generator environment debugState varState =
+    let variables = runEqualitiesGenerator' generator environment debugState
+     in runVariableGenerator variables varState
+
+-- | Runs the equality generator and gets a variable generator
+runEqualitiesGenerator' ::
+       EqualitiesGenerator d e a
+    -> EqualitiesGeneratorEnvironment
+    -> d
+    -> VariableGenerator ( Either (EqualitiesGenerationError e) (a, Equalities)
+                         , d)
+runEqualitiesGenerator' generator environment debugState =
     let writer = runReaderT generator environment
         exceptT = runWriterT writer
         stateT = runExceptT exceptT
-        variables = runStateT stateT debugState
-     in runVariableGenerator variables varState
+     in runStateT stateT debugState
 
 -- | Saves equalities between types
 writeTypeEqualities :: [(Type, Type)] -> EqualitiesGenerator d e ()
