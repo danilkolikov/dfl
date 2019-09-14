@@ -32,18 +32,17 @@ generateEqualitiesForInstances tyConSignatures _ _ instances _ =
      in runEqualitiesGenerator
             (generateEqualitiesForInstances' instances)
             localEnvironment
-            []
 
 -- | Collects kind equalities for a type of an instance
 generateEqualitiesForInstances' ::
        F.Instances
-    -> InferenceEqualitiesGenerator (Signatures (((), ()), [Ident]))
+    -> EqualitiesGenerator  (Signatures (((), ()), [Ident]))
 generateEqualitiesForInstances' instances =
     mapM_ generateEqualitiesForInstance instances >> return HM.empty
 
 -- | Generates equalities for an instance
 generateEqualitiesForInstance ::
-       F.Instance -> InferenceEqualitiesGenerator ((), ())
+       F.Instance -> EqualitiesGenerator  ((), ())
 generateEqualitiesForInstance F.Instance { F.getInstanceContext = context
                                          , F.getInstanceClass = className
                                          , F.getInstanceType = typeName
@@ -59,7 +58,7 @@ writeClassEqualities ::
        WithLocation Ident
     -> WithLocation Ident
     -> [WithLocation Ident]
-    -> InferenceEqualitiesGenerator ()
+    -> EqualitiesGenerator  ()
 writeClassEqualities className typeName typeArgs = do
     ((typeKind, typeSort), _) <- findKindOfType typeName
     args <- mapM lookupKindVariable typeArgs
@@ -74,7 +73,7 @@ writeClassEqualities className typeName typeArgs = do
 
 -- | Writes kind equalities of a simple constraint
 writeSimpleConstraintEqualities ::
-       WithLocation F.SimpleConstraint -> InferenceEqualitiesGenerator ()
+       WithLocation F.SimpleConstraint -> EqualitiesGenerator  ()
 writeSimpleConstraintEqualities sc
     | F.SimpleConstraint className param <- getValue sc = do
         ((classKind, classSort), _) <- lookupKindOfType className
@@ -86,7 +85,7 @@ writeSimpleConstraintEqualities sc
 -- | Finds a kind of a type
 findKindOfType ::
        WithLocation Ident
-    -> InferenceEqualitiesGenerator ((Kind, Sort), Substitution Kind)
+    -> EqualitiesGenerator  ((Kind, Sort), Substitution Kind)
 findKindOfType typeName
     | getValue typeName == IdentNamed fUNCTION_NAME =
         return

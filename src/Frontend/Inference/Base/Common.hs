@@ -12,7 +12,6 @@ module Frontend.Inference.Base.Common
     , InferenceState(..)
     , SingleGroupInferenceOutput
     , InferenceError(..)
-    , InferenceEqualitiesGenerationError
     ) where
 
 import Frontend.Inference.DependencyResolver
@@ -44,10 +43,6 @@ type SingleGroupInferenceOutput s
 data InferenceError
     = InferenceErrorSynonyms TypeSynonymsExpandingError -- ^ An error happened during expansion of signatures
     | InferenceErrorDependencyResolution DependencyResolverError -- ^ An error happened during resolution of dependency groups
-    | InferenceErrorEqualityGeneration InferenceEqualitiesGenerationError -- ^ An error happened during generation of equalities for a single group
+    | InferenceErrorEqualityGeneration EqualitiesGenerationError -- ^ An error happened during generation of equalities for a single group
     | InferenceErrorUnification UnificationError -- ^ An error happened during unification
     deriving (Eq, Show)
-
--- | An error of equalities generation
-type InferenceEqualitiesGenerationError
-     = EqualitiesGenerationError InferenceError

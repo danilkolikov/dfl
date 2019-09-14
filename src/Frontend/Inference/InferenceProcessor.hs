@@ -12,11 +12,7 @@ import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
-import Frontend.Inference.Base.Common
-    ( InferenceEqualitiesGenerationError
-    , InferenceError(..)
-    , Signatures
-    )
+import Frontend.Inference.Base.Common (InferenceError(..), Signatures)
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Solver
@@ -83,8 +79,7 @@ instance Monoid (SingleGroupInferenceDebugOutput a s) where
 
 -- | Output of a process of building of equalities
 type EqualitiesBuilderOutput s
-     = Either InferenceEqualitiesGenerationError ( Solution -> Signatures s
-                                                 , Equalities)
+     = Either EqualitiesGenerationError (Solution -> Signatures s, Equalities)
 
 -- | A function which builds a system of equalities
 type EqualitiesBuilder a s

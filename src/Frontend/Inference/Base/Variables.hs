@@ -14,7 +14,6 @@ import Data.Maybe (fromJust)
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.Equalities hiding
     ( getTypeVariables
-    , modifyDebugOutput
     )
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver

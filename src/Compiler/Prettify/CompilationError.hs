@@ -201,8 +201,7 @@ prettifyUnificationError unificationError =
         UnificationErrorDifferentNumberOfArgs ->
             "Can't unify functions with different number of arguments"
 
-prettifyEqualitiesGenerationError ::
-       InferenceEqualitiesGenerationError -> String
+prettifyEqualitiesGenerationError :: EqualitiesGenerationError -> String
 prettifyEqualitiesGenerationError groupError =
     "Equality generation error: " ++
     case groupError of
@@ -210,8 +209,6 @@ prettifyEqualitiesGenerationError groupError =
             "Unknown name " ++ prettifyName name
         EqualitiesGenerationErrorUnknownType name ->
             "Unknown type " ++ prettifyName name
-        EqualitiesGenerationErrorNested err ->
-            "Nested error: " ++ prettifyInferenceError "" err
 
 prettifyTypeSynonymsProcessingError :: TypeSynonymsProcessingError -> String
 prettifyTypeSynonymsProcessingError typeSynonymsErr =

@@ -45,7 +45,6 @@ generateEqualitiesForExpressions tyConSignatures inferTypes env exprs items
                      exprs
                      items)
                 localEnvironment
-                []
 
 -- | A function which infers types
 type InferTypes = Infer F.Expressions TypeSignature Exp
@@ -56,7 +55,7 @@ generateEqualitiesForExpressions' ::
     -> TypeVariables
     -> F.Expressions
     -> [Ident]
-    -> InferenceEqualitiesGenerator (Signatures ((Exp, TypeSignature), [Ident]))
+    -> EqualitiesGenerator (Signatures ((Exp, TypeSignature), [Ident]))
 generateEqualitiesForExpressions' inferTypes typeVariables exprs items = do
     let boundVars = HM.toList typeVariables
     defineNewTypeVariables (HM.elems typeVariables)
@@ -73,7 +72,7 @@ generateEqualitiesForExpressions' inferTypes typeVariables exprs items = do
     return $ HM.map (\s -> (s, [])) expressions
 
 -- | Creates a type signatures
-createSignature :: InferenceEqualitiesGenerator TypeSignature
+createSignature :: EqualitiesGenerator TypeSignature
 createSignature = do
     (resultType, resultKind, resultSort) <- createNewTypeVariable
     return $
@@ -91,7 +90,7 @@ generateEqualitiesForIdent ::
        InferTypes
     -> F.Expressions
     -> Ident
-    -> InferenceEqualitiesGenerator (Ident, (Exp, TypeSignature))
+    -> EqualitiesGenerator (Ident, (Exp, TypeSignature))
 generateEqualitiesForIdent inferTypes exprs name =
     let maybeExpr =
             ((\x -> (name, x)) <$>) . generateEqualitiesForExpression inferTypes <$>
@@ -102,9 +101,7 @@ generateEqualitiesForIdent inferTypes exprs name =
 
 -- | Generates equalities for an expression
 generateEqualitiesForExpression ::
-       InferTypes
-    -> F.Expression
-    -> InferenceEqualitiesGenerator (Exp, TypeSignature)
+       InferTypes -> F.Expression -> EqualitiesGenerator (Exp, TypeSignature)
 generateEqualitiesForExpression inferTypes F.Expression { F.getExpressionName = name
                                                         , F.getExpressionBody = body
                                                         } = do
@@ -123,7 +120,7 @@ generateEqualitiesForExpression inferTypes F.Expression { F.getExpressionName = 
 generateEqualitiesForExp ::
        InferTypes
     -> WithLocation F.Exp
-    -> InferenceEqualitiesGenerator (Exp, (Type, Kind, Sort))
+    -> EqualitiesGenerator (Exp, (Type, Kind, Sort))
 generateEqualitiesForExp inferTypes expr =
     case getValue expr of
         F.ExpVar name -> do
@@ -225,8 +222,9 @@ generateEqualitiesForExp inferTypes expr =
                         , getInferenceEnvironmentTypeVariables = typeVariables
                         }
                 (result, debug) = inferTypes inferenceEnvironment counter decls
-            modifyDebugOutput $ \d -> d ++ [debug]
-            (inferredDecls, newCounter, equalities) <- wrapNestedError result
+            -- TODO: re-implement this method
+            _ <- undefined $ \d -> d ++ [debug]
+            (inferredDecls, newCounter, equalities) <- undefined result
             liftGen $ put newCounter
             writeTypeVariableEqualitiesMap equalities
             let inferredSignatures = HM.map snd inferredDecls
@@ -237,12 +235,11 @@ generateEqualitiesForExp inferTypes expr =
 
 -- | Saves equalities between type, kinds and sorts of bound variables
 writeTypeVariableEqualitiesMap ::
-       TypeVariableEqualitiesMap -> InferenceEqualitiesGenerator ()
+       TypeVariableEqualitiesMap -> EqualitiesGenerator ()
 writeTypeVariableEqualitiesMap = mapM_ writeTypeVariableEqualities . HM.elems
 
 -- | Saves equalities between type, kinds and sorts of a bound variable
-writeTypeVariableEqualities ::
-       TypeVariableEqualities -> InferenceEqualitiesGenerator ()
+writeTypeVariableEqualities :: TypeVariableEqualities -> EqualitiesGenerator ()
 writeTypeVariableEqualities TypeVariableEqualities { getTypeVariableEqualitiesTypes = typeEqs
                                                    , getTypeVariableEqualitiesKinds = kindEqs
                                                    , getTypeVariableEqualitiesSorts = sortEqs

@@ -47,9 +47,7 @@ type RunInfer a s x = InferenceDescriptor a s x -> Infer a s x
 
 -- | An output of a function which creates a system of equalities
 type EqualitiesBuilderOutput s
-     = ( ( Either InferenceEqualitiesGenerationError ( Signatures (s, [Ident])
-                                                     , Equalities)
-         , [InferenceDebugOutput])
+     = ( Either EqualitiesGenerationError (Signatures (s, [Ident]), Equalities)
        , VariableGeneratorState)
 
 -- | A function which creates a system of equalities
@@ -72,7 +70,3 @@ data SingleGroupInferenceDescriptor a s x = SingleGroupInferenceDescriptor
     { getSingleGroupInferenceDescriptorEqualitiesBuilder :: EqualitiesBuilder a s x
     , getSingleGroupInferenceDescriptorApplySolution :: SolutionApplier (x, s)
     }
-
--- | A generator of equalities
-type InferenceEqualitiesGenerator
-     = EqualitiesGenerator [InferenceDebugOutput] InferenceError

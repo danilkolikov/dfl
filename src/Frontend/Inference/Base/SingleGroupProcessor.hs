@@ -67,11 +67,8 @@ inferSingleGroup descr env runInfer x group variableGeneratorState
                 buildEqualities runInfer env x group variableGeneratorState
         -- Save possible nested debug outputs
         (signatures, equalities) <-
-            wrapErrorAndDebugOutput
+            wrapEither
                 InferenceErrorEqualityGeneration
-                (\debug ->
-                     mempty
-                         {getSingleGroupInferenceDebugOutputNested = Just debug})
                 buildResult
         -- Solve equalities
         solution <-
