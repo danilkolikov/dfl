@@ -8,22 +8,19 @@ Function for signatures checking
 -}
 module Frontend.Inference.Type.Signatures where
 
-import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
 import Data.Maybe (fromJust, mapMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
-import Frontend.Inference.Base.Descriptor
-import Frontend.Inference.Base.SingleGroupProcessor
 import Frontend.Inference.Constraint
+import qualified Frontend.Inference.InferenceProcessor as I
+import Frontend.Inference.Kind.Processor
 import Frontend.Inference.Signature
-import Frontend.Inference.Solver
 import Frontend.Inference.TypeSynonyms.Expand
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
 import Frontend.Inference.Util.Debug
-import Frontend.Inference.Variables
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Infers kinds of explicit type signatures
@@ -41,18 +38,6 @@ inferTypeSignatures signatures typeSynonyms expressions =
      in runWithDebugOutput $
         inferTypeSignatures' signatures typeSynonyms expressionSignatures
 
--- | Describes inference of kinds of explicit type signatures
-signatureKindInferenceDescriptor ::
-       SingleGroupInferenceDescriptor (Signatures F.TypeSignature) TypeConstructorSignature ()
-signatureKindInferenceDescriptor =
-    SingleGroupInferenceDescriptor
-        { getSingleGroupInferenceDescriptorEqualitiesBuilder =
-              error "TODO: fix it"
-        , getSingleGroupInferenceDescriptorApplySolution =
-              \def eq sol ->
-                  second $ applyKindSolutionAndSetTypeVariables def eq sol
-        }
-
 -- | Infers kinds of explicit type signatures
 inferTypeSignatures' ::
        Signatures TypeConstructorSignature
@@ -60,19 +45,12 @@ inferTypeSignatures' ::
     -> Signatures F.TypeSignature
     -> WithDebugOutput InferenceError SingleGroupInferenceDebugOutput (Signatures TypeSignature)
 inferTypeSignatures' signatures typeSynonymSignatures signaturesMap = do
-    let single =
-            inferSingleGroup
-                signatureKindInferenceDescriptor
-                InferenceEnvironment
-                    { getInferenceEnvironmentSignatures = signatures
-                    , getInferenceEnvironmentTypeVariables = HM.empty
-                    }
-                undefined -- recursive call is not used
-                signaturesMap
-                (HM.keys signaturesMap)
-                emptyVariableGeneratorState
-    (result, _, _) <- single
-    let expandSingle (name, (_, typeSignature)) = do
+    let wrapper I.SingleGroupInferenceDebugOutput {I.getSingleGroupInferenceDebugOutputSolver = s} =
+            mempty {getSingleGroupInferenceDebugOutputSolver = s}
+    result <-
+        wrapDebugOutput wrapper $
+        checkKindsOfTypeSignatures signatures signaturesMap
+    let expandSingle (name, typeSignature) = do
             let sig = fromJust $ HM.lookup name signaturesMap
             expanded <-
                 wrapEither InferenceErrorSynonyms $

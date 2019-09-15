@@ -119,11 +119,14 @@ inferMultipleGroups buildDependencyGraph buildEqualities definedSignatures group
             buildEqualities (definedSignatures <> extraSignatures)
         selectGroup group = HM.filterWithKey (\k _ -> HS.member k group) groups
         inferenceStep state group =
-            mapDebugOutput return $
-            inferSingleGroup
-                buildEqualitiesWithSignatures
-                state
-                (selectGroup group)
+            mapDebugOutput return $ do
+                singleGroupResult <-
+                    inferSingleGroup
+                        buildEqualitiesWithSignatures
+                        state
+                        (selectGroup group)
+                -- Concatenate initial and final states
+                return $ state <> singleGroupResult
     -- Traverse the dependency graph
     (dependencyGroups, inferenceResult) <-
         wrapEither InferenceErrorDependencyResolution $
@@ -141,7 +144,7 @@ inferMultipleGroups buildDependencyGraph buildEqualities definedSignatures group
             inferenceResult
     writeDebugOutput
         mempty {getInferenceDebugOutputSignatures = Just newSignatures}
-    return (definedSignatures <> newSignatures)
+    return newSignatures
 
 -- | Infer signatures of a single group
 inferSingleGroup ::
@@ -170,4 +173,4 @@ inferSingleGroup buildEqualities knownSignatures group = do
             { getSingleGroupInferenceDebugOutputSignatures =
                   Just finalSignatures
             }
-    return (knownSignatures <> finalSignatures)
+    return finalSignatures

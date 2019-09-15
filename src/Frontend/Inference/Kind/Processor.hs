@@ -6,11 +6,12 @@ License     :  MIT
 
 Processor of kind inference
 -}
-module Frontend.Inference.Kind.Processor(
-  KindInferenceEnvironmentItem(..),
-  KindInferenceEnvironment,
-  inferKinds,
-) where
+module Frontend.Inference.Kind.Processor
+    ( KindInferenceEnvironmentItem(..)
+    , KindInferenceEnvironment
+    , inferKinds
+    , checkKindsOfTypeSignatures
+    ) where
 
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
@@ -38,7 +39,27 @@ inferKinds dataTypes typeSynonyms classes initialState =
     let environment = prepareEnvironment typeSynonyms dataTypes classes
         variableGenerator =
             runWithDebugOutputT $
-            inferMultipleGroups buildDependencyGraph buildEqualities initialState environment
+            inferMultipleGroups
+                buildDependencyGraph
+                (buildEqualities generateEqualitiesForGroup)
+                initialState
+                environment
+     in evalVariableGenerator variableGenerator
+
+-- | Checks kinds of provided type signatures
+checkKindsOfTypeSignatures ::
+       (WithEqualitiesAndSignature a)
+    => Signatures TypeConstructorSignature
+    -> Signatures a
+    -> ( Either InferenceError (Signatures TypeConstructorSignature)
+       , SingleGroupInferenceDebugOutput a TypeConstructorSignature)
+checkKindsOfTypeSignatures knownSignatures input =
+    let variableGenerator =
+            runWithDebugOutputT $
+            inferSingleGroup
+                (buildEqualities generateEqualitiesForMap)
+                knownSignatures
+                input
      in evalVariableGenerator variableGenerator
 
 -- | Builds dependency graph for provided environment items
@@ -48,8 +69,9 @@ buildDependencyGraph = const getModuleDependencyGraph
 
 -- | Generates equalities for a single group
 buildEqualities ::
-       EqualitiesBuilder KindInferenceEnvironmentItem TypeConstructorSignature
-buildEqualities signatures items =
+       EqualitiesGeneratorFunction a
+    -> EqualitiesBuilder a TypeConstructorSignature
+buildEqualities genEqualities signatures items =
     let boundVariables = HS.empty
         makeApplySolution solution (signature, params) =
             applyKindSolutionAndSetTypeVariables
@@ -58,7 +80,7 @@ buildEqualities signatures items =
                 solution
                 signature
         buildEqualitiesAndApplySolution = do
-            result <- generateEqualitiesForGroup items
+            result <- genEqualities items
             return $ \solution -> HM.map (makeApplySolution solution) result
      in runEqualitiesGenerator'
             buildEqualitiesAndApplySolution

@@ -17,7 +17,6 @@ import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.Equalities
-import Frontend.Inference.InferenceProcessor
 import Frontend.Inference.Kind.Environment
 import Frontend.Inference.Signature hiding
     ( Constraint(..)
@@ -26,15 +25,24 @@ import Frontend.Inference.Signature hiding
     )
 import Frontend.Syntax.Position
 
+-- | Type of functions which generate equalities for the provided map
+type EqualitiesGeneratorFunction a
+     = HM.HashMap Ident a -> EqualitiesGenerator (Signatures ( TypeConstructorSignature
+                                                             , [Ident]))
+
 -- | Generates equalities for a single group
 generateEqualitiesForGroup ::
-       KindInferenceEnvironment
-    -> EqualitiesGenerator (Signatures (TypeConstructorSignature, [Ident]))
+       EqualitiesGeneratorFunction KindInferenceEnvironmentItem
 generateEqualitiesForGroup items = do
     let createSignaturePair name = (\sig -> (name, sig)) <$> createSignature
     signatures <- HM.fromList <$> mapM createSignaturePair (HM.keys items)
     withTypeConstructors signatures $
         hashMapM generateEqualitiesAndSignature items
+
+-- | Generates equalities for a map of objects
+generateEqualitiesForMap ::
+       (WithEqualitiesAndSignature a) => EqualitiesGeneratorFunction a
+generateEqualitiesForMap = hashMapM generateEqualitiesAndSignature
 
 -- | Creates a type constructor signatures, using provided type parameters
 createSignature :: EqualitiesGenerator TypeConstructorSignature
