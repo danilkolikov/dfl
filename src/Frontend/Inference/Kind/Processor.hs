@@ -7,107 +7,67 @@ License     :  MIT
 Processor of kind inference
 -}
 module Frontend.Inference.Kind.Processor
-    ( KindInferenceEnvironmentItem(..)
-    , KindInferenceEnvironment
-    , inferKinds
-    , checkKindsOfTypeSignatures
-    , checkKindsOfExpressions
+    ( inferKinds
+    , KindInferenceDebugOutput(..)
+    , KindInferenceEnvironmentItem(..)
     ) where
 
-import qualified Data.HashMap.Lazy as HM
-import qualified Data.HashSet as HS
+import Control.Applicative ((<|>))
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Equalities
 import Frontend.Inference.InferenceProcessor
-import Frontend.Inference.Kind.Environment
-import Frontend.Inference.Kind.Equalities
-import Frontend.Inference.Kind.WithDependencies
+import qualified Frontend.Inference.Kind.Ast as A
+import Frontend.Inference.Kind.Base
+import Frontend.Inference.Kind.Checker
 import Frontend.Inference.Signature
-import Frontend.Inference.Solver
 import Frontend.Inference.Util.Debug
-import Frontend.Inference.Variables
 
--- | Infers kinds of data types, type synonyms and classes
+type KindInferenceProcessor
+     = WithDebugOutput InferenceError KindInferenceDebugOutput
+
+-- | A type of debug output of kind inference
+data KindInferenceDebugOutput = KindInferenceDebugOutput
+    { getKindInferenceDebugOutputInference :: Maybe (InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
+    , getKindInferenceDebugOutputInstances :: Maybe (SingleGroupInferenceDebugOutput [F.Instance] [()])
+    , getKindInferenceDebugOutputCheck :: Maybe [SingleGroupInferenceDebugOutput F.TypeSignature TypeConstructorSignature]
+    }
+
+instance Semigroup KindInferenceDebugOutput where
+    KindInferenceDebugOutput i1 in1 c1 <> KindInferenceDebugOutput i2 in2 c2 =
+        KindInferenceDebugOutput (i1 <|> i2) (in1 <|> in2) (c1 <|> c2)
+
+instance Monoid KindInferenceDebugOutput where
+    mempty = KindInferenceDebugOutput mempty mempty mempty
+
+-- | Infers kinds of types in a module, checks instance declarations and type expressions
 inferKinds ::
-       F.DataTypes
-    -> F.TypeSynonyms
-    -> F.Classes
-    -> Signatures TypeConstructorSignature
-    -> ( Either InferenceError (Signatures TypeConstructorSignature)
-       , InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
-inferKinds dataTypes typeSynonyms classes initialState =
-    let environment = prepareEnvironment typeSynonyms dataTypes classes
-        variableGenerator =
-            runWithDebugOutputT $
-            inferMultipleGroups
-                buildDependencyGraph
-                (buildEqualities generateEqualitiesForGroup)
-                initialState
-                environment
-     in evalVariableGenerator variableGenerator
+       Signatures TypeConstructorSignature
+    -> F.Module
+    -> ( Either InferenceError ( Signatures TypeConstructorSignature
+                               , A.AstWithKinds)
+       , KindInferenceDebugOutput)
+inferKinds signatures module' =
+    runWithDebugOutput (processModule signatures module')
 
--- | Checks kinds of provided type signatures
-checkKindsOfTypeSignatures ::
-       (WithEqualitiesAndSignature a)
-    => Signatures TypeConstructorSignature
-    -> Signatures a
-    -> ( Either InferenceError (Signatures TypeConstructorSignature)
-       , SingleGroupInferenceDebugOutput (HM.HashMap Ident a) (Signatures TypeConstructorSignature))
-checkKindsOfTypeSignatures knownSignatures input =
-    let variableGenerator =
-            runWithDebugOutputT $
-            inferSingleGroup
-                (buildEqualities generateEqualitiesForMapWithSignatures)
-                knownSignatures
-                input
-     in evalVariableGenerator variableGenerator
-
--- | Check kinds of provided expressions
-checkKindsOfExpressions ::
-       (WithEqualities a)
-    => Signatures TypeConstructorSignature
-    -> [a]
-    -> (Either InferenceError [()], SingleGroupInferenceDebugOutput [a] [()])
-checkKindsOfExpressions knownSignatures input =
-    evalVariableGenerator . runWithDebugOutputT $
-    inferSingleGroup
-        (buildEqualitiesForChecking generateEqualitiesForList)
-        knownSignatures
-        input
-
--- | Builds dependency graph for provided environment items
-buildDependencyGraph ::
-       DependencyGraphBuilder KindInferenceEnvironmentItem TypeConstructorSignature
-buildDependencyGraph = const getModuleDependencyGraph
-
--- | Generates equalities for a single group
-buildEqualities ::
-       EqualitiesGeneratorFunction a
-    -> EqualitiesBuilder (HM.HashMap Ident a) TypeConstructorSignature (Signatures TypeConstructorSignature)
-buildEqualities genEqualities signatures items =
-    let boundVariables = HS.empty
-        makeApplySolution solution (signature, params) =
-            applyKindSolutionAndSetTypeVariables
-                params
-                boundVariables
-                solution
-                signature
-        buildEqualitiesAndApplySolution = do
-            result <- genEqualities items
-            return $ \solution -> HM.map (makeApplySolution solution) result
-     in runEqualitiesGenerator'
-            buildEqualitiesAndApplySolution
-            emptyEqualitiesGeneratorEnvironment
-                {getTypeConstructorSignatures = signatures}
-
--- | Generates equalities for a single group, without substituting results
-buildEqualitiesForChecking ::
-       BaseEqualitiesGeneratorFunction a b
-    -> EqualitiesBuilder a TypeConstructorSignature b
-buildEqualitiesForChecking genEqualities signatures items =
-    let buildEqualitiesAndApplySolution = const <$> genEqualities items
-     in runEqualitiesGenerator'
-            buildEqualitiesAndApplySolution
-            emptyEqualitiesGeneratorEnvironment
-                {getTypeConstructorSignatures = signatures}
+processModule ::
+       Signatures TypeConstructorSignature
+    -> F.Module
+    -> KindInferenceProcessor ( Signatures TypeConstructorSignature
+                              , A.AstWithKinds)
+processModule initialSignatures module' = do
+    inferredSignatures <-
+        wrapDebugOutput
+            (\debug ->
+                 mempty {getKindInferenceDebugOutputInference = Just debug}) $
+        inferKindsOfModule initialSignatures module'
+    let allSignatures = initialSignatures <> inferredSignatures
+    _ <-
+        wrapDebugOutput
+            (\debug ->
+                 mempty {getKindInferenceDebugOutputInstances = Just debug}) $
+        checkKindsOfExpressions allSignatures (F.getModuleInstances module')
+    ast <-
+        wrapDebugOutput
+            (\debug -> mempty {getKindInferenceDebugOutputCheck = Just debug}) $
+        checkModule allSignatures module'
+    return (inferredSignatures, ast)

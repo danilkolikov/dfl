@@ -24,6 +24,7 @@ import Frontend.Inference.Signature hiding
     , TypeSignature(..)
     )
 import Frontend.Inference.Substitution (Substitution)
+import Frontend.Inference.Util.HashMap
 import Frontend.Syntax.EntityName (fUNCTION_NAME)
 import Frontend.Syntax.Position
 
@@ -42,12 +43,7 @@ generateEqualitiesForGroup items = do
     let createSignaturePair name = (\sig -> (name, sig)) <$> createSignature
     signatures <- HM.fromList <$> mapM createSignaturePair (HM.keys items)
     withTypeConstructors signatures $
-        hashMapM generateEqualitiesAndSignature items
-
--- | Generates equalities for a map of objects and returns signatures
-generateEqualitiesForMapWithSignatures ::
-       (WithEqualitiesAndSignature a) => EqualitiesGeneratorFunction a
-generateEqualitiesForMapWithSignatures = hashMapM generateEqualitiesAndSignature
+        mapHashMapM generateEqualitiesAndSignature items
 
 -- | Generates equalities for a list of objects
 generateEqualitiesForList ::
@@ -109,7 +105,7 @@ lookupSignatureAndGenerateEqualities name params generator =
 -- | A class of types which have both equalities and signatures
 class WithEqualitiesAndSignature a where
     generateEqualitiesAndSignature ::
-           a -> EqualitiesGenerator (TypeConstructorSignature, [Ident])
+           BaseEqualitiesGeneratorFunction a (TypeConstructorSignature, [Ident])
 
 instance WithEqualitiesAndSignature KindInferenceEnvironmentItem where
     generateEqualitiesAndSignature item =
@@ -302,10 +298,3 @@ findKindOfType typeName
               , SortSquare)
             , HM.empty)
     | otherwise = lookupKindOfType typeName
-
--- | Monadically maps values of a map
-hashMapM ::
-       (Monad m) => (a -> m b) -> HM.HashMap Ident a -> m (HM.HashMap Ident b)
-hashMapM f hashMap =
-    let applySecond (p, s) = (\x -> (p, x)) <$> f s
-     in HM.fromList <$> mapM applySecond (HM.toList hashMap)

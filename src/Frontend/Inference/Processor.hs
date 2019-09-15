@@ -34,7 +34,7 @@ import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.BuiltIns
 import qualified Frontend.Inference.InferenceProcessor as I
-import qualified Frontend.Inference.Kind.Processor as Kind
+import qualified Frontend.Inference.Kind.Base as Kind
 import Frontend.Inference.Signature
 import qualified Frontend.Inference.Type.Processor as Type
 import Frontend.Inference.TypeSynonyms.Processor
@@ -54,11 +54,7 @@ inferKinds ::
        , I.InferenceDebugOutput Kind.KindInferenceEnvironmentItem TypeConstructorSignature)
 inferKinds module' state =
     first (first CombinedInferenceErrorKindInference) $
-    Kind.inferKinds
-        (getModuleDataTypes module')
-        (getModuleTypeSynonyms module')
-        (getModuleClasses module')
-        state
+    Kind.inferKindsOfModule state module'
 
 -- | Output of a step that expands type synonyms
 newtype ExpandTypeSynonymsOutput = ExpandTypeSynonymsOutput

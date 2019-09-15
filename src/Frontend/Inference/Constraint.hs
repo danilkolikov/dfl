@@ -12,7 +12,8 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import qualified Frontend.Desugaring.Final.Ast as F
-    ( Ident
+    ( Constraint(..)
+    , Ident
     , SimpleConstraint(..)
     )
 import Frontend.Inference.Type
@@ -48,8 +49,21 @@ data SimpleConstraint = SimpleConstraint
     , getSimpleConstraintVariable :: F.Ident -- ^ A constrained variable
     } deriving (Eq, Show)
 
+-- | Drops information about positions
+removePositionsOfConstraint :: WithLocation F.Constraint -> Constraint
+removePositionsOfConstraint constraint =
+    case getValue constraint of
+        F.ConstraintParam className param ->
+            ConstraintVariable (getValue className) (TypeVar $ getValue param)
+        F.ConstraintAppliedParam className paramName args ->
+            ConstraintAppliedVariable
+                (getValue className)
+                (TypeVar $ getValue paramName)
+                (fmap removePositionsOfType args)
+
 -- | Converts simple constraints
-convertConstraint :: WithLocation F.SimpleConstraint -> SimpleConstraint
-convertConstraint sc
+removePositionsOfSimpleConstraint ::
+       WithLocation F.SimpleConstraint -> SimpleConstraint
+removePositionsOfSimpleConstraint sc
     | F.SimpleConstraint name param <- getValue sc =
         SimpleConstraint (getValue name) (getValue param)

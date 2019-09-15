@@ -16,7 +16,6 @@ import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Constraint
 import qualified Frontend.Inference.InferenceProcessor as I
-import Frontend.Inference.Kind.Processor
 import Frontend.Inference.Signature
 import Frontend.Inference.TypeSynonyms.Expand
 import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
@@ -49,7 +48,7 @@ inferTypeSignatures' signatures typeSynonymSignatures signaturesMap = do
             mempty {getSingleGroupInferenceDebugOutputSolver = s}
     result <-
         wrapDebugOutput wrapper $
-        checkKindsOfTypeSignatures signatures signaturesMap
+        (error "TODO: rewrite this function") signatures signaturesMap
     let expandSingle (name, typeSignature) = do
             let sig = fromJust $ HM.lookup name signaturesMap
             expanded <-

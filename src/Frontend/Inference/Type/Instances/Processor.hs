@@ -25,7 +25,7 @@ import Frontend.Inference.Equalities (EqualitiesGenerationError(..))
 import Frontend.Inference.Expression
 import qualified Frontend.Inference.InferenceProcessor as I
 import Frontend.Inference.Instance
-import Frontend.Inference.Kind.Processor
+import Frontend.Inference.Kind.Base
 import Frontend.Inference.Signature
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
@@ -95,7 +95,7 @@ inferSingleInstance infer classes F.Instance { F.getInstanceContext = context
                                              , F.getInstanceTypeArgs = typeArgs
                                              , F.getInstanceMethods = methods
                                              } = do
-    let newContext = map convertConstraint context
+    let newContext = map removePositionsOfSimpleConstraint context
         newClassName = getValue className
         newTypeName = getValue typeName
         newTypeArgs = map getValue typeArgs

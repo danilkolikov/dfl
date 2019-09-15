@@ -82,6 +82,9 @@ library:
   - Frontend.Inference.InferenceProcessor
   - Frontend.Inference.Instance
   - Frontend.Inference.Kind
+  - Frontend.Inference.Kind.Ast
+  - Frontend.Inference.Kind.Base
+  - Frontend.Inference.Kind.Checker
   - Frontend.Inference.Kind.Environment
   - Frontend.Inference.Kind.Equalities
   - Frontend.Inference.Kind.Processor
@@ -105,6 +108,7 @@ library:
   - Frontend.Inference.TypeSynonyms.Processor
   - Frontend.Inference.Unification
   - Frontend.Inference.Util.Debug
+  - Frontend.Inference.Util.HashMap
   - Frontend.Inference.Variables
   - Frontend.Inference.WithVariables
   - Frontend.Syntax.Ast
