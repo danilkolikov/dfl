@@ -6,21 +6,24 @@ License     :  MIT
 
 Processor of kind inference
 -}
-module Frontend.Inference.Kind.Processor where
+module Frontend.Inference.Kind.Processor(
+  KindInferenceEnvironmentItem(..),
+  KindInferenceEnvironment,
+  inferKinds,
+) where
 
-import Data.Bifunctor (first, second)
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Base.Common
-import Frontend.Inference.Base.DebugOutput
-import Frontend.Inference.Base.Descriptor
-import Frontend.Inference.Base.Processor
+import Frontend.Inference.Equalities
+import Frontend.Inference.InferenceProcessor
 import Frontend.Inference.Kind.Environment
 import Frontend.Inference.Kind.Equalities
 import Frontend.Inference.Kind.WithDependencies
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
 -- | Infers kinds of data types, type synonyms and classes
@@ -30,42 +33,34 @@ inferKinds ::
     -> F.Classes
     -> Signatures TypeConstructorSignature
     -> ( Either InferenceError (Signatures TypeConstructorSignature)
-       , InferenceDebugOutput)
+       , InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
 inferKinds dataTypes typeSynonyms classes initialState =
-    let environment =
-            Environment
-                { getDataTypes = dataTypes
-                , getTypeSynonyms = typeSynonyms
-                , getClasses = classes
-                }
-        inferenceEnvironment =
-            InferenceEnvironment
-                { getInferenceEnvironmentSignatures = initialState
-                , getInferenceEnvironmentTypeVariables = HM.empty
-                }
-     in first (fmap (\(x, _, _) -> HM.map snd x)) $
-        runInfer
-            kindInferenceDescriptor
-            inferenceEnvironment
-            emptyVariableGeneratorState
-            environment
+    let environment = prepareEnvironment typeSynonyms dataTypes classes
+        variableGenerator =
+            runWithDebugOutputT $
+            inferMultipleGroups buildDependencyGraph buildEqualities initialState environment
+     in evalVariableGenerator variableGenerator
 
--- | Describes the process of kind inference
-kindInferenceDescriptor ::
-       InferenceDescriptor Environment TypeConstructorSignature ()
-kindInferenceDescriptor =
-    InferenceDescriptor
-        { getInferenceDescriptorSignaturesGetter =
-              const (Right HM.empty, mempty)
-        , getInferenceDescriptorDependenyGraphBuilder =
-              const getModuleDependencyGraph
-        , getInferenceDescriptorSingleGroup =
-              SingleGroupInferenceDescriptor
-                  { getSingleGroupInferenceDescriptorEqualitiesBuilder =
-                        generateEqualitiesForGroup
-                  , getSingleGroupInferenceDescriptorApplySolution =
-                        \def eq sol ->
-                            second $
-                            applyKindSolutionAndSetTypeVariables def eq sol
-                  }
-        }
+-- | Builds dependency graph for provided environment items
+buildDependencyGraph ::
+       DependencyGraphBuilder KindInferenceEnvironmentItem TypeConstructorSignature
+buildDependencyGraph = const getModuleDependencyGraph
+
+-- | Generates equalities for a single group
+buildEqualities ::
+       EqualitiesBuilder KindInferenceEnvironmentItem TypeConstructorSignature
+buildEqualities signatures items =
+    let boundVariables = HS.empty
+        makeApplySolution solution (signature, params) =
+            applyKindSolutionAndSetTypeVariables
+                params
+                boundVariables
+                solution
+                signature
+        buildEqualitiesAndApplySolution = do
+            result <- generateEqualitiesForGroup items
+            return $ \solution -> HM.map (makeApplySolution solution) result
+     in runEqualitiesGenerator'
+            buildEqualitiesAndApplySolution
+            emptyEqualitiesGeneratorEnvironment
+                {getTypeConstructorSignatures = signatures}

@@ -18,6 +18,7 @@ module Frontend.Inference.Processor
     , Signatures
     , TypeConstructorSignature
     , TypeSignature
+    , Kind.KindInferenceEnvironmentItem(..)
     , defaultTypeSignatures
     , defaultTypeSynonyms
     , defaultKindSignatures
@@ -32,6 +33,7 @@ import Frontend.Desugaring.Final.Ast (Module(..))
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.BuiltIns
+import qualified Frontend.Inference.InferenceProcessor as I
 import qualified Frontend.Inference.Kind.Processor as Kind
 import Frontend.Inference.Signature
 import qualified Frontend.Inference.Type.Processor as Type
@@ -39,7 +41,7 @@ import Frontend.Inference.TypeSynonyms.Processor
 
 -- | Errors which can be encounterd during inference
 data CombinedInferenceError
-    = CombinedInferenceErrorKindInference InferenceError -- ^ Kind inference error
+    = CombinedInferenceErrorKindInference I.InferenceError -- ^ Kind inference error
     | CombinedInferenceErrorTypeSynonyms TypeSynonymsProcessingError -- ^ An error of type synonyms expanding
     | CombinedInferenceErrorTypeInference InferenceError -- ^ Type inference error
     deriving (Eq, Show)
@@ -49,7 +51,7 @@ inferKinds ::
        Module
     -> Signatures TypeConstructorSignature
     -> ( Either CombinedInferenceError (Signatures TypeConstructorSignature)
-       , InferenceDebugOutput)
+       , I.InferenceDebugOutput Kind.KindInferenceEnvironmentItem TypeConstructorSignature)
 inferKinds module' state =
     first (first CombinedInferenceErrorKindInference) $
     Kind.inferKinds

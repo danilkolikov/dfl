@@ -18,7 +18,6 @@ import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
 import Frontend.Inference.Base.SingleGroupProcessor
 import Frontend.Inference.Constraint
-import Frontend.Inference.Kind.Equalities
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver
 import Frontend.Inference.TypeSynonyms.Expand
@@ -48,7 +47,7 @@ signatureKindInferenceDescriptor ::
 signatureKindInferenceDescriptor =
     SingleGroupInferenceDescriptor
         { getSingleGroupInferenceDescriptorEqualitiesBuilder =
-              generateEqualitiesForSignatures
+              error "TODO: fix it"
         , getSingleGroupInferenceDescriptorApplySolution =
               \def eq sol ->
                   second $ applyKindSolutionAndSetTypeVariables def eq sol

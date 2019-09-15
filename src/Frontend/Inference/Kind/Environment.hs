@@ -8,11 +8,26 @@ Environment of kind inference
 -}
 module Frontend.Inference.Kind.Environment where
 
+import qualified Data.HashMap.Lazy as HM
+
 import Frontend.Desugaring.Final.Ast
 
+-- | A single item of the kind inference environment
+data KindInferenceEnvironmentItem
+    = KindInferenceEnvironmentItemTypeSynonym TypeSynonym
+    | KindInferenceEnvironmentItemDataType DataType
+    | KindInferenceEnvironmentItemClass Class
+    deriving (Eq, Show)
+
 -- | Environment of kind inference
-data Environment = Environment
-    { getTypeSynonyms :: TypeSynonyms -- ^ Defined type synonyms
-    , getDataTypes :: DataTypes -- ^ Defined data types
-    , getClasses :: Classes -- ^ Defined classes
-    }
+type KindInferenceEnvironment = HM.HashMap Ident KindInferenceEnvironmentItem
+
+-- | Prepares a kind inferens environment
+prepareEnvironment ::
+       TypeSynonyms -> DataTypes -> Classes -> KindInferenceEnvironment
+prepareEnvironment typeSynonyms dataTypes classes =
+    HM.unions
+        [ HM.map KindInferenceEnvironmentItemTypeSynonym typeSynonyms
+        , HM.map KindInferenceEnvironmentItemDataType dataTypes
+        , HM.map KindInferenceEnvironmentItemClass classes
+        ]

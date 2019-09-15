@@ -6,7 +6,19 @@ License     :  MIT
 
 A non-recursive generic processor of type and kind inference
 -}
-module Frontend.Inference.InferenceProcessor where
+module Frontend.Inference.InferenceProcessor
+    ( InferenceError(..)
+    , Signatures
+    , InferenceProcessor
+    , InferenceDebugOutput(..)
+    , SingleGroupInferenceProcessor
+    , SingleGroupInferenceDebugOutput(..)
+    , EqualitiesBuilderOutput
+    , EqualitiesBuilder
+    , DependencyGraphBuilder
+    , inferMultipleGroups
+    , inferSingleGroup
+    ) where
 
 import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM

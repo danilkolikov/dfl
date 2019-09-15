@@ -26,15 +26,20 @@ class WithDependencies a where
         HM.fromList . map (\x -> (getName x, getDependencies x))
 
 -- | Get dependency graph of a module
-getModuleDependencyGraph :: Environment -> DependencyGraph
-getModuleDependencyGraph Environment { getTypeSynonyms = typeSynonyms
-                                     , getDataTypes = dataTypes
-                                     , getClasses = classes
-                                     } =
-    let synonymGraph = getDependencyGraph $ HM.elems typeSynonyms
-        dataTypeGraph = getDependencyGraph $ HM.elems dataTypes
-        classGraph = getDependencyGraph $ HM.elems classes
-     in HM.unions [synonymGraph, dataTypeGraph, classGraph]
+getModuleDependencyGraph :: KindInferenceEnvironment -> DependencyGraph
+getModuleDependencyGraph = getDependencyGraph . HM.elems
+
+instance WithDependencies KindInferenceEnvironmentItem where
+    getName item =
+        case item of
+            KindInferenceEnvironmentItemTypeSynonym ts -> getName ts
+            KindInferenceEnvironmentItemDataType d -> getName d
+            KindInferenceEnvironmentItemClass c -> getName c
+    getDependencies item =
+        case item of
+            KindInferenceEnvironmentItemTypeSynonym ts -> getDependencies ts
+            KindInferenceEnvironmentItemDataType d -> getDependencies d
+            KindInferenceEnvironmentItemClass c -> getDependencies c
 
 instance WithDependencies TypeSynonym where
     getName = getValue . getTypeSynonymName
