@@ -12,7 +12,6 @@ module Frontend.Inference.Processor
     , InferenceDebugOutput(..)
     , Type.TypeInferenceDebugOutput(..)
     , Type.TypeSignatures(..)
-    , TypeSynonymSignatures
     , ExpandTypeSynonymsOutput(..)
     , TypeSynonymsProcessingError(..)
     , Signatures
@@ -58,27 +57,24 @@ inferKinds module' state =
 
 -- | Output of a step that expands type synonyms
 newtype ExpandTypeSynonymsOutput = ExpandTypeSynonymsOutput
-    { getExpandTypeSynonymSignatures :: TypeSynonymSignatures -- ^ Get expanded signatures
+    { getExpandTypeSynonymSignatures :: Signatures TypeSignature -- ^ Get expanded signatures
     } deriving (Eq, Show)
 
 -- | Expend defined type synonyms
 expandTypeSynonyms ::
        Module
     -> Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
+    -> Signatures TypeSignature
     -> Either CombinedInferenceError ExpandTypeSynonymsOutput
-expandTypeSynonyms module' signatures initialSignatures =
+expandTypeSynonyms _ _ _ =
     bimap CombinedInferenceErrorTypeSynonyms ExpandTypeSynonymsOutput $
-    processSignatures
-        initialSignatures
-        (getModuleTypeSynonyms module')
-        signatures
+    error "TODO: rewrite this method"
 
 -- | Infers types of a modules
 inferTypes ::
        Module
     -> Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
+    -> Signatures TypeSignature
     -> Type.TypeSignatures
     -> ( Either CombinedInferenceError Type.TypeSignatures
        , Type.TypeInferenceDebugOutput)

@@ -6,94 +6,74 @@ License     :  MIT
 
 Processor of expanding of type synonyms inference
 -}
-module Frontend.Inference.TypeSynonyms.Processor where
+module Frontend.Inference.TypeSynonyms.Processor
+    ( processTypeSynonyms
+    , TypeSynonymsDebugOutput(..)
+    , TypeSynonymsProcessingError(..)
+    , TypeSynonymsExpandingError(..)
+    ) where
 
-import Control.Monad (unless)
-import Data.Bifunctor (first)
+import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM
-import qualified Data.HashSet as HS
-import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Signature
-import Frontend.Inference.TypeSynonyms.Dependencies
-import Frontend.Inference.TypeSynonyms.Expand
+import Frontend.Inference.TypeSynonyms.Base
+import Frontend.Inference.TypeSynonyms.Expander
+import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
-import Frontend.Syntax.Position
 
--- | Errors which can be encountered during processing of type synonyms
-data TypeSynonymsProcessingError
-    = TypeSynonymsProcessingErrorRecursive Ident -- ^ Recursive type synonym
-    | TypeSynonymsProcessingErrorMutuallyRecursive [Ident] -- ^ Mutually recursive type synonyms
-    | TypeSynonymsProcessingErrorDependencyResolution DependencyResolverError -- ^ Error happened during dependency resolution
-    | TypeSynonymsProcessingErrorExpanding TypeSynonymsExpandingError -- ^ Error happened during expanding
-    deriving (Eq, Show)
+type TypeSynonymsProcessor
+     = WithDebugOutput TypeSynonymsProcessingError TypeSynonymsDebugOutput
 
--- | A map of signatures of type synonyms
-type TypeSynonymSignatures = HM.HashMap Ident TypeSignature
+-- | A type of debug output of type synonym inference
+data TypeSynonymsDebugOutput = TypeSynonymsDebugOutput
+    { getTypeSynonymsDebugOutputSignatures :: Maybe (Signatures TypeSignature)
+    , getTypeSynonymsDebugOutputAst :: Maybe AstWithKinds
+    }
 
--- | A type of objects which process type synonyms
-type TypeSynonymProcessor = Either TypeSynonymsProcessingError
+instance Semigroup TypeSynonymsDebugOutput where
+    TypeSynonymsDebugOutput s1 a1 <> TypeSynonymsDebugOutput s2 a2 =
+        TypeSynonymsDebugOutput (s1 <|> s2) (a1 <|> a2)
 
--- | Processes type synonyms and expands their types
-processSignatures ::
-       TypeSynonymSignatures
+instance Monoid TypeSynonymsDebugOutput where
+    mempty = TypeSynonymsDebugOutput Nothing Nothing
+
+-- | Expands type synonyms in the provided AST
+processTypeSynonyms ::
+       HM.HashMap Ident TypeConstructorSignature
+    -> Signatures TypeSignature
     -> F.TypeSynonyms
-    -> HM.HashMap Ident TypeConstructorSignature
-    -> TypeSynonymProcessor TypeSynonymSignatures
-processSignatures initialSignatures typeSynonyms typeSignatures = do
-    let graph = getTypeSynonymsDependencyGraph typeSynonyms
-        loops = getLoops graph
-        lookupTypeSynonym name =
-            ( fromJust $ HM.lookup name typeSynonyms
-            , fromJust $ HM.lookup name typeSignatures)
-    unless (null loops) . Left $
-        TypeSynonymsProcessingErrorRecursive (head loops)
-    (_, processed) <-
-        wrapError TypeSynonymsProcessingErrorDependencyResolution $
-        traverseGraph
-            (processDependencyGroup lookupTypeSynonym)
+    -> AstWithKinds
+    -> ( Either TypeSynonymsProcessingError ( Signatures TypeSignature
+                                            , AstWithKinds)
+       , TypeSynonymsDebugOutput)
+processTypeSynonyms typeConstructorSignatures initialSignatures typeSynonyms ast =
+    runWithDebugOutput $
+    processTypeSynonyms'
+        typeConstructorSignatures
+        initialSignatures
+        typeSynonyms
+        ast
+
+processTypeSynonyms' ::
+       HM.HashMap Ident TypeConstructorSignature
+    -> Signatures TypeSignature
+    -> F.TypeSynonyms
+    -> AstWithKinds
+    -> TypeSynonymsProcessor (Signatures TypeSignature, AstWithKinds)
+processTypeSynonyms' typeConstructorSignatures initialSignatures typeSynonyms ast = do
+    newSignatures <-
+        wrapEither id $
+        processSignatures
+            typeConstructorSignatures
             initialSignatures
-            graph
-    processed
-
--- | Processes a single dependency group
-processDependencyGroup ::
-       (F.Ident -> (F.TypeSynonym, TypeConstructorSignature))
-    -> TypeSynonymSignatures
-    -> HS.HashSet F.Ident
-    -> TypeSynonymProcessor TypeSynonymSignatures
-processDependencyGroup lookupTypeSynonym signatures group = do
-    let groupList = HS.toList group
-    unless (length groupList == 1) . Left $
-        TypeSynonymsProcessingErrorMutuallyRecursive groupList
-    processTypeSynonym signatures . lookupTypeSynonym $ head groupList
-
--- | Processes a single type synonym
-processTypeSynonym ::
-       TypeSynonymSignatures
-    -> (F.TypeSynonym, TypeConstructorSignature)
-    -> TypeSynonymProcessor TypeSynonymSignatures
-processTypeSynonym definedSynonyms (F.TypeSynonym { F.getTypeSynonymName = name
-                                                  , F.getTypeSynonymType = type'
-                                                  }, signature) = do
-    let expanded = expandTypeSynonyms type' definedSynonyms
-    processedType <- wrapError TypeSynonymsProcessingErrorExpanding expanded
-    let typeSignature =
-            TypeSignature
-                { getTypeSignatureSort = getSort signature
-                , getTypeSignatureKindParams = getKindParams signature
-                , getTypeSignatureKind = getKind signature
-                , getTypeSignatureTypeParams = getTypeParams signature
-                , getTypeSignatureType = processedType
-                , getTypeSignatureContext = [] -- Type synonyms have empty context
-                }
-    return $ HM.insert (getValue name) typeSignature definedSynonyms
-
--- | Wraps an error
-wrapError ::
-       (a -> TypeSynonymsProcessingError)
-    -> Either a b
-    -> TypeSynonymProcessor b
-wrapError = first
+            typeSynonyms
+    writeDebugOutput
+        mempty {getTypeSynonymsDebugOutputSignatures = Just newSignatures}
+    let allSignatures = initialSignatures <> newSignatures
+    newAst <-
+        wrapEither TypeSynonymsProcessingErrorExpanding $
+        expandModule allSignatures ast
+    writeDebugOutput mempty {getTypeSynonymsDebugOutputAst = Just newAst}
+    return (newSignatures, newAst)

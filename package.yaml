@@ -103,8 +103,10 @@ library:
   - Frontend.Inference.Type.Processor
   - Frontend.Inference.Type.Signatures
   - Frontend.Inference.Type.WithDependencies
+  - Frontend.Inference.TypeSynonyms.Base
   - Frontend.Inference.TypeSynonyms.Dependencies
   - Frontend.Inference.TypeSynonyms.Expand
+  - Frontend.Inference.TypeSynonyms.Expander
   - Frontend.Inference.TypeSynonyms.Processor
   - Frontend.Inference.Unification
   - Frontend.Inference.Util.Debug

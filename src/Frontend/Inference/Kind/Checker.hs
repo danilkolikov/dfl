@@ -14,7 +14,9 @@ module Frontend.Inference.Kind.Checker
 import Control.Monad (liftM2)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Data.Bifunctor (second)
 import Data.Functor (($>))
+import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Constraint
@@ -143,10 +145,39 @@ checkInstance F.Instance { F.getInstanceContext = context
             , A.getInstanceMethods = checkedMethods
             }
 
+checkConstructor :: F.Constructor -> A.Constructor
+checkConstructor F.Constructor { F.getConstructorName = name
+                               , F.getConstructorArgs = args
+                               , F.getConstructorFields = fields
+                               } =
+    A.Constructor
+        { A.getConstructorName = name
+        , A.getConstructorArgs = map removePositionsOfType args
+        , A.getConstructorFields = fields
+        }
+
+checkDataType :: F.DataType -> A.DataType
+checkDataType F.DataType { F.getDataTypeContext = context
+                         , F.getDataTypeName = name
+                         , F.getDataTypeParams = params
+                         , F.getDataTypeDeriving = deriving'
+                         , F.getDataTypeConstructors = constructors
+                         , F.isNewType = isNewType
+                         } =
+    A.DataType
+        { A.getDataTypeContext = map removePositionsOfConstraint context
+        , A.getDataTypeName = name
+        , A.getDataTypeParams = params
+        , A.getDataTypeDeriving = deriving'
+        , A.getDataTypeConstructors = map (second checkConstructor) constructors
+        , A.isNewType = isNewType
+        }
+
 checkModule' :: F.Module -> CheckProcessor A.AstWithKinds
 checkModule' F.Module { F.getModuleClasses = classes
                       , F.getModuleInstances = instances
                       , F.getModuleExpressions = expressions
+                      , F.getModuleDataTypes = dataTypes
                       } = do
     checkedClasses <- mapHashMapM checkClass classes
     checkedInstances <- mapM checkInstance instances
@@ -156,4 +187,5 @@ checkModule' F.Module { F.getModuleClasses = classes
             { A.getAstWithKindsClasses = checkedClasses
             , A.getAstWithKindsInstances = checkedInstances
             , A.getAstWithKindsExpressions = checkedExpressions
+            , A.getAstWithKindsDataTypes = HM.map checkDataType dataTypes
             }

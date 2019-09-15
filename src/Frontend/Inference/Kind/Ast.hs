@@ -18,9 +18,27 @@ import Frontend.Syntax.Position
 -- | A slice of a module with kind information
 data AstWithKinds = AstWithKinds
     { getAstWithKindsClasses :: HM.HashMap Ident Class
+    , getAstWithKindsDataTypes :: HM.HashMap Ident DataType
     , getAstWithKindsInstances :: [Instance]
     , getAstWithKindsExpressions :: HM.HashMap Ident Expression
     }
+
+-- | Definition of a data type
+data DataType = DataType
+    { getDataTypeContext :: [Constraint] -- ^ Context of a data type
+    , getDataTypeName :: WithLocation Ident -- ^ Name of a data type
+    , getDataTypeParams :: [WithLocation Ident] -- ^ Parameters of a data type
+    , getDataTypeDeriving :: [WithLocation Ident] -- ^ List of instances to derive
+    , getDataTypeConstructors :: [(Ident, Constructor)] -- ^ List of constructors
+    , isNewType :: Bool -- ^ Is this type a newtype?
+    } deriving (Show, Eq)
+
+-- | Constructor of a data type
+data Constructor = Constructor
+    { getConstructorName :: WithLocation Ident -- ^ Name of a constructor
+    , getConstructorArgs :: [Type] -- ^ Arguments of a constructor
+    , getConstructorFields :: HM.HashMap Ident Int -- ^ Map of fields of a constructor.
+    } deriving (Show, Eq)
 
 -- | Definition of a type class
 data Class = Class

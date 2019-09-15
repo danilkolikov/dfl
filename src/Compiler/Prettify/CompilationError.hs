@@ -227,8 +227,15 @@ prettifyTypeSynonymsProcessingError typeSynonymsErr =
             prettifyTypeSynonymsExpandingError expandingError
 
 prettifyTypeSynonymsExpandingError :: TypeSynonymsExpandingError -> String
-prettifyTypeSynonymsExpandingError (TypeSynonymsExpandingErrorwWrongNumberOfArgs name expected got) =
+prettifyTypeSynonymsExpandingError expErr =
     "Type synonym expanding error: " ++
-    "Wrong number of arguments of a type synonym " ++
-    prettifyName name ++
-    ", expected " ++ show expected ++ ", but got " ++ show got
+    case expErr of
+        TypeSynonymsExpandingErrorwWrongNumberOfArgs name expected got ->
+            "Wrong number of arguments of a type synonym " ++
+            prettify name ++
+            ", expected " ++ show expected ++ ", but got " ++ show got
+        TypeSynonymsExpandingErrorSynonymInInstance className typeName ->
+            "Type synonym " ++
+            prettifyName typeName ++
+            " is used in the instance of class " ++
+            prettifyName className ++ ", which is not supported"

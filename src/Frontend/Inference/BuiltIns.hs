@@ -16,7 +16,6 @@ import Frontend.Inference.Base.Common
 import Frontend.Inference.Expression
 import Frontend.Inference.Signature
 import Frontend.Inference.Type.Processor
-import Frontend.Inference.TypeSynonyms.Processor
 import Frontend.Syntax.EntityName
 
 -- | Makes a pair of ident and object
@@ -60,7 +59,7 @@ defaultKindSignatures =
             , TypeConstructorSignature SortSquare [] KindStar params)
 
 -- | Default signatures for type synonyms
-defaultTypeSynonyms :: TypeSynonymSignatures
+defaultTypeSynonyms :: Signatures TypeSignature
 defaultTypeSynonyms = HM.empty
 
 -- | Default signatures of expression

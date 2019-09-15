@@ -31,7 +31,6 @@ import Frontend.Inference.Type.Instances.Processor
     )
 import Frontend.Inference.Type.Signatures
 import Frontend.Inference.Type.WithDependencies
-import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
@@ -89,7 +88,7 @@ type Processor = WithDebugOutput InferenceError TypeInferenceDebugOutput
 -- | Infers types of functions in the module
 inferTypes ::
        Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
+    -> Signatures TypeSignature
     -> TypeSignatures
     -> F.Module
     -> (Either InferenceError TypeSignatures, TypeInferenceDebugOutput)
@@ -100,7 +99,7 @@ inferTypes signatures typeSynonymSignatures typeSignatures module' =
 -- | Infer types of functions in the module
 inferTypes' ::
        Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
+    -> Signatures TypeSignature
     -> TypeSignatures
     -> F.Module
     -> Processor TypeSignatures
@@ -178,7 +177,7 @@ inferTypes' signatures typeSynonymSignatures typeSignatures module'
 -- | Describes the process of a type inference
 typeInferenceDescriptor ::
        Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
+    -> Signatures TypeSignature
     -> InferenceDescriptor F.Expressions TypeSignature Exp
 typeInferenceDescriptor signatures typeSynonyms =
     InferenceDescriptor

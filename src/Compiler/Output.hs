@@ -11,8 +11,8 @@ module Compiler.Output where
 import Frontend.Inference.Processor
     ( Signatures
     , TypeConstructorSignature
+    , TypeSignature
     , TypeSignatures
-    , TypeSynonymSignatures
     )
 import Frontend.Syntax.Processor (InfixOperators)
 
@@ -20,6 +20,6 @@ import Frontend.Syntax.Processor (InfixOperators)
 data Output = Output
     { getInfixOperators :: InfixOperators -- ^ A map of infix operators
     , getInferredKinds :: Signatures TypeConstructorSignature -- ^ Inferred kinds
-    , getExpandedTypeSynonyms :: TypeSynonymSignatures -- ^ Expanded type synonym signatures
+    , getExpandedTypeSynonyms :: Signatures TypeSignature -- ^ Expanded type synonym signatures
     , getInferredTypes :: TypeSignatures -- ^ Inferred types
     } deriving (Eq, Show)
