@@ -23,9 +23,9 @@ prettifyOutput Output { getInfixOperators = operators
         [ prettifyHeader "Infix operators"
         , prettifyOperators operators
         , prettifyHeader "Inferred kinds"
-        , prettifySignatures kinds
+        , prettify kinds
         , prettifyHeader "Type synonyms"
-        , prettifySignatures signatures
+        , prettify signatures
         , prettifyHeader "Inferred types"
         , prettifyTypeSignatures types
         ]

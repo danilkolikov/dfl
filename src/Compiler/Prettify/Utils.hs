@@ -15,8 +15,8 @@ import Data.Tuple (swap)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
 import Frontend.Inference.Constraint
-import Frontend.Inference.Signature
 import Frontend.Inference.Processor (KindInferenceEnvironmentItem)
+import Frontend.Inference.Signature
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
 import Frontend.Syntax.Token
@@ -148,11 +148,10 @@ prettifyContext [] = ""
 prettifyContext constraints =
     " (" ++ intercalate ", " (map prettify constraints) ++ ") =>"
 
-prettifySignatures :: (Prettifiable s) => Signatures s -> String
-prettifySignatures sigs = unlines (map prettifySignature (HM.toList sigs))
-
-prettifySignature :: (Prettifiable s) => (Ident, s) -> String
-prettifySignature (name, s) = unwords [prettify name, prettify s]
+instance (Prettifiable a, Prettifiable b) => Prettifiable (HM.HashMap a b) where
+    prettify = unlines . map prettifyPair . HM.toList
+      where
+        prettifyPair (key, value) = unwords [prettify key, prettify value]
 
 instance Prettifiable KindInferenceEnvironmentItem where
     prettify = show

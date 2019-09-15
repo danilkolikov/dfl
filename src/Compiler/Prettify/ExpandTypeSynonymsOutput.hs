@@ -13,4 +13,4 @@ import Frontend.Inference.Processor
 
 prettifyExpandTypeSynonymsOutput :: ExpandTypeSynonymsOutput -> String
 prettifyExpandTypeSynonymsOutput (ExpandTypeSynonymsOutput synonyms) =
-    unlines [prettifyHeader "Type Synonyms", prettifySignatures synonyms]
+    unlines [prettifyHeader "Type Synonyms", prettify synonyms]

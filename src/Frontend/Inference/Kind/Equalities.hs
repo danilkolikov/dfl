@@ -23,12 +23,17 @@ import Frontend.Inference.Signature hiding
     , Type(..)
     , TypeSignature(..)
     )
+import Frontend.Inference.Substitution (Substitution)
+import Frontend.Syntax.EntityName (fUNCTION_NAME)
 import Frontend.Syntax.Position
 
 -- | Type of functions which generate equalities for the provided map
+type BaseEqualitiesGeneratorFunction a b = a -> EqualitiesGenerator b
+
+-- | Type of functions which generate equalities for the provided map and return signatures
 type EqualitiesGeneratorFunction a
-     = HM.HashMap Ident a -> EqualitiesGenerator (Signatures ( TypeConstructorSignature
-                                                             , [Ident]))
+     = BaseEqualitiesGeneratorFunction (HM.HashMap Ident a) (Signatures ( TypeConstructorSignature
+                                                                        , [Ident]))
 
 -- | Generates equalities for a single group
 generateEqualitiesForGroup ::
@@ -39,10 +44,15 @@ generateEqualitiesForGroup items = do
     withTypeConstructors signatures $
         hashMapM generateEqualitiesAndSignature items
 
--- | Generates equalities for a map of objects
-generateEqualitiesForMap ::
+-- | Generates equalities for a map of objects and returns signatures
+generateEqualitiesForMapWithSignatures ::
        (WithEqualitiesAndSignature a) => EqualitiesGeneratorFunction a
-generateEqualitiesForMap = hashMapM generateEqualitiesAndSignature
+generateEqualitiesForMapWithSignatures = hashMapM generateEqualitiesAndSignature
+
+-- | Generates equalities for a list of objects
+generateEqualitiesForList ::
+       (WithEqualities a) => BaseEqualitiesGeneratorFunction [a] [()]
+generateEqualitiesForList = mapM generateEqualities
 
 -- | Creates a type constructor signatures, using provided type parameters
 createSignature :: EqualitiesGenerator TypeConstructorSignature
@@ -220,6 +230,17 @@ instance WithEqualitiesAndSignature TypeSignature where
                 generateTypeEqualities type'
         generateEqualitiesUsingSignature params generator signature
 
+instance WithEqualities Instance where
+    generateEqualities Instance { getInstanceContext = context
+                                , getInstanceClass = className
+                                , getInstanceType = typeName
+                                , getInstanceTypeArgs = typeArgs
+                                } = do
+        params <- createNewKindVariables $ map getValue typeArgs
+        withKindVariables params $
+            writeClassEqualities className typeName typeArgs
+        withKindVariables params $ mapM_ writeSimpleConstraintEqualities context
+
 -- | Get variables of a type
 getFreeTypeVariables :: WithLocation Type -> HS.HashSet Ident
 getFreeTypeVariables aType =
@@ -241,7 +262,48 @@ getFreeTypeVariablesOfConstraint constraint =
             HS.singleton (getValue param) :
             map getFreeTypeVariables (NE.toList args)
 
--- | Monadically maps values of a monad
+-- | Writes equalities about the class of an instance
+writeClassEqualities ::
+       WithLocation Ident
+    -> WithLocation Ident
+    -> [WithLocation Ident]
+    -> EqualitiesGenerator ()
+writeClassEqualities className typeName typeArgs = do
+    ((typeKind, typeSort), _) <- findKindOfType typeName
+    args <- mapM lookupKindVariable typeArgs
+    (resultKind, resultSort) <- createNewKindVariable
+    let expectedTypeKind = foldr (KindFunction . fst) resultKind args
+    writeKindEqualities [(typeKind, expectedTypeKind)]
+    writeSortSquare $ typeSort : map snd args
+    ((classKind, classSort), _) <- lookupKindOfType className
+    let expectedClassKind = KindFunction resultKind KindStar
+    writeKindEqualities [(classKind, expectedClassKind)]
+    writeSortSquare [resultSort, classSort]
+
+-- | Writes kind equalities of a simple constraint
+writeSimpleConstraintEqualities ::
+       WithLocation SimpleConstraint -> EqualitiesGenerator ()
+writeSimpleConstraintEqualities sc
+    | SimpleConstraint className param <- getValue sc = do
+        ((classKind, classSort), _) <- lookupKindOfType className
+        (paramKind, paramSort) <- lookupKindVariable param
+        let expectedKind = KindFunction paramKind KindStar
+        writeKindEqualities [(classKind, expectedKind)]
+        writeSortSquare [classSort, paramSort]
+
+-- | Finds a kind of a type of instance
+findKindOfType ::
+       WithLocation Ident
+    -> EqualitiesGenerator ((Kind, Sort), Substitution Kind)
+findKindOfType typeName
+    | getValue typeName == IdentNamed fUNCTION_NAME =
+        return
+            ( ( KindFunction KindStar (KindFunction KindStar KindStar)
+              , SortSquare)
+            , HM.empty)
+    | otherwise = lookupKindOfType typeName
+
+-- | Monadically maps values of a map
 hashMapM ::
        (Monad m) => (a -> m b) -> HM.HashMap Ident a -> m (HM.HashMap Ident b)
 hashMapM f hashMap =

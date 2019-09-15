@@ -19,14 +19,14 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Base.Common
 import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.Base.Descriptor
-import Frontend.Inference.Base.SingleGroupProcessor
 import Frontend.Inference.Class
 import Frontend.Inference.Constraint
 import Frontend.Inference.Equalities (EqualitiesGenerationError(..))
 import Frontend.Inference.Expression
+import qualified Frontend.Inference.InferenceProcessor as I
 import Frontend.Inference.Instance
+import Frontend.Inference.Kind.Processor
 import Frontend.Inference.Signature
-import Frontend.Inference.Type.Instances.Equalities
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 import Frontend.Syntax.Position (WithLocation(..))
@@ -61,18 +61,6 @@ inferInstances ::
 inferInstances infer signatures classes instances =
     runWithDebugOutput $ inferInstances' infer classes signatures instances
 
--- | Descriptor of kind inference of an instance
-instanceKindInferenceDescriptor ::
-       Signatures TypeConstructorSignature
-    -> SingleGroupInferenceDescriptor F.Instances () ()
-instanceKindInferenceDescriptor signatures =
-    SingleGroupInferenceDescriptor
-        { getSingleGroupInferenceDescriptorEqualitiesBuilder =
-              generateEqualitiesForInstances signatures
-        , getSingleGroupInferenceDescriptorApplySolution =
-              const . const . const $ id
-        }
-
 -- | Infers kinds and types of an instance
 inferInstances' ::
        (Signatures TypeSignature -> SimpleInfer F.Expressions TypeSignature Exp)
@@ -81,22 +69,12 @@ inferInstances' ::
     -> F.Instances
     -> Processor [Instance]
 inferInstances' infer classes signatures instances = do
-    let checkSingle =
-            inferSingleGroup
-                (instanceKindInferenceDescriptor signatures)
-                InferenceEnvironment
-                    { getInferenceEnvironmentSignatures = HM.empty
-                    , getInferenceEnvironmentTypeVariables = HM.empty
-                    }
-                undefined -- recursive call is not used
-                instances
-                []
-                emptyVariableGeneratorState
-    _ <-
-        mapDebugOutput
-            (\debug ->
-                 mempty {getInstanceInferenceDebugOutputKinds = Just debug})
-            checkSingle
+    let wrapper I.SingleGroupInferenceDebugOutput {I.getSingleGroupInferenceDebugOutputSolver = s} =
+            mempty
+                { getInstanceInferenceDebugOutputKinds =
+                      Just mempty {getSingleGroupInferenceDebugOutputSolver = s}
+                }
+    _ <- wrapDebugOutput wrapper $ checkKindsOfExpressions signatures instances
     let inferSingleInstance' inst =
             runWithDebugOutput $ inferSingleInstance infer classes inst
     wrapDebugOutput

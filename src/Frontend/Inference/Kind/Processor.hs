@@ -11,6 +11,7 @@ module Frontend.Inference.Kind.Processor
     , KindInferenceEnvironment
     , inferKinds
     , checkKindsOfTypeSignatures
+    , checkKindsOfExpressions
     ) where
 
 import qualified Data.HashMap.Lazy as HM
@@ -52,15 +53,28 @@ checkKindsOfTypeSignatures ::
     => Signatures TypeConstructorSignature
     -> Signatures a
     -> ( Either InferenceError (Signatures TypeConstructorSignature)
-       , SingleGroupInferenceDebugOutput a TypeConstructorSignature)
+       , SingleGroupInferenceDebugOutput (HM.HashMap Ident a) (Signatures TypeConstructorSignature))
 checkKindsOfTypeSignatures knownSignatures input =
     let variableGenerator =
             runWithDebugOutputT $
             inferSingleGroup
-                (buildEqualities generateEqualitiesForMap)
+                (buildEqualities generateEqualitiesForMapWithSignatures)
                 knownSignatures
                 input
      in evalVariableGenerator variableGenerator
+
+-- | Check kinds of provided expressions
+checkKindsOfExpressions ::
+       (WithEqualities a)
+    => Signatures TypeConstructorSignature
+    -> [a]
+    -> (Either InferenceError [()], SingleGroupInferenceDebugOutput [a] [()])
+checkKindsOfExpressions knownSignatures input =
+    evalVariableGenerator . runWithDebugOutputT $
+    inferSingleGroup
+        (buildEqualitiesForChecking generateEqualitiesForList)
+        knownSignatures
+        input
 
 -- | Builds dependency graph for provided environment items
 buildDependencyGraph ::
@@ -70,7 +84,7 @@ buildDependencyGraph = const getModuleDependencyGraph
 -- | Generates equalities for a single group
 buildEqualities ::
        EqualitiesGeneratorFunction a
-    -> EqualitiesBuilder a TypeConstructorSignature
+    -> EqualitiesBuilder (HM.HashMap Ident a) TypeConstructorSignature (Signatures TypeConstructorSignature)
 buildEqualities genEqualities signatures items =
     let boundVariables = HS.empty
         makeApplySolution solution (signature, params) =
@@ -82,6 +96,17 @@ buildEqualities genEqualities signatures items =
         buildEqualitiesAndApplySolution = do
             result <- genEqualities items
             return $ \solution -> HM.map (makeApplySolution solution) result
+     in runEqualitiesGenerator'
+            buildEqualitiesAndApplySolution
+            emptyEqualitiesGeneratorEnvironment
+                {getTypeConstructorSignatures = signatures}
+
+-- | Generates equalities for a single group, without substituting results
+buildEqualitiesForChecking ::
+       BaseEqualitiesGeneratorFunction a b
+    -> EqualitiesBuilder a TypeConstructorSignature b
+buildEqualitiesForChecking genEqualities signatures items =
+    let buildEqualitiesAndApplySolution = const <$> genEqualities items
      in runEqualitiesGenerator'
             buildEqualitiesAndApplySolution
             emptyEqualitiesGeneratorEnvironment

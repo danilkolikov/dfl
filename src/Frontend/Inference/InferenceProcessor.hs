@@ -40,7 +40,7 @@ data InferenceDebugOutput a s = InferenceDebugOutput
     { getInferenceDebugOutputInput :: Maybe (HM.HashMap Ident a) -- ^ Input of inference
     , getInferenceDebugOutputDependencyGraph :: Maybe DependencyGraph -- ^ Dependency graph
     , getInferenceDebugOutputDependencyGroups :: Maybe [HS.HashSet Ident] -- ^ Dependency groups
-    , getInferenceDebugOutputDependencyGroupOutputs :: Maybe [SingleGroupInferenceDebugOutput a s] -- ^ Processed dependency groups
+    , getInferenceDebugOutputDependencyGroupOutputs :: Maybe [SingleGroupInferenceDebugOutput (HM.HashMap Ident a) (HM.HashMap Ident s)] -- ^ Processed dependency groups
     , getInferenceDebugOutputSignatures :: Maybe (HM.HashMap Ident s) -- ^ Output signatures
     }
 
@@ -69,9 +69,9 @@ type SingleGroupInferenceProcessor a s
 
 -- | A debug output of inference of a single dependency group
 data SingleGroupInferenceDebugOutput a s = SingleGroupInferenceDebugOutput
-    { getSingleGroupInferenceDebugOutputInput :: Maybe (HM.HashMap Ident a) -- ^ Current group
+    { getSingleGroupInferenceDebugOutputInput :: Maybe a -- ^ Current group
     , getSingleGroupInferenceDebugOutputSolver :: Maybe SolverDebugOutput -- ^ Debug output of a solver
-    , getSingleGroupInferenceDebugOutputSignatures :: Maybe (Signatures s) -- ^ Inferred signatures
+    , getSingleGroupInferenceDebugOutputSignatures :: Maybe s -- ^ Inferred signatures
     }
 
 instance Semigroup (SingleGroupInferenceDebugOutput a s) where
@@ -91,11 +91,11 @@ instance Monoid (SingleGroupInferenceDebugOutput a s) where
 
 -- | Output of a process of building of equalities
 type EqualitiesBuilderOutput s
-     = Either EqualitiesGenerationError (Solution -> Signatures s, Equalities)
+     = Either EqualitiesGenerationError (Solution -> s, Equalities)
 
 -- | A function which builds a system of equalities
-type EqualitiesBuilder a s
-     = Signatures s -> HM.HashMap Ident a -> VariableGenerator (EqualitiesBuilderOutput s)
+type EqualitiesBuilder a s o
+     = Signatures s -> a -> VariableGenerator (EqualitiesBuilderOutput o)
 
 -- | A function which builds a dependency graph
 type DependencyGraphBuilder a s
@@ -104,7 +104,7 @@ type DependencyGraphBuilder a s
 -- | Infer signatures of multiple (possibly mutually dependent) groups
 inferMultipleGroups ::
        DependencyGraphBuilder a s
-    -> EqualitiesBuilder a s
+    -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures s)
     -> Signatures s
     -> HM.HashMap Ident a
     -> InferenceProcessor a s (Signatures s)
@@ -148,10 +148,10 @@ inferMultipleGroups buildDependencyGraph buildEqualities definedSignatures group
 
 -- | Infer signatures of a single group
 inferSingleGroup ::
-       EqualitiesBuilder a s
+       EqualitiesBuilder a s o
     -> Signatures s
-    -> HM.HashMap Ident a
-    -> SingleGroupInferenceProcessor a s (Signatures s)
+    -> a
+    -> SingleGroupInferenceProcessor a o o
 inferSingleGroup buildEqualities knownSignatures group = do
     writeDebugOutput
         mempty {getSingleGroupInferenceDebugOutputInput = Just group}

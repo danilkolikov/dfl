@@ -22,11 +22,11 @@ prettifyTypeSignatures TypeSignatures { getTypeSignaturesConstructors = construc
                                       } =
     unlines
         [ prettifyHeader "Constructors:"
-        , prettifySignatures constructors
+        , prettify constructors
         , prettifyHeader "Methods:"
-        , prettifySignatures methods
+        , prettify methods
         , prettifyHeader "Expressions:"
-        , prettifySignatures (HM.map snd expressions)
+        , prettify (HM.map snd expressions)
         ]
 
 prettifyTypeInferenceDebugOutput :: TypeInferenceDebugOutput -> String

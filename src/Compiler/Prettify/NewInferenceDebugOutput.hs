@@ -31,7 +31,7 @@ prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput
                                                   , getInferenceDebugOutputSignatures = signatures
                                                   } =
     let prettifyInput i =
-            unlines [prettifyHeader "Inference input:", prettifySignatures i]
+            unlines [prettifyHeader "Inference input:", prettify i]
         prettifyGraph deps =
             unlines
                 [ prettifyHeader "Dependency graph"
@@ -45,8 +45,7 @@ prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput
             prettifyHeader "Group outputs:" :
             map prettifySingleGroupDebugOutput outs
         prettifyDOSignatures sigs =
-            unlines
-                [prettifyHeader "Inferred signatures:", prettifySignatures sigs]
+            unlines [prettifyHeader "Inferred signatures:", prettify sigs]
      in unlines . catMaybes $
         [ prettifyInput <$> input
         , prettifyGraph <$> graph
@@ -73,10 +72,9 @@ prettifySingleGroupDebugOutput SingleGroupInferenceDebugOutput { getSingleGroupI
                                                                , getSingleGroupInferenceDebugOutputSignatures = signatures
                                                                } =
     let prettifyInput i =
-            unlines [prettifyHeader "Inference input:", prettifySignatures i]
+            unlines [prettifyHeader "Inference input:", prettify i]
         prettifyDOSignatures sigs =
-            unlines
-                [prettifyHeader "Inferred signatures:", prettifySignatures sigs]
+            unlines [prettifyHeader "Inferred signatures:", prettify sigs]
      in unlines . catMaybes $
         [ prettifyInput <$> input
         , prettifySolverDebugOutput <$> solverDebugOutput
