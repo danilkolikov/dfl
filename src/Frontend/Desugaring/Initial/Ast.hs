@@ -27,7 +27,7 @@ data IdentEnvironment
     | IdentEnvironmentKindVariable -- ^ Identifiers, generated for kind variables
     | IdentEnvironmentSortVariable -- ^ Identifiers, generated for sort variables
     | IdentEnvironmentInstances -- ^ Identifiers, generated during type inference of instances
-    deriving (Show, Eq, Generic)
+    deriving (Generic, Eq, Ord, Show)
 
 instance Hashable IdentEnvironment
 
@@ -38,7 +38,8 @@ data Ident
                         Int -- ^ Name with a parameter. E.G. - tuples with different number of arguments
     | IdentGenerated IdentEnvironment
                      Int -- ^ Automatically generated name
-    deriving (Show, Eq, Generic)
+    | IdentScoped [Ident] -- ^ Scoped identifier 
+    deriving (Generic, Eq, Ord, Show)
 
 instance Hashable Ident
 

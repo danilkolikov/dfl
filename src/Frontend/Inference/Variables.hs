@@ -8,10 +8,13 @@ Module with functions for generation of variables
 -}
 module Frontend.Inference.Variables
     ( VariableGenerator
-    , VariableGeneratorState(..)
-    , emptyVariableGeneratorState
     , evalVariableGenerator
     , runVariableGenerator
+    , VariableGeneratorT
+    , evalVariableGeneratorT
+    , runVariableGeneratorT
+    , VariableGeneratorState(..)
+    , emptyVariableGeneratorState
     , Sort(..)
     , generateSortVariable
     , Kind(..)
@@ -27,7 +30,16 @@ module Frontend.Inference.Variables
     , generateTypeIdent
     ) where
 
-import Control.Monad.Trans.State.Lazy (State, evalState, gets, modify, runState)
+import Control.Monad.Trans.State.Lazy
+    ( State
+    , StateT
+    , evalState
+    , evalStateT
+    , gets
+    , modify
+    , runState
+    , runStateT
+    )
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
 import Frontend.Inference.Kind
@@ -62,23 +74,39 @@ runVariableGenerator ::
     -> (a, VariableGeneratorState)
 runVariableGenerator = runState
 
+-- | A type of the variable generator with inner monad
+type VariableGeneratorT m = StateT VariableGeneratorState m
+
+-- | Execute variable generator with an empty state
+evalVariableGeneratorT :: (Monad m) => VariableGeneratorT m a -> m a
+evalVariableGeneratorT gen = evalStateT gen emptyVariableGeneratorState
+
+-- | Runs the variable generator
+runVariableGeneratorT ::
+       (Monad m)
+    => VariableGeneratorT m a
+    -> VariableGeneratorState
+    -> m (a, VariableGeneratorState)
+runVariableGeneratorT = runStateT
+
 -- | Generate abstract identifier
 generateIdent ::
-       (VariableGeneratorState -> Int)
+       (Monad m)
+    => (VariableGeneratorState -> Int)
     -> (Int -> VariableGeneratorState -> VariableGeneratorState)
     -> IdentEnvironment
-    -> VariableGenerator Ident
+    -> VariableGeneratorT m Ident
 generateIdent getCounter setCounter env = do
     counter <- gets getCounter
     modify $ setCounter (counter + 1)
     return $ IdentGenerated env counter
 
 -- | Generate a sort variable
-generateSortVariable :: VariableGenerator Sort
+generateSortVariable :: (Monad m) => VariableGeneratorT m Sort
 generateSortVariable = SortVar <$> generateSortIdent
 
 -- | Generate a new sort identifier
-generateSortIdent :: VariableGenerator Ident
+generateSortIdent :: (Monad m) => VariableGeneratorT m Ident
 generateSortIdent =
     generateIdent
         getVariableGeneratorStateSort
@@ -86,11 +114,11 @@ generateSortIdent =
         IdentEnvironmentSortVariable
 
 -- | Generate a kind variable
-generateKindVariable :: VariableGenerator Kind
+generateKindVariable :: (Monad m) => VariableGeneratorT m Kind
 generateKindVariable = KindVar <$> generateKindIdent
 
 -- | Generate a kind identifier
-generateKindIdent :: VariableGenerator Ident
+generateKindIdent :: (Monad m) => VariableGeneratorT m Ident
 generateKindIdent =
     generateIdent
         getVariableGeneratorStateKind
@@ -98,11 +126,11 @@ generateKindIdent =
         IdentEnvironmentKindVariable
 
 -- | Generate a type variable
-generateTypeVariable :: VariableGenerator Type
+generateTypeVariable :: (Monad m) => VariableGeneratorT m Type
 generateTypeVariable = TypeVar <$> generateTypeIdent
 
 -- | Generate a type identifier
-generateTypeIdent :: VariableGenerator Ident
+generateTypeIdent :: (Monad m) => VariableGeneratorT m Ident
 generateTypeIdent =
     generateIdent
         getVariableGeneratorStateType
@@ -110,14 +138,14 @@ generateTypeIdent =
         IdentEnvironmentTypeVariable
 
 -- | Generates kind and sort variables
-generateKSVariables :: VariableGenerator (Kind, Sort)
+generateKSVariables :: (Monad m) => VariableGeneratorT m (Kind, Sort)
 generateKSVariables = do
     sortVar <- generateSortVariable
     kindVar <- generateKindVariable
     return (kindVar, sortVar)
 
 -- | Generates type, kind and sort variables
-generateTKSVariables :: VariableGenerator (Type, Kind, Sort)
+generateTKSVariables :: (Monad m) => VariableGeneratorT m (Type, Kind, Sort)
 generateTKSVariables = do
     (kindVar, sortVar) <- generateKSVariables
     typeVar <- generateTypeVariable

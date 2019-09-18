@@ -13,6 +13,7 @@ module Frontend.Inference.Util.Debug
     , runWithDebugOutputT
     , liftInner
     , writeDebugOutput
+    , raiseError
     , wrapEither
     , wrapErrorAndDebugOutput
     , wrapErrorAndDebugOutputT
@@ -57,6 +58,10 @@ liftInner = lift . lift
 -- | Writes debug output
 writeDebugOutput :: (Monad m, Monoid d) => d -> WithDebugOutputT e d m ()
 writeDebugOutput = lift . tell
+
+-- | Raises an error
+raiseError :: (Monad m, Monoid d) => e -> WithDebugOutputT e d m a
+raiseError = except . Left
 
 -- | Wraps an Either and maps an error
 wrapEither ::

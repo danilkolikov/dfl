@@ -75,6 +75,10 @@ library:
   - Frontend.Inference.Base.SingleGroupProcessor
   - Frontend.Inference.Base.Variables
   - Frontend.Inference.Class
+  - Frontend.Inference.Class.Ast
+  - Frontend.Inference.Class.Base
+  - Frontend.Inference.Class.Processor
+  - Frontend.Inference.Class.Single
   - Frontend.Inference.Constraint
   - Frontend.Inference.DependencyResolver
   - Frontend.Inference.Equalities
