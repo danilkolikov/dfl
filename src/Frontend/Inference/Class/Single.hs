@@ -31,6 +31,7 @@ import Frontend.Inference.Variables
 import Frontend.Inference.WithVariables
 import Frontend.Syntax.EntityName (uNDEFINED_NAME)
 import Frontend.Syntax.Position
+import Frontend.Inference.Util.Debug (lookupMapValue)
 
 -- | Processes a single class
 processClass ::
@@ -129,7 +130,7 @@ processSuperClass env state constr
               , getClassGetters = superClassGetters
               } <-
             lift $
-            lookupValue
+            lookupMapValue
                 (ClassProcessingErrorUnknownClass className)
                 constraintClassName
                 classes
@@ -137,7 +138,7 @@ processSuperClass env state constr
                                  , getTypeConstructorSignatureTypeParams = typeParams
                                  } <-
             lift $
-            lookupValue
+            lookupMapValue
                 (ClassProcessingErrorUnknownGeneratedDataType dataTypeName)
                 dataTypeName
                 signatures

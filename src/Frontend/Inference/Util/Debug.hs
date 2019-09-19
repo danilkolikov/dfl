@@ -21,6 +21,7 @@ module Frontend.Inference.Util.Debug
     , wrapDebugOutput
     , wrapResult
     , mapDebugOutput
+    , lookupMapValue
     ) where
 
 import Control.Monad.Trans.Class (lift)
@@ -33,6 +34,8 @@ import Control.Monad.Trans.Writer.Lazy
     , tell
     )
 import Data.Bifunctor (first)
+import qualified Data.HashMap.Lazy as HM
+import Data.Hashable (Hashable)
 
 -- | A type of functions which support raising exceptions and collecting
 -- | debug information
@@ -126,3 +129,15 @@ mapDebugOutput ::
     -> WithDebugOutputT e c m a
     -> WithDebugOutputT e d m a
 mapDebugOutput wrapper = wrapDebugOutputT wrapper . runWithDebugOutputT
+
+-- | Finds a value in a map or throws an error
+lookupMapValue ::
+       (Eq k, Hashable k, Monoid d, Monad m)
+    => e
+    -> k
+    -> HM.HashMap k a
+    -> WithDebugOutputT e d m a
+lookupMapValue e key m =
+    case HM.lookup key m of
+        Just result -> return result
+        Nothing -> raiseError e

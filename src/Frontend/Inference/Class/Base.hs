@@ -65,11 +65,3 @@ instance Semigroup ClassProcessorState where
 
 instance Monoid ClassProcessorState where
     mempty = ClassProcessorState mempty mempty mempty mempty mempty
-
--- | Finds a value in a map or throws an error 
-lookupValue ::
-       ClassProcessingError -> Ident -> HM.HashMap Ident a -> ClassProcessor a
-lookupValue e key m =
-    case HM.lookup key m of
-        Just result -> return result
-        Nothing -> raiseError e
