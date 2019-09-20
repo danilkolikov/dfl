@@ -86,6 +86,7 @@ library:
   - Frontend.Inference.Expression
   - Frontend.Inference.InferenceProcessor
   - Frontend.Inference.Instance
+  - Frontend.Inference.Instance.Processor
   - Frontend.Inference.Kind
   - Frontend.Inference.Kind.Ast
   - Frontend.Inference.Kind.Base

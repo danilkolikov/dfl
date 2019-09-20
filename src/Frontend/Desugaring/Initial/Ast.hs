@@ -38,7 +38,8 @@ data Ident
                         Int -- ^ Name with a parameter. E.G. - tuples with different number of arguments
     | IdentGenerated IdentEnvironment
                      Int -- ^ Automatically generated name
-    | IdentScoped [Ident] -- ^ Scoped identifier 
+    | IdentScoped [Ident] -- ^ Scoped identifier
+    | IdentInstance Ident Ident -- ^ Instance identifiers
     deriving (Generic, Eq, Ord, Show)
 
 instance Hashable Ident

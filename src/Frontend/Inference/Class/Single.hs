@@ -27,11 +27,11 @@ import Frontend.Inference.Constraint
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
+import Frontend.Inference.Util.Debug (lookupMapValue)
 import Frontend.Inference.Variables
 import Frontend.Inference.WithVariables
 import Frontend.Syntax.EntityName (uNDEFINED_NAME)
 import Frontend.Syntax.Position
-import Frontend.Inference.Util.Debug (lookupMapValue)
 
 -- | Processes a single class
 processClass ::
@@ -82,8 +82,17 @@ processClass' state K.Class { K.getClassContext = context
     -- Generate a data type and class
     let (dataType, dataTypeSignature) =
             createDataType signature dataTypeName results
-        defaultInstance = createDefaultInstance className classParam results
-        resultClass = createClass context className classParam dataType results
+        (defaultInstanceName, defaultInstance) =
+            createDefaultInstance className classParam results
+        resultClass =
+            createClass
+                context
+                className
+                classParam
+                dataType
+                methodNames
+                defaultInstanceName
+                results
         methodSignatures =
             mconcat $ map getProcessingResultMethodSignatures results
         makeMap = HM.singleton className
@@ -92,7 +101,8 @@ processClass' state K.Class { K.getClassContext = context
             { getClassProcessorStateClasses = makeMap resultClass
             , getClassProcessorStateDataTypes = makeMap dataType
             , getClassProcessorStateSignatures = makeMap dataTypeSignature
-            , getClassProcessorStateDefaultInstances = makeMap defaultInstance
+            , getClassProcessorStateDefaultInstances =
+                  HM.singleton defaultInstanceName defaultInstance
             , getClassProcessorStateMethods = methodSignatures
             }
 
@@ -265,23 +275,29 @@ createDataType signature dataTypeName' results =
                 }
      in (dataType, dataTypeSignature)
 
-createDefaultInstance :: Ident -> Ident -> [ProcessingResult] -> DefaultInstance
+createDefaultInstance ::
+       Ident -> Ident -> [ProcessingResult] -> (Ident, DefaultInstance)
 createDefaultInstance className classParam results =
     let defaultMethods = mconcat $ map getProcessingResultDefaultMethods results
-     in DefaultInstance
-            { getDefaultInstanceClassName = className
-            , getDefaultInstanceParam = classParam
-            , getDefaultInstanceMethods = defaultMethods
-            }
+        defaultInstanceName = IdentInstance className className
+        defaultInstance =
+            DefaultInstance
+                { getDefaultInstanceClassName = className
+                , getDefaultInstanceParam = classParam
+                , getDefaultInstanceMethods = defaultMethods
+                }
+     in (defaultInstanceName, defaultInstance)
 
 createClass ::
        [WithLocation F.SimpleConstraint]
     -> Ident
     -> Ident
     -> K.DataType
+    -> [Ident]
+    -> Ident
     -> [ProcessingResult]
     -> Class
-createClass context className classParam dataType results =
+createClass context className classParam dataType methodNames defaultInstanceName results =
     let dataTypeGetters = mconcat $ map getProcessingResultGetters results
         classGetters = HM.map (getValue . K.getExpressionName) dataTypeGetters
      in Class
@@ -290,6 +306,8 @@ createClass context className classParam dataType results =
             , getClassParam = classParam
             , getClassDataTypeName = getValue $ K.getDataTypeName dataType
             , getClassGetters = classGetters
+            , getClassMethods = methodNames
+            , getClassDefaultInstanceName = defaultInstanceName
             }
 
 createGetter :: ProcessingEnvironment -> Ident -> (Ident, K.Expression)

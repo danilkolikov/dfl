@@ -59,6 +59,9 @@ instance Prettifiable Ident where
             IdentGenerated env param ->
                 "(" ++ prettify env ++ ": " ++ show param ++ ")"
             IdentScoped idents -> intercalate "->" (map prettify idents)
+            IdentInstance className instanceName ->
+                "(" ++
+                prettify className ++ ": " ++ prettify instanceName ++ ")"
 
 instance Prettifiable IdentEnvironment where
     prettify env =

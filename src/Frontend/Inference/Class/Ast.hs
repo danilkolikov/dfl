@@ -22,6 +22,8 @@ data Class = Class
     , getClassParam :: Ident -- ^ Parameter of a type class
     , getClassDataTypeName :: Ident -- ^ Ident of the generated data type
     , getClassGetters :: HM.HashMap Ident Ident -- ^ Getters for methods of this and superclasses
+    , getClassMethods :: [Ident] -- ^ List of methods
+    , getClassDefaultInstanceName :: Ident -- ^ Ident of the generated default instance
     } deriving (Eq, Show)
 
 -- | A default instance of a type class
