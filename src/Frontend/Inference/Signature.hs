@@ -44,7 +44,7 @@ module Frontend.Inference.Signature
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, mapMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.Constraint
@@ -371,16 +371,19 @@ instance TypeSubstitutable TypeSignature where
                                          , getTypeSignatureContext = context
                                          } =
         let substitutedType = substitute sub type'
-            substitutedContext = map (substituteType sub) context
+            -- We can't substitute a context, so we just substitute its free variables
+            contextFreeVariables = HS.unions $ map getFreeVariables context
+            substitutedFreeVariables =
+                mapMaybe (`HM.lookup` sub) (HS.toList contextFreeVariables)
             freeVars =
                 HS.unions $
                 getFreeVariables substitutedType :
-                map getFreeVariables substitutedContext
+                map getFreeVariables substitutedFreeVariables
          in sig
                 { getTypeSignatureTypeParams =
                       removeBoundParams freeVars typeParams
                 , getTypeSignatureType = substitutedType
-                , getTypeSignatureContext = substitutedContext
+                , getTypeSignatureContext = context -- Note that context is not substituted
                 }
 
 instance TypeGeneralisable TypeSignature where
@@ -417,17 +420,6 @@ createTypeSignature s =
         , getTypeSignatureType = getType s
         , getTypeSignatureContext = getContext s
         }
-
-instance TypeSubstitutable Constraint where
-    substituteType sub constr =
-        case constr of
-            ConstraintVariable cls var ->
-                ConstraintVariable cls (substitute sub var)
-            ConstraintAppliedVariable cls var args ->
-                ConstraintAppliedVariable
-                    cls
-                    (substitute sub var)
-                    (fmap (substitute sub) args)
 
 -- | Removes bound parameters from the provided list
 removeBoundParams :: HS.HashSet Ident -> Params a -> Params a

@@ -111,10 +111,7 @@ expandApplication name args = do
 expandConstraint :: Constraint -> TypeSynonymExpander Constraint
 expandConstraint constraint =
     case constraint of
-        ConstraintVariable className type' ->
-            ConstraintVariable className <$> expandType type'
+        ConstraintVariable {} -> return constraint
         ConstraintAppliedVariable className type' typeArgs ->
-            liftM2
-                (ConstraintAppliedVariable className)
-                (expandType type')
-                (mapM expandType typeArgs)
+            ConstraintAppliedVariable className type' <$>
+            mapM expandType typeArgs

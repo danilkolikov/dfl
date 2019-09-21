@@ -19,6 +19,7 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
+import Frontend.Inference.Constraint
 import Frontend.Inference.Type.Ast (External(..))
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.Position
@@ -373,8 +374,10 @@ specialiseTypeSignature ((expectedKind, expectedSort), kindSubstitution) sig = d
     let typeVariables = HM.fromList specialisedType
         typeSubstitution = HM.map (\(t, _, _) -> t) typeVariables
         resultType = substitute typeSubstitution (getType sig)
+        -- It's guaranteed that each value is a TypeVar
+        variableMapping = HM.map (\(TypeVar var) -> var) typeSubstitution
         resultConstraints =
-            map (substituteType typeSubstitution) (getContext sig)
+            map (substituteVariables variableMapping) (getContext sig)
     -- Save constraint information
     writeTypeConstraints resultConstraints
     -- Saves information about the kind

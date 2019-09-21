@@ -138,16 +138,6 @@ applyKindSolutionAndSetTypeVariables vars sol signature =
             , getTypeConstructorSignatureTypeParams = typeVariables
             }
 
--- | Selects such type constraints, which bound at least one type variable,
--- | used in signature
-getRelevantTypeConstraints ::
-       (WithTypeParams a) => Solution -> a -> [Constraint]
-getRelevantTypeConstraints Solution {getSolutionTypeConstraints = constraints} sig =
-    let typeParams = HS.fromList . map fst $ getTypeParams sig
-        isRelevant constr =
-            not . null $ getFreeVariables constr `HS.intersection` typeParams
-     in filter isRelevant constraints
-
 -- | A type of the solver of equalities
 type Solver = WithDebugOutput UnificationError SolverDebugOutput
 
@@ -193,13 +183,11 @@ solveEqualities' equalities@Equalities { getTypeEqualities = typeEqualities
         kindOfTypeVariables = makeMapping kindSubstitution hasKindEqualities
         sortOfKindVariables =
             makeMapping fixedSortSubstitution hasSortEqualities
-        finalConstraints =
-            getConstraintsWithVariables typeConstraints typeSubstitution
     writeDebugOutput
         mempty
             { getSolverDebugOutputKindOfTypeVariables = Just kindOfTypeVariables
             , getSolverDebugOutputSortOfKindVariables = Just sortOfKindVariables
-            , getSolverDebugOutputTypeConstraints = Just finalConstraints
+            , getSolverDebugOutputTypeConstraints = Just typeConstraints -- Type constraints are unchanged
             }
     return
         Solution
@@ -208,7 +196,7 @@ solveEqualities' equalities@Equalities { getTypeEqualities = typeEqualities
             , getSolutionSortSubstitution = fixedSortSubstitution
             , getSolutionKindOfTypeVariables = kindOfTypeVariables
             , getSolutionSortOfKindVariables = sortOfKindVariables
-            , getSolutionTypeConstraints = finalConstraints
+            , getSolutionTypeConstraints = typeConstraints
             }
 
 -- | Create additional equalities between sorts using a solution for kind equalities
@@ -249,15 +237,3 @@ fixSortVariables hasSort sub =
             HM.fromList . map (\x -> (x, SortSquare)) . HS.toList $
             freeVariables
      in sub `compose` fixedVariables
-
--- | Selects constraints which have only type variables
-getConstraintsWithVariables :: [Constraint] -> Substitution Type -> [Constraint]
-getConstraintsWithVariables constraints sub =
-    let substituted = map (substituteType sub) constraints
-        isVariable (TypeVar _) = True
-        isVariable _ = False
-        hasOnlyVariables constr =
-            case constr of
-                ConstraintVariable _ t -> isVariable t
-                ConstraintAppliedVariable _ t _ -> isVariable t
-     in filter hasOnlyVariables substituted

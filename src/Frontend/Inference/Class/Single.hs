@@ -12,7 +12,7 @@ module Frontend.Inference.Class.Single
 
 import Control.Monad (liftM2)
 import Control.Monad.Trans.Class (lift)
-import Data.Bifunctor (bimap, second)
+import Data.Bifunctor (bimap, first, second)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.List (sortBy)
@@ -217,11 +217,11 @@ processMethod env method
             newTypeParams =
                 map (second $ substitute kindSubstitution . snd) $
                 zip newTypeVars unboundTypeVars
-            typeSubstitution =
-                HM.fromList . map (bimap fst TypeVar) $
-                zip unboundTypeVars newTypeVars
+            typeMapping =
+                HM.fromList . map (first fst) $ zip unboundTypeVars newTypeVars
+            typeSubstitution = HM.map TypeVar typeMapping
             resultType = substitute typeSubstitution methodType
-            resultContext = map (substituteType typeSubstitution) methodContext
+            resultContext = map (substituteVariables typeMapping) methodContext
             fieldName = getValue name
             (_, getter) = createGetter env fieldName
             defaultMethod = fromMaybe undefinedExp body

@@ -131,8 +131,7 @@ defaultExpressions =
          mKind = KindFunction KindStar KindStar
          mA = TypeApplication (TypeVar mVar) (TypeVar aVar NE.:| [])
          mB = TypeApplication (TypeVar mVar) (TypeVar bVar NE.:| [])
-         constraints =
-             [ConstraintVariable (IdentNamed mONAD_NAME) (TypeVar mVar)]
+         constraints = [ConstraintVariable (IdentNamed mONAD_NAME) mVar]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -151,7 +150,7 @@ defaultExpressions =
          ]) ++
     (let var = IdentNamed ["a"]
          aVar = TypeVar var
-         constraints = [ConstraintVariable (IdentNamed eQ_NAME) aVar]
+         constraints = [ConstraintVariable (IdentNamed eQ_NAME) var]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -169,7 +168,7 @@ defaultExpressions =
          ]) ++
     (let var = IdentNamed ["a"]
          aVar = TypeVar var
-         constraints = [ConstraintVariable (IdentNamed nUM_NAME) aVar]
+         constraints = [ConstraintVariable (IdentNamed nUM_NAME) var]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -184,7 +183,7 @@ defaultExpressions =
          aVar = TypeVar var
          list =
              TypeApplication (TypeConstr $ IdentNamed lIST_NAME) (aVar NE.:| [])
-         constraints = [ConstraintVariable (IdentNamed eNUM_NAME) aVar]
+         constraints = [ConstraintVariable (IdentNamed eNUM_NAME) var]
          makeExp name type' =
              makePair name $
              TypeSignature

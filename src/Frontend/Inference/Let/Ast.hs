@@ -33,6 +33,7 @@ data Expression = Expression
     , getExpressionType :: Maybe TypeSignature -- ^ Optional type signature
     } deriving (Show, Eq)
 
+-- | A map of expressions
 type Expressions = HM.HashMap Ident Expression
 
 -- | Expression

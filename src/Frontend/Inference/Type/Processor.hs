@@ -61,6 +61,6 @@ applySolution :: Solution -> (T.Exp, TypeSignature) -> (T.Exp, TypeSignature)
 applySolution sol (exp', typeSig) =
     let appliedExp = applyTypeSolution sol exp'
         appliedTypeSig = applyTypeSolutionAndGeneralise sol typeSig
-        constraints = getRelevantTypeConstraints sol appliedTypeSig
+        constraints = error "TODO: substitute constraints"
         finalTypeSig = appliedTypeSig {getTypeSignatureContext = constraints}
      in (appliedExp, finalTypeSig)
