@@ -80,14 +80,14 @@ type KindParams = Params Sort
 
 -- | A class of types which support generalisation of kind variables
 class KindGeneralisable a where
-    generaliseKind :: HS.HashSet Ident -> ParamsMap Sort -> a -> a -- ^ Generalise kind variables, except for the bound ones
+    generaliseKind :: ParamsMap Sort -> a -> a -- ^ Generalise kind variables, except for the bound ones
 
 -- | A list of type parameters
 type TypeParams = Params Kind
 
 -- | A class of types which can be generalised
 class TypeGeneralisable a where
-    generaliseType :: HS.HashSet Ident -> ParamsMap Kind -> a -> a -- ^ Generalise type variables, except for the bound ones
+    generaliseType :: ParamsMap Kind -> a -> a -- ^ Generalise type variables, except for the bound ones
 
 -- | A class of types which have a sort
 class WithSort a where
@@ -207,13 +207,13 @@ instance KindSubstitutable KindSignature where
                 }
 
 instance KindGeneralisable KindSignature where
-    generaliseKind boundVars kindMapping sig@KindSignature { getKindSignatureKindParams = kindParams
-                                                           , getKindSignatureKind = kind
-                                                           } =
+    generaliseKind kindMapping sig@KindSignature { getKindSignatureKindParams = kindParams
+                                                 , getKindSignatureKind = kind
+                                                 } =
         let freeVars = getFreeVariables kind
          in sig
                 { getKindSignatureKindParams =
-                      generaliseParams boundVars kindMapping freeVars kindParams
+                      generaliseParams kindMapping freeVars kindParams
                 }
 
 -- | Creates a kind signature
@@ -274,15 +274,15 @@ instance KindSubstitutable TypeConstructorSignature where
                 }
 
 instance KindGeneralisable TypeConstructorSignature where
-    generaliseKind boundVars kindMapping sig@TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
-                                                                      , getTypeConstructorSignatureKind = kind
-                                                                      , getTypeConstructorSignatureTypeParams = typeParams
-                                                                      } =
+    generaliseKind kindMapping sig@TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
+                                                            , getTypeConstructorSignatureKind = kind
+                                                            , getTypeConstructorSignatureTypeParams = typeParams
+                                                            } =
         let freeVars =
                 HS.unions . map getFreeVariables $ kind : map snd typeParams
          in sig
                 { getTypeConstructorSignatureKindParams =
-                      generaliseParams boundVars kindMapping freeVars kindParams
+                      generaliseParams kindMapping freeVars kindParams
                 }
 
 -- | Creates a type constructor signature
@@ -354,15 +354,15 @@ instance KindSubstitutable TypeSignature where
                 }
 
 instance KindGeneralisable TypeSignature where
-    generaliseKind boundVars kindMapping sig@TypeSignature { getTypeSignatureKindParams = kindParams
-                                                           , getTypeSignatureKind = kind
-                                                           , getTypeSignatureTypeParams = typeParams
-                                                           } =
+    generaliseKind kindMapping sig@TypeSignature { getTypeSignatureKindParams = kindParams
+                                                 , getTypeSignatureKind = kind
+                                                 , getTypeSignatureTypeParams = typeParams
+                                                 } =
         let freeVars =
                 HS.unions . map getFreeVariables $ kind : map snd typeParams
          in sig
                 { getTypeSignatureKindParams =
-                      generaliseParams boundVars kindMapping freeVars kindParams
+                      generaliseParams kindMapping freeVars kindParams
                 }
 
 instance TypeSubstitutable TypeSignature where
@@ -384,16 +384,16 @@ instance TypeSubstitutable TypeSignature where
                 }
 
 instance TypeGeneralisable TypeSignature where
-    generaliseType boundVars typeMapping sig@TypeSignature { getTypeSignatureTypeParams = typeParams
-                                                           , getTypeSignatureType = type'
-                                                           , getTypeSignatureContext = context
-                                                           } =
+    generaliseType typeMapping sig@TypeSignature { getTypeSignatureTypeParams = typeParams
+                                                 , getTypeSignatureType = type'
+                                                 , getTypeSignatureContext = context
+                                                 } =
         let freeVars =
                 HS.unions $
                 getFreeVariables type' : map getFreeVariables context
          in sig
                 { getTypeSignatureTypeParams =
-                      generaliseParams boundVars typeMapping freeVars typeParams
+                      generaliseParams typeMapping freeVars typeParams
                 }
 
 -- | Creates a type signature
@@ -434,16 +434,10 @@ removeBoundParams :: HS.HashSet Ident -> Params a -> Params a
 removeBoundParams freeVars = filter (\(name, _) -> name `HS.member` freeVars)
 
 -- | Generalises free variables
-generaliseParams ::
-       HS.HashSet Ident
-    -> ParamsMap a
-    -> HS.HashSet Ident
-    -> Params a
-    -> Params a
-generaliseParams boundVars paramsMapping freeVars params =
+generaliseParams :: ParamsMap a -> HS.HashSet Ident -> Params a -> Params a
+generaliseParams paramsMapping freeVars params =
     let existingVars = HS.fromList $ map fst params
-        boundAndExistingVars = boundVars `HS.union` existingVars
-        shouldGeneralise = freeVars `HS.difference` boundAndExistingVars
+        shouldGeneralise = freeVars `HS.difference` existingVars
         newParams =
             map (\var -> (var, fromJust $ HM.lookup var paramsMapping)) $
             HS.toList shouldGeneralise

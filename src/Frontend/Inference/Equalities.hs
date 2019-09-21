@@ -15,12 +15,11 @@ import Control.Monad.Trans.Reader (ReaderT, asks, local, runReaderT)
 import Control.Monad.Trans.Writer.Lazy (WriterT, runWriterT, tell)
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
-import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Expression (External(..))
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
+import Frontend.Inference.Type.Ast (External(..))
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.Position
 
@@ -374,10 +373,10 @@ specialiseTypeSignature ((expectedKind, expectedSort), kindSubstitution) sig = d
     let typeVariables = HM.fromList specialisedType
         typeSubstitution = HM.map (\(t, _, _) -> t) typeVariables
         resultType = substitute typeSubstitution (getType sig)
-        constraints = getContext sig
-    -- Ensure correctness of the context
-    mapM_ (writeConstraintEqualities typeVariables) constraints
-    writeTypeConstraints constraints
+        resultConstraints =
+            map (substituteType typeSubstitution) (getContext sig)
+    -- Save constraint information
+    writeTypeConstraints resultConstraints
     -- Saves information about the kind
     writeHasKindEqualities [(resultType, resKind)]
     return
@@ -410,31 +409,3 @@ specialiseExpressionSignature ::
 specialiseExpressionSignature signature = do
     kind <- specialiseDataTypeSignature signature
     specialiseTypeSignature kind signature
-
--- | Writes equalities of a type constraint
-writeConstraintEqualities ::
-       TypeVariables -> Constraint -> EqualitiesGenerator ()
-writeConstraintEqualities tv constraint = do
-    let lookupVariable type' =
-            case type' of
-                TypeVar name -> (\(_, k, _) -> k) . fromJust $ HM.lookup name tv
-                _ -> error "Unexpected type in a constraint"
-        getClassParameter constr =
-            case constr of
-                ConstraintVariable className var ->
-                    return (className, lookupVariable var)
-                ConstraintAppliedVariable className var varArgs -> do
-                    let varKind = lookupVariable var
-                    -- TODO: This will likely throw an error in most cases
-                    -- This block will be rewritten
-                    resKind <- liftGen generateKindVariable
-                    let args = fmap lookupVariable varArgs
-                        gotKind = foldr KindFunction resKind args
-                    writeKindEqualities [(varKind, gotKind)]
-                    return (className, resKind)
-    (className, resKind) <- getClassParameter constraint
-    classSignature <-
-        lookupTypeConstructorSignature (withDummyLocation className)
-    let expectedKind = getFullKind classSignature
-        gotKind = KindFunction resKind KindStar
-    writeKindEqualities [(gotKind, expectedKind)]

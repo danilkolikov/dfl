@@ -23,7 +23,6 @@ compileSourceFile = do
         initialDesugaringState = emptyDesugaringState
         initialKindInferenceState = defaultKindSignatures
         initialTypeSynonyms = defaultTypeSynonyms
-        initialTypeInferenceState = defaultTypeSignatures
     fileName <- getSourceFileName
     fileContent <- readFileContent fileName
     lexems <- traceStep $ lexicalAnalysis fileName fileContent
@@ -40,17 +39,10 @@ compileSourceFile = do
     ExpandTypeSynonymsOutput {getExpandTypeSynonymSignatures = expandedTypeSynonyms} <-
         traceStep $
         expandTypeSynonyms desugared inferredKinds initialTypeSynonyms
-    inferredTypes <-
-        traceStepWithDebugOutput $
-        inferTypes
-            desugared
-            inferredKinds
-            expandedTypeSynonyms
-            initialTypeInferenceState
     writeOutput
         Output
             { getInfixOperators = infixOperators
             , getInferredKinds = inferredKinds
             , getExpandedTypeSynonyms = expandedTypeSynonyms
-            , getInferredTypes = inferredTypes
+            , getInferredTypes = HM.empty
             }

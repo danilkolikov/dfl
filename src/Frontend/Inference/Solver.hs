@@ -87,16 +87,15 @@ applyTypeSolution solution@Solution {getSolutionTypeSubstitution = typeSubstitut
 -- | and generalises the result
 applyKindSolutionAndGeneralise ::
        (SortSubstitutable a, KindSubstitutable a, KindGeneralisable a)
-    => HS.HashSet Ident
-    -> Solution
+    => Solution
     -> a
     -> a
-applyKindSolutionAndGeneralise boundVars solution@Solution { getSolutionKindSubstitution = kindSubstitution
-                                                           , getSolutionSortOfKindVariables = sortOfKindVariables
-                                                           } =
-    applySortSolution solution .
-    generaliseKind boundVars sortOfKindVariables .
-    substituteKind kindSubstitution
+applyKindSolutionAndGeneralise solution
+    | Solution { getSolutionKindSubstitution = kindSubstitution
+               , getSolutionSortOfKindVariables = sortOfKindVariables
+               } <- solution =
+        applySortSolution solution .
+        generaliseKind sortOfKindVariables . substituteKind kindSubstitution
 
 -- | Applies the solution of a system to the object, supporting substitution of sorts, kinds and types,
 -- | and generalises the result
@@ -107,27 +106,24 @@ applyTypeSolutionAndGeneralise ::
        , TypeSubstitutable a
        , TypeGeneralisable a
        )
-    => HS.HashSet Ident
-    -> Solution
+    => Solution
     -> a
     -> a
-applyTypeSolutionAndGeneralise boundTypeVars solution@Solution { getSolutionTypeSubstitution = typeSubstitution
-                                                               , getSolutionKindOfTypeVariables = kindOfTypeVariables
-                                                               } =
-    let boundKindVars = HS.empty -- All kind variables are unbound
-     in applyKindSolutionAndGeneralise boundKindVars solution .
-        generaliseType boundTypeVars kindOfTypeVariables .
-        substituteType typeSubstitution
+applyTypeSolutionAndGeneralise solution
+    | Solution { getSolutionTypeSubstitution = typeSubstitution
+               , getSolutionKindOfTypeVariables = kindOfTypeVariables
+               } <- solution =
+        applyKindSolutionAndGeneralise solution .
+        generaliseType kindOfTypeVariables . substituteType typeSubstitution
 
 -- | Applies kind solutions and sets kinds of free type variables
 applyKindSolutionAndSetTypeVariables ::
        [Ident]
-    -> HS.HashSet Ident
     -> Solution
     -> TypeConstructorSignature
     -> TypeConstructorSignature
-applyKindSolutionAndSetTypeVariables vars def sol signature =
-    let kindApplied = applyKindSolutionAndGeneralise def sol signature
+applyKindSolutionAndSetTypeVariables vars sol signature =
+    let kindApplied = applyKindSolutionAndGeneralise sol signature
         combinedKind = getTypeConstructorSignatureKind kindApplied
         cutVars [] kind = ([], kind)
         cutVars (name:rest) kind =

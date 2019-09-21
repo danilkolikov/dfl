@@ -17,6 +17,7 @@ module Frontend.Inference.InferenceProcessor
     , EqualitiesBuilder
     , DependencyGraphBuilder
     , inferMultipleGroups
+    , inferMultipleGroupsGeneric
     , inferSingleGroup
     ) where
 
@@ -32,8 +33,8 @@ import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
 -- | A processor of inference of multiple groups
-type InferenceProcessor a s
-     = WithDebugOutputT InferenceError (InferenceDebugOutput a s) VariableGenerator
+type InferenceProcessor a o
+     = WithDebugOutputT InferenceError (InferenceDebugOutput a o) VariableGenerator (Signatures o)
 
 -- | A debug output of inference of multiple groups
 data InferenceDebugOutput a s = InferenceDebugOutput
@@ -90,8 +91,8 @@ instance Monoid (SingleGroupInferenceDebugOutput a s) where
             }
 
 -- | Output of a process of building of equalities
-type EqualitiesBuilderOutput s
-     = Either EqualitiesGenerationError (Solution -> s, Equalities)
+type EqualitiesBuilderOutput o
+     = Either EqualitiesGenerationError (Solution -> o, Equalities)
 
 -- | A function which builds a system of equalities
 type EqualitiesBuilder a s o
@@ -103,12 +104,22 @@ type DependencyGraphBuilder a s
 
 -- | Infer signatures of multiple (possibly mutually dependent) groups
 inferMultipleGroups ::
+      DependencyGraphBuilder a s
+   -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures s)
+   -> Signatures s
+   -> HM.HashMap Ident a
+   -> InferenceProcessor a s
+inferMultipleGroups = inferMultipleGroupsGeneric id
+
+-- | Infer signatures of multiple (possibly mutually dependent) groups with generic output
+inferMultipleGroupsGeneric ::
+    (o -> s) ->
        DependencyGraphBuilder a s
-    -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures s)
+    -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures o)
     -> Signatures s
     -> HM.HashMap Ident a
-    -> InferenceProcessor a s (Signatures s)
-inferMultipleGroups buildDependencyGraph buildEqualities definedSignatures groups = do
+    -> InferenceProcessor a o
+inferMultipleGroupsGeneric outputMapper buildDependencyGraph buildEqualities definedSignatures groups = do
     writeDebugOutput mempty {getInferenceDebugOutputInput = Just groups}
     -- Get a dependency graph
     let dependencyGraph = buildDependencyGraph definedSignatures groups
@@ -116,7 +127,7 @@ inferMultipleGroups buildDependencyGraph buildEqualities definedSignatures group
         mempty {getInferenceDebugOutputDependencyGraph = Just dependencyGraph}
     -- Find dependency groups and infer each one
     let buildEqualitiesWithSignatures extraSignatures =
-            buildEqualities (definedSignatures <> extraSignatures)
+            buildEqualities (definedSignatures <> HM.map outputMapper extraSignatures)
         selectGroup group = HM.filterWithKey (\k _ -> HS.member k group) groups
         inferenceStep state group =
             mapDebugOutput return $ do

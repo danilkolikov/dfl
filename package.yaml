@@ -103,13 +103,9 @@ library:
   - Frontend.Inference.Sort
   - Frontend.Inference.Substitution
   - Frontend.Inference.Type
-  - Frontend.Inference.Type.Classes
-  - Frontend.Inference.Type.DataTypes
+  - Frontend.Inference.Type.Ast
   - Frontend.Inference.Type.Equalities
-  - Frontend.Inference.Type.Instances.Checker
-  - Frontend.Inference.Type.Instances.Processor
   - Frontend.Inference.Type.Processor
-  - Frontend.Inference.Type.Signatures
   - Frontend.Inference.Type.WithDependencies
   - Frontend.Inference.TypeSynonyms.Base
   - Frontend.Inference.TypeSynonyms.Dependencies

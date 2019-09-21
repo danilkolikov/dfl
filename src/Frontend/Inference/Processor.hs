@@ -10,20 +10,16 @@ module Frontend.Inference.Processor
     ( CombinedInferenceError(..)
     , InferenceError(..)
     , InferenceDebugOutput(..)
-    , Type.TypeInferenceDebugOutput(..)
-    , Type.TypeSignatures(..)
     , ExpandTypeSynonymsOutput(..)
     , TypeSynonymsProcessingError(..)
     , Signatures
     , TypeConstructorSignature
     , TypeSignature
     , Kind.KindInferenceEnvironmentItem(..)
-    , defaultTypeSignatures
     , defaultTypeSynonyms
     , defaultKindSignatures
     , inferKinds
     , expandTypeSynonyms
-    , inferTypes
     ) where
 
 import Data.Bifunctor (bimap, first)
@@ -35,7 +31,6 @@ import Frontend.Inference.BuiltIns
 import qualified Frontend.Inference.InferenceProcessor as I
 import qualified Frontend.Inference.Kind.Base as Kind
 import Frontend.Inference.Signature
-import qualified Frontend.Inference.Type.Processor as Type
 import Frontend.Inference.TypeSynonyms.Processor
 
 -- | Errors which can be encounterd during inference
@@ -69,15 +64,3 @@ expandTypeSynonyms ::
 expandTypeSynonyms _ _ _ =
     bimap CombinedInferenceErrorTypeSynonyms ExpandTypeSynonymsOutput $
     error "TODO: rewrite this method"
-
--- | Infers types of a modules
-inferTypes ::
-       Module
-    -> Signatures TypeConstructorSignature
-    -> Signatures TypeSignature
-    -> Type.TypeSignatures
-    -> ( Either CombinedInferenceError Type.TypeSignatures
-       , Type.TypeInferenceDebugOutput)
-inferTypes module' signatures typeSynonyms initial =
-    first (first CombinedInferenceErrorTypeInference) $
-    Type.inferTypes signatures typeSynonyms initial module'

@@ -15,7 +15,6 @@ module Frontend.Inference.Kind.Base
     ) where
 
 import qualified Data.HashMap.Lazy as HM
-import qualified Data.HashSet as HS
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Equalities
@@ -35,9 +34,9 @@ inferKindsOfModule ::
     -> ( Either InferenceError (Signatures TypeConstructorSignature)
        , InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
 inferKindsOfModule initialState F.Module { F.getModuleDataTypes = dataTypes
-                                 , F.getModuleTypeSynonyms = typeSynonyms
-                                 , F.getModuleClasses = classes
-                                 } =
+                                         , F.getModuleTypeSynonyms = typeSynonyms
+                                         , F.getModuleClasses = classes
+                                         } =
     let environment = prepareEnvironment typeSynonyms dataTypes classes
         applySolution result solution =
             HM.map (`applySolutionToSingleResult` solution) result
@@ -102,12 +101,7 @@ applySolutionToSingleResult ::
     -> Solution
     -> TypeConstructorSignature
 applySolutionToSingleResult (signature, params) solution =
-    let boundVariables = HS.empty
-     in applyKindSolutionAndSetTypeVariables
-            params
-            boundVariables
-            solution
-            signature
+    applyKindSolutionAndSetTypeVariables params solution signature
 
 -- | Generates equalities for a single group, without substituting results
 buildEqualitiesForChecking ::

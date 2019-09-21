@@ -6,11 +6,23 @@ License     :  MIT
 
 Modified version of AST with let expressions removed
 -}
-module Frontend.Inference.Let.Ast where
+module Frontend.Inference.Let.Ast
+    ( Const(..)
+    , Ident(..)
+    , IdentEnvironment(..)
+    , Expression(..)
+    , Expressions
+    , Exp(..)
+    ) where
 
+import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Desugaring.Final.Ast (Const, Ident)
+import Frontend.Desugaring.Final.Ast
+    ( Const(..)
+    , Ident(..)
+    , IdentEnvironment(..)
+    )
 import Frontend.Inference.Signature
 import Frontend.Syntax.Position
 
@@ -20,6 +32,8 @@ data Expression = Expression
     , getExpressionBody :: WithLocation Exp -- ^ Body of an expression
     , getExpressionType :: Maybe TypeSignature -- ^ Optional type signature
     } deriving (Show, Eq)
+
+type Expressions = HM.HashMap Ident Expression
 
 -- | Expression
 data Exp

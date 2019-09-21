@@ -13,9 +13,7 @@ import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
 import Frontend.Inference.Base.Common
-import Frontend.Inference.Expression
 import Frontend.Inference.Signature
-import Frontend.Inference.Type.Processor
 import Frontend.Syntax.EntityName
 
 -- | Makes a pair of ident and object
@@ -61,20 +59,6 @@ defaultKindSignatures =
 -- | Default signatures for type synonyms
 defaultTypeSynonyms :: Signatures TypeSignature
 defaultTypeSynonyms = HM.empty
-
--- | Default signatures of expression
-defaultTypeSignatures :: TypeSignatures
-defaultTypeSignatures =
-    TypeSignatures
-        { getTypeSignaturesConstructors = defaultConstructors
-        , getTypeSignaturesMethods = HM.empty -- No default methods now
-        , getTypeSignaturesExpressions =
-              HM.mapWithKey
-                  (\name val -> (ExpVar name, val)) -- As a temporary fix
-                  defaultExpressions
-        , getTypeSignaturesClasses = HM.empty -- No default classes now
-        , getTypeSignaturesInstances = [] -- No default instances now
-        }
 
 -- | Default constructors
 defaultConstructors :: Signatures TypeSignature

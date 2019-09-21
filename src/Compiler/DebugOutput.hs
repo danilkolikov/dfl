@@ -13,7 +13,6 @@ import qualified Frontend.Inference.InferenceProcessor as I
 import Frontend.Inference.Processor
     ( ExpandTypeSynonymsOutput
     , InferenceDebugOutput(..)
-    , TypeInferenceDebugOutput(..)
     )
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
@@ -32,7 +31,6 @@ import qualified Compiler.Prettify.NewInferenceDebugOutput as New
     ( prettifyInferenceDebugOutput
     )
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
-import Compiler.Prettify.TypeSignatures (prettifyTypeInferenceDebugOutput)
 import Compiler.Prettify.Utils
 
 -- | Debug output of a step
@@ -89,9 +87,3 @@ instance HasDebugOutput ExpandTypeSynonymsOutput where
         DebugOutput
             (prettifyExpandTypeSynonymsOutput a)
             DebugOutputTypeTypeSynonyms
-
-instance HasDebugOutput TypeInferenceDebugOutput where
-    getDebugOutput a =
-        DebugOutput
-            (prettifyTypeInferenceDebugOutput a)
-            DebugOutputTypeInferredTypes
