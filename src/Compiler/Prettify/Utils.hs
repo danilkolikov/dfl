@@ -74,6 +74,7 @@ instance Prettifiable IdentEnvironment where
             IdentEnvironmentSortVariable -> "sort"
             IdentEnvironmentInstances -> "instance"
             IdentEnvironmentLet -> "let"
+            IdentEnvironmentTranslation -> "translation"
 
 prettifyForAll :: [(Ident, a)] -> String
 prettifyForAll [] = ""

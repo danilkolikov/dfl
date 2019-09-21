@@ -16,6 +16,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.AlgebraicExp
+import Frontend.Inference.Constraint
 import Frontend.Inference.Equalities
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
@@ -183,11 +184,13 @@ solveEqualities' equalities@Equalities { getTypeEqualities = typeEqualities
         kindOfTypeVariables = makeMapping kindSubstitution hasKindEqualities
         sortOfKindVariables =
             makeMapping fixedSortSubstitution hasSortEqualities
+        substitutedConstraints =
+            mapMaybe (substituteConstraint typeSubstitution) typeConstraints
     writeDebugOutput
         mempty
             { getSolverDebugOutputKindOfTypeVariables = Just kindOfTypeVariables
             , getSolverDebugOutputSortOfKindVariables = Just sortOfKindVariables
-            , getSolverDebugOutputTypeConstraints = Just typeConstraints -- Type constraints are unchanged
+            , getSolverDebugOutputTypeConstraints = Just substitutedConstraints
             }
     return
         Solution
@@ -196,7 +199,7 @@ solveEqualities' equalities@Equalities { getTypeEqualities = typeEqualities
             , getSolutionSortSubstitution = fixedSortSubstitution
             , getSolutionKindOfTypeVariables = kindOfTypeVariables
             , getSolutionSortOfKindVariables = sortOfKindVariables
-            , getSolutionTypeConstraints = typeConstraints
+            , getSolutionTypeConstraints = substitutedConstraints
             }
 
 -- | Create additional equalities between sorts using a solution for kind equalities

@@ -38,7 +38,7 @@ inferTypesOfExpressions initialState expressions =
         initialState
         expressions
 
--- | Builds dependency graph for provided environment items
+-- | Builds dependency graph for provided expressions
 buildDependencyGraph :: DependencyGraphBuilder L.Expression TypeSignature
 buildDependencyGraph signatures =
     getExpressionsDependencyGraph (HM.keysSet signatures)
@@ -61,6 +61,6 @@ applySolution :: Solution -> (T.Exp, TypeSignature) -> (T.Exp, TypeSignature)
 applySolution sol (exp', typeSig) =
     let appliedExp = applyTypeSolution sol exp'
         appliedTypeSig = applyTypeSolutionAndGeneralise sol typeSig
-        constraints = error "TODO: substitute constraints"
+        constraints = getSolutionTypeConstraints sol
         finalTypeSig = appliedTypeSig {getTypeSignatureContext = constraints}
      in (appliedExp, finalTypeSig)

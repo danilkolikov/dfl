@@ -8,8 +8,8 @@ Module with the definition of a type constraint
 -}
 module Frontend.Inference.Constraint where
 
-import qualified Data.HashSet as HS
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 
@@ -18,9 +18,9 @@ import qualified Frontend.Desugaring.Final.Ast as F
     ( Constraint(..)
     , SimpleConstraint(..)
     )
+import Frontend.Inference.Substitution
 import Frontend.Inference.Type
 import Frontend.Inference.WithVariables
-import Frontend.Inference.Substitution
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | A type constraint
@@ -83,3 +83,33 @@ substituteVariables sub constraint =
                     cls
                     (makeNewVar var)
                     (fmap (substitute typeSub) args)
+
+-- | Substitutes variables in a constraint and returns a result, only if it's valid
+substituteConstraint :: Substitution Type -> Constraint -> Maybe Constraint
+substituteConstraint sub constr =
+    case constr of
+        ConstraintVariable cls var ->
+            case HM.lookup var sub of
+                Nothing -> Just constr
+                Just t ->
+                    case t of
+                        TypeVar newVar -> Just $ ConstraintVariable cls newVar
+                        TypeConstr _ -> Nothing -- Not a valid constraint
+                        TypeFunction _ _ -> Nothing -- Not a valid constraint,
+                                                    -- because it's an application of a "constructor"
+                        TypeApplication func args ->
+                            processApplication cls func args
+        ConstraintAppliedVariable cls var args ->
+            case HM.lookup var sub of
+                Nothing -> Just constr
+                Just t -> processApplication cls t args
+  where
+    processApplication :: Ident -> Type -> NE.NonEmpty Type -> Maybe Constraint
+    processApplication cls type' args =
+        case type' of
+            TypeVar newVar -> Just $ ConstraintAppliedVariable cls newVar args
+            TypeConstr _ -> Nothing -- Not a valid constraint
+            TypeFunction _ _ -> Nothing -- Not a valid constraint,
+                                        -- because it's an application of a "constructor"
+            TypeApplication func (first NE.:| rest) ->
+                processApplication cls func (first NE.:| rest ++ NE.toList args)
