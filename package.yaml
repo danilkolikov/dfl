@@ -95,6 +95,8 @@ library:
   - Frontend.Inference.Kind.Equalities
   - Frontend.Inference.Kind.Processor
   - Frontend.Inference.Kind.WithDependencies
+  - Frontend.Inference.Let.Ast
+  - Frontend.Inference.Let.Processor
   - Frontend.Inference.Processor
   - Frontend.Inference.Signature
   - Frontend.Inference.Solver

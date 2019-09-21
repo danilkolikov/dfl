@@ -27,6 +27,7 @@ data IdentEnvironment
     | IdentEnvironmentKindVariable -- ^ Identifiers, generated for kind variables
     | IdentEnvironmentSortVariable -- ^ Identifiers, generated for sort variables
     | IdentEnvironmentInstances -- ^ Identifiers, generated during type inference of instances
+    | IdentEnvironmentLet -- ^ Identifiers, generated during desugaring of let expressions
     deriving (Generic, Eq, Ord, Show)
 
 instance Hashable IdentEnvironment

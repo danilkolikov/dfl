@@ -9,10 +9,12 @@ Modified version of AST, produced by kind inference with included kind informati
 module Frontend.Inference.Kind.Ast where
 
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast (Const, Ident, SimpleConstraint)
 import Frontend.Inference.Signature
+import Frontend.Inference.WithVariables
 import Frontend.Syntax.Position
 
 -- | A slice of a module with kind information
@@ -88,3 +90,28 @@ data Exp
     | ExpConstr (WithLocation Ident) -- ^ Constructor
     | ExpConst (WithLocation Const) -- ^ Constant
     deriving (Show, Eq)
+
+instance WithVariables Exp where
+    getVariableName (ExpVar name) = Just $ getValue name
+    getVariableName _ = Nothing
+    getFreeVariables exp' =
+        case exp' of
+            ExpVar name -> HS.singleton (getValue name)
+            ExpConst _ -> HS.empty
+            ExpConstr _ -> HS.empty
+            ExpApplication func args ->
+                HS.unions . map (getFreeVariables . getValue) $
+                func : NE.toList args
+            ExpAbstraction var inner ->
+                HS.delete (getValue var) $ getFreeVariables (getValue inner)
+            ExpCase _ _ params ifTrue _ ->
+                foldr
+                    (HS.delete . getValue)
+                    (getFreeVariables $ getValue ifTrue)
+                    params
+            ExpLet exprs inner ->
+                let exprsFree =
+                        HS.unions . map (getFreeVariables . getValue) $
+                        inner : map getExpressionBody (HM.elems exprs)
+                    bound = HM.keysSet exprs
+                 in exprsFree `HS.difference` bound
