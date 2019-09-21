@@ -8,8 +8,8 @@ Processors of kind and type inference
 -}
 module Frontend.Inference.Processor
     ( CombinedInferenceError(..)
-    , InferenceError(..)
-    , InferenceDebugOutput(..)
+    , I.InferenceError(..)
+    , I.InferenceDebugOutput(..)
     , ExpandTypeSynonymsOutput(..)
     , TypeSynonymsProcessingError(..)
     , Signatures
@@ -25,8 +25,6 @@ module Frontend.Inference.Processor
 import Data.Bifunctor (bimap, first)
 
 import Frontend.Desugaring.Final.Ast (Module(..))
-import Frontend.Inference.Base.Common
-import Frontend.Inference.Base.DebugOutput
 import Frontend.Inference.BuiltIns
 import qualified Frontend.Inference.InferenceProcessor as I
 import qualified Frontend.Inference.Kind.Base as Kind
@@ -35,9 +33,8 @@ import Frontend.Inference.TypeSynonyms.Processor
 
 -- | Errors which can be encounterd during inference
 data CombinedInferenceError
-    = CombinedInferenceErrorKindInference I.InferenceError -- ^ Kind inference error
+    = CombinedInferenceErrorInference I.InferenceError -- ^ Inference error
     | CombinedInferenceErrorTypeSynonyms TypeSynonymsProcessingError -- ^ An error of type synonyms expanding
-    | CombinedInferenceErrorTypeInference InferenceError -- ^ Type inference error
     deriving (Eq, Show)
 
 -- | Infer kinds of types in a module
@@ -47,7 +44,7 @@ inferKinds ::
     -> ( Either CombinedInferenceError (Signatures TypeConstructorSignature)
        , I.InferenceDebugOutput Kind.KindInferenceEnvironmentItem TypeConstructorSignature)
 inferKinds module' state =
-    first (first CombinedInferenceErrorKindInference) $
+    first (first CombinedInferenceErrorInference) $
     Kind.inferKindsOfModule state module'
 
 -- | Output of a step that expands type synonyms

@@ -12,7 +12,6 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
-import Frontend.Inference.Base.Common
 import Frontend.Inference.Signature
 import Frontend.Syntax.EntityName
 

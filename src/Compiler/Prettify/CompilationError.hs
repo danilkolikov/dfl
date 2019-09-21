@@ -15,7 +15,6 @@ import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
-import Frontend.Inference.Base.Common
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Processor
@@ -162,19 +161,15 @@ prettifyExpressionDesugaringError expressionError =
 prettifyCombinedInferenceError :: CombinedInferenceError -> String
 prettifyCombinedInferenceError err =
     case err of
-        CombinedInferenceErrorKindInference infErr ->
-            prettifyInferenceError "Kind inference error: " infErr
+        CombinedInferenceErrorInference infErr ->
+            prettifyInferenceError "Inference error: " infErr
         CombinedInferenceErrorTypeSynonyms typeSynonymsErr ->
             prettifyTypeSynonymsProcessingError typeSynonymsErr
-        CombinedInferenceErrorTypeInference infErr ->
-            prettifyInferenceError "Type inference error: " infErr
 
 prettifyInferenceError :: String -> InferenceError -> String
 prettifyInferenceError label err =
     label ++
     case err of
-        InferenceErrorSynonyms expErr ->
-            prettifyTypeSynonymsExpandingError expErr
         InferenceErrorDependencyResolution dependencyError ->
             prettifyDependencyError dependencyError
         InferenceErrorUnification unificationError ->

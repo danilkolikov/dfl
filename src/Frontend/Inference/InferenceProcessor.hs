@@ -25,16 +25,24 @@ import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
-import Frontend.Inference.Base.Common (InferenceError(..), Signatures)
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
+import Frontend.Inference.Signature (Signatures)
 import Frontend.Inference.Solver
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
+import Frontend.Inference.Unification
 
 -- | A processor of inference of multiple groups
 type InferenceProcessor a o
      = WithDebugOutputT InferenceError (InferenceDebugOutput a o) VariableGenerator (Signatures o)
+
+-- | A type of errors which may be encountered during type inference
+data InferenceError
+    = InferenceErrorDependencyResolution DependencyResolverError -- ^ An error happened during resolution of dependency groups
+    | InferenceErrorEqualityGeneration EqualitiesGenerationError -- ^ An error happened during generation of equalities for a single group
+    | InferenceErrorUnification UnificationError -- ^ An error happened during unification
+    deriving (Eq, Show)
 
 -- | A debug output of inference of multiple groups
 data InferenceDebugOutput a s = InferenceDebugOutput
@@ -104,17 +112,17 @@ type DependencyGraphBuilder a s
 
 -- | Infer signatures of multiple (possibly mutually dependent) groups
 inferMultipleGroups ::
-      DependencyGraphBuilder a s
-   -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures s)
-   -> Signatures s
-   -> HM.HashMap Ident a
-   -> InferenceProcessor a s
+       DependencyGraphBuilder a s
+    -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures s)
+    -> Signatures s
+    -> HM.HashMap Ident a
+    -> InferenceProcessor a s
 inferMultipleGroups = inferMultipleGroupsGeneric id
 
 -- | Infer signatures of multiple (possibly mutually dependent) groups with generic output
 inferMultipleGroupsGeneric ::
-    (o -> s) ->
-       DependencyGraphBuilder a s
+       (o -> s)
+    -> DependencyGraphBuilder a s
     -> EqualitiesBuilder (HM.HashMap Ident a) s (Signatures o)
     -> Signatures s
     -> HM.HashMap Ident a
@@ -127,7 +135,8 @@ inferMultipleGroupsGeneric outputMapper buildDependencyGraph buildEqualities def
         mempty {getInferenceDebugOutputDependencyGraph = Just dependencyGraph}
     -- Find dependency groups and infer each one
     let buildEqualitiesWithSignatures extraSignatures =
-            buildEqualities (definedSignatures <> HM.map outputMapper extraSignatures)
+            buildEqualities
+                (definedSignatures <> HM.map outputMapper extraSignatures)
         selectGroup group = HM.filterWithKey (\k _ -> HS.member k group) groups
         inferenceStep state group =
             mapDebugOutput return $ do

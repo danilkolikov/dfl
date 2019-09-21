@@ -9,7 +9,6 @@ Debug output of the DFL compiler
 module Compiler.DebugOutput where
 
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import qualified Frontend.Inference.InferenceProcessor as I
 import Frontend.Inference.Processor
     ( ExpandTypeSynonymsOutput
     , InferenceDebugOutput(..)
@@ -27,9 +26,6 @@ import Compiler.Prettify.ExpandTypeSynonymsOutput
     )
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
 import Compiler.Prettify.InferenceDebugOutput (prettifyInferenceDebugOutput)
-import qualified Compiler.Prettify.NewInferenceDebugOutput as New
-    ( prettifyInferenceDebugOutput
-    )
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
 import Compiler.Prettify.Utils
 
@@ -69,17 +65,11 @@ instance HasDebugOutput DesugaringOutput where
     getDebugOutput a =
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
-instance HasDebugOutput InferenceDebugOutput where
+instance (Prettifiable a, Prettifiable s) =>
+         HasDebugOutput (InferenceDebugOutput a s) where
     getDebugOutput a =
         DebugOutput
             (prettifyInferenceDebugOutput a)
-            DebugOutputTypeInferredKinds
-
-instance (Prettifiable a, Prettifiable s) =>
-         HasDebugOutput (I.InferenceDebugOutput a s) where
-    getDebugOutput a =
-        DebugOutput
-            (New.prettifyInferenceDebugOutput a)
             DebugOutputTypeInferredKinds
 
 instance HasDebugOutput ExpandTypeSynonymsOutput where

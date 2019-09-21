@@ -6,15 +6,17 @@ License     :  MIT
 
 Function for resolution of dependencies of expressions
 -}
-module Frontend.Inference.Type.WithDependencies (getExpressionsDependencyGraph) where
+module Frontend.Inference.Type.WithDependencies
+    ( getExpressionsDependencyGraph
+    ) where
 
 import Control.Monad.Trans.Reader (Reader, ask, local, runReader)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Inference.Let.Ast
 import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
+import Frontend.Inference.Let.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Get graph of dependencies between expressions
