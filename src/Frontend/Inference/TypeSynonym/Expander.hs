@@ -1,15 +1,15 @@
 {- |
-Module      :  Frontend.Inference.TypeSynonyms.Expander
+Module      :  Frontend.Inference.TypeSynonym.Expander
 Description :  Functions for expanding type synonyms in AST
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Functions for expanding type synonyms in AST
 -}
-module Frontend.Inference.TypeSynonyms.Expander
+module Frontend.Inference.TypeSynonym.Expander
     ( expandModule
     , AstWithKinds(..)
-    , TypeSynonymsExpandingError(..)
+    , TypeSynonymExpandingError(..)
     ) where
 
 import Control.Monad (liftM2, when)
@@ -19,7 +19,7 @@ import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Inference.Kind.Ast
 import Frontend.Inference.Signature
-import Frontend.Inference.TypeSynonyms.Expand
+import Frontend.Inference.TypeSynonym.Expand
 import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables
 import Frontend.Syntax.Position
@@ -28,7 +28,7 @@ import Frontend.Syntax.Position
 expandModule ::
        HM.HashMap Ident TypeSignature
     -> AstWithKinds
-    -> Either TypeSynonymsExpandingError AstWithKinds
+    -> Either TypeSynonymExpandingError AstWithKinds
 expandModule signature ast =
     runTypeSynonymExpander signature $ expandModule' ast
 
@@ -86,7 +86,7 @@ expandInstance inst@Instance { getInstanceClass = className
                              } = do
     typeSynonyms <- ask
     when (getValue typeName `HM.member` typeSynonyms) . raiseError $
-        TypeSynonymsExpandingErrorSynonymInInstance className typeName
+        TypeSynonymExpandingErrorSynonymInInstance className typeName
     expandedMethods <- mapHashMapM expandExpression methods
     return inst {getInstanceMethods = expandedMethods}
 

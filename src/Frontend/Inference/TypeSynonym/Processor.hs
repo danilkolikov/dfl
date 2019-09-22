@@ -1,16 +1,16 @@
 {- |
-Module      :  Frontend.Inference.TypeSynonyms.Processor
+Module      :  Frontend.Inference.TypeSynonym.Processor
 Description :  Functions for expanding of type synonyms
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Processor of expanding of type synonyms inference
 -}
-module Frontend.Inference.TypeSynonyms.Processor
+module Frontend.Inference.TypeSynonym.Processor
     ( processTypeSynonyms
-    , TypeSynonymsDebugOutput(..)
-    , TypeSynonymsProcessingError(..)
-    , TypeSynonymsExpandingError(..)
+    , TypeSynonymProcessorDebugOutput(..)
+    , TypeSynonymProcessorError(..)
+    , TypeSynonymExpandingError(..)
     ) where
 
 import Control.Applicative ((<|>))
@@ -18,26 +18,26 @@ import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Signature
-import Frontend.Inference.TypeSynonyms.Base
-import Frontend.Inference.TypeSynonyms.Expander
+import Frontend.Inference.TypeSynonym.Base
+import Frontend.Inference.TypeSynonym.Expander
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
-type TypeSynonymsProcessor
-     = WithDebugOutput TypeSynonymsProcessingError TypeSynonymsDebugOutput
+type TypeSynonymProcessor
+     = WithDebugOutput TypeSynonymProcessorError TypeSynonymProcessorDebugOutput
 
 -- | A type of debug output of type synonym inference
-data TypeSynonymsDebugOutput = TypeSynonymsDebugOutput
-    { getTypeSynonymsDebugOutputSignatures :: Maybe (Signatures TypeSignature)
-    , getTypeSynonymsDebugOutputAst :: Maybe AstWithKinds
+data TypeSynonymProcessorDebugOutput = TypeSynonymProcessorDebugOutput
+    { getTypeSynonymProcessorDebugOutputSignatures :: Maybe (Signatures TypeSignature)
+    , getTypeSynonymProcessorDebugOutputAst :: Maybe AstWithKinds
     } deriving (Eq, Show)
 
-instance Semigroup TypeSynonymsDebugOutput where
-    TypeSynonymsDebugOutput s1 a1 <> TypeSynonymsDebugOutput s2 a2 =
-        TypeSynonymsDebugOutput (s1 <|> s2) (a1 <|> a2)
+instance Semigroup TypeSynonymProcessorDebugOutput where
+    TypeSynonymProcessorDebugOutput s1 a1 <> TypeSynonymProcessorDebugOutput s2 a2 =
+        TypeSynonymProcessorDebugOutput (s1 <|> s2) (a1 <|> a2)
 
-instance Monoid TypeSynonymsDebugOutput where
-    mempty = TypeSynonymsDebugOutput Nothing Nothing
+instance Monoid TypeSynonymProcessorDebugOutput where
+    mempty = TypeSynonymProcessorDebugOutput Nothing Nothing
 
 -- | Expands type synonyms in the provided AST
 processTypeSynonyms ::
@@ -45,9 +45,9 @@ processTypeSynonyms ::
     -> Signatures TypeSignature
     -> F.TypeSynonyms
     -> AstWithKinds
-    -> ( Either TypeSynonymsProcessingError ( Signatures TypeSignature
-                                            , AstWithKinds)
-       , TypeSynonymsDebugOutput)
+    -> ( Either TypeSynonymProcessorError ( Signatures TypeSignature
+                                          , AstWithKinds)
+       , TypeSynonymProcessorDebugOutput)
 processTypeSynonyms typeConstructorSignatures initialSignatures typeSynonyms ast =
     runWithDebugOutput $
     processTypeSynonyms'
@@ -61,7 +61,7 @@ processTypeSynonyms' ::
     -> Signatures TypeSignature
     -> F.TypeSynonyms
     -> AstWithKinds
-    -> TypeSynonymsProcessor (Signatures TypeSignature, AstWithKinds)
+    -> TypeSynonymProcessor (Signatures TypeSignature, AstWithKinds)
 processTypeSynonyms' typeConstructorSignatures initialSignatures typeSynonyms ast = do
     newSignatures <-
         wrapEither id $
@@ -70,10 +70,12 @@ processTypeSynonyms' typeConstructorSignatures initialSignatures typeSynonyms as
             initialSignatures
             typeSynonyms
     writeDebugOutput
-        mempty {getTypeSynonymsDebugOutputSignatures = Just newSignatures}
+        mempty
+            {getTypeSynonymProcessorDebugOutputSignatures = Just newSignatures}
     let allSignatures = initialSignatures <> newSignatures
     newAst <-
-        wrapEither TypeSynonymsProcessingErrorExpanding $
+        wrapEither TypeSynonymProcessorErrorExpanding $
         expandModule allSignatures ast
-    writeDebugOutput mempty {getTypeSynonymsDebugOutputAst = Just newAst}
+    writeDebugOutput
+        mempty {getTypeSynonymProcessorDebugOutputAst = Just newAst}
     return (newSignatures, newAst)

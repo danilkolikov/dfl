@@ -18,7 +18,7 @@ import Frontend.Desugaring.Processor
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Processor
-import Frontend.Inference.TypeSynonyms.Expand (TypeSynonymsExpandingError(..))
+import Frontend.Inference.TypeSynonym.Expand (TypeSynonymExpandingError(..))
 import Frontend.Inference.Unification
 import Frontend.Syntax.Position (WithLocation(WithLocation))
 import Frontend.Syntax.Processor
@@ -197,31 +197,31 @@ prettifyEqualitiesGenerationError groupError =
         EqualitiesGenerationErrorUnknownType name ->
             "Unknown type " ++ prettifyName name
 
-prettifyTypeSynonymsProcessingError :: TypeSynonymsProcessingError -> String
-prettifyTypeSynonymsProcessingError typeSynonymsErr =
+prettifyTypeSynonymProcessorError :: TypeSynonymProcessorError -> String
+prettifyTypeSynonymProcessorError typeSynonymsErr =
     "Type synonyms processing error: " ++
     case typeSynonymsErr of
-        TypeSynonymsProcessingErrorRecursive name ->
+        TypeSynonymProcessorErrorRecursive name ->
             "Type synonym " ++
             prettify name ++ " is recursive, which is not supported"
-        TypeSynonymsProcessingErrorMutuallyRecursive names ->
+        TypeSynonymProcessorErrorMutuallyRecursive names ->
             "Type synonyms " ++
             intercalate ", " (map prettify names) ++
             " are mutually recursive, which is not supported"
-        TypeSynonymsProcessingErrorDependencyResolution dependencyError ->
+        TypeSynonymProcessorErrorDependencyResolution dependencyError ->
             prettifyDependencyError dependencyError
-        TypeSynonymsProcessingErrorExpanding expandingError ->
-            prettifyTypeSynonymsExpandingError expandingError
+        TypeSynonymProcessorErrorExpanding expandingError ->
+            prettifyTypeSynonymExpandingError expandingError
 
-prettifyTypeSynonymsExpandingError :: TypeSynonymsExpandingError -> String
-prettifyTypeSynonymsExpandingError expErr =
+prettifyTypeSynonymExpandingError :: TypeSynonymExpandingError -> String
+prettifyTypeSynonymExpandingError expErr =
     "Type synonym expanding error: " ++
     case expErr of
-        TypeSynonymsExpandingErrorwWrongNumberOfArgs name expected got ->
+        TypeSynonymExpandingErrorwWrongNumberOfArgs name expected got ->
             "Wrong number of arguments of a type synonym " ++
             prettify name ++
             ", expected " ++ show expected ++ ", but got " ++ show got
-        TypeSynonymsExpandingErrorSynonymInInstance className typeName ->
+        TypeSynonymExpandingErrorSynonymInInstance className typeName ->
             "Type synonym " ++
             prettifyName typeName ++
             " is used in the instance of class " ++

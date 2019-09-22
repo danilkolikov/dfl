@@ -8,13 +8,12 @@ Module with definition of expressions.
 -}
 module Frontend.Inference.Expression where
 
-import Data.Bifunctor (bimap, first)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 
-import Frontend.Desugaring.Final.Ast (Const(..), Ident(..))
+import Frontend.Desugaring.Final.Ast (Const, Ident)
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Frontend.Inference.WithVariables
@@ -42,8 +41,6 @@ data Exp
     | ExpConst Const -- ^ Constant
     | ExpAbstraction Ident
                      Exp -- ^ Lambda-abstraction
-    | ExpLet Expressions
-             Exp -- ^ Let-abstraction
     | ExpCase Ident
               External
               [Ident]
@@ -69,11 +66,6 @@ instance Substitutable Exp where
             ExpAbstraction name inner ->
                 let withoutName = HM.delete name sub
                  in ExpAbstraction name (substitute withoutName inner)
-            ExpLet exps inner ->
-                let withoutExps = HM.difference sub exps
-                    processExp = first (substitute withoutExps)
-                    newExps = HM.map processExp exps
-                 in ExpLet newExps (substitute withoutExps inner)
             ExpCase x constr args ifSuccess ifFail ->
                 let withoutIdents = foldr HM.delete sub (x : args)
                  in ExpCase
@@ -99,11 +91,6 @@ instance WithVariables Exp where
             ExpConstr _ -> HS.empty
             ExpConst _ -> HS.empty
             ExpAbstraction name inner -> HS.delete name (getFreeVariables inner)
-            ExpLet exps inner ->
-                let allVars =
-                        HS.unions . map getFreeVariables $
-                        inner : map fst (HM.elems exps)
-                 in allVars `HS.difference` HM.keysSet exps
             ExpCase x _ args ifSuccess _ ->
                 getFreeVariables ifSuccess `HS.difference`
                 HS.fromList (x : args)
@@ -129,10 +116,6 @@ mapExternal f g exp' =
         ExpConstr ext -> ExpConstr (f ext)
         ExpConst _ -> exp'
         ExpAbstraction name inner -> ExpAbstraction name (mapExternal f g inner)
-        ExpLet exps inner ->
-            ExpLet
-                (HM.map (bimap (mapExternal f g) g) exps)
-                (mapExternal f g inner)
         ExpCase x ext args ifSuccess ifFail ->
             ExpCase x (f ext) args (mapExternal f g ifSuccess) ifFail
         ExpApplication func args ->

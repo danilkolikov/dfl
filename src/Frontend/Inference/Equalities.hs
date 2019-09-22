@@ -20,7 +20,7 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Frontend.Inference.Constraint
-import Frontend.Inference.Type.Ast (External(..))
+import Frontend.Inference.Expression (External(..))
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.Position
 

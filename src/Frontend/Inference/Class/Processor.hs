@@ -7,9 +7,9 @@ License     :  MIT
 Function for processing classes.
 -}
 module Frontend.Inference.Class.Processor
-    ( ClassProcessorState(..)
-    , ClassProcessingError(..)
-    , ClassDebugOutput(..)
+    ( ClassProcessorOutput(..)
+    , ClassProcessorError(..)
+    , ClassProcessorDebugOutput(..)
     , processClasses
     ) where
 
@@ -20,7 +20,7 @@ import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Class.Ast
+import Frontend.Inference.Class
 import Frontend.Inference.Class.Base
 import Frontend.Inference.Class.Single
 import Frontend.Inference.DependencyResolver
@@ -34,55 +34,59 @@ processClasses ::
        HM.HashMap Ident Class
     -> Signatures TypeConstructorSignature
     -> HM.HashMap Ident K.Class
-    -> (Either ClassProcessingError ClassProcessorState, ClassDebugOutput)
+    -> ( Either ClassProcessorError ClassProcessorOutput
+       , ClassProcessorDebugOutput)
 processClasses initialClasses initialSignatures classes =
     let globalState =
             mempty
-                { getClassProcessorStateClasses = initialClasses
-                , getClassProcessorStateSignatures = initialSignatures
+                { getClassProcessorOutputClasses = initialClasses
+                , getClassProcessorOutputSignatures = initialSignatures
                 }
      in runWithDebugOutput (processClasses' globalState classes)
 
 processClasses' ::
-       ClassProcessorState
+       ClassProcessorOutput
     -> HM.HashMap Ident K.Class
-    -> ClassProcessor ClassProcessorState
+    -> ClassProcessor ClassProcessorOutput
 processClasses' globalState classes = do
     let dependencies = getDependencies classes
         loops = getLoops dependencies
     writeDebugOutput
-        mempty {getClassDebugOutputDependencyGraph = Just dependencies}
-    unless (null loops) . raiseError . ClassProcessingErrorRecursive $
-        head loops
+        mempty {getClassProcessorDebugOutputDependencyGraph = Just dependencies}
+    unless (null loops) . raiseError . ClassProcessorErrorRecursive $ head loops
     (dependencyGroups, processed) <-
-        wrapEither ClassProcessingErrorDependencyResolution $
+        wrapEither ClassProcessorErrorDependencyResolution $
         traverseGraph
             (processDependencyGroup globalState classes)
             mempty
             dependencies
     writeDebugOutput
-        mempty {getClassDebugOutputDependencyGroups = Just dependencyGroups}
+        mempty
+            { getClassProcessorDebugOutputDependencyGroups =
+                  Just dependencyGroups
+            }
     processed
 
 processDependencyGroup ::
-       ClassProcessorState
+       ClassProcessorOutput
     -> HM.HashMap Ident K.Class
-    -> ClassProcessorState
+    -> ClassProcessorOutput
     -> HS.HashSet Ident
-    -> ClassProcessor ClassProcessorState
+    -> ClassProcessor ClassProcessorOutput
 processDependencyGroup globalState allClasses initial group = do
     let groupList = HS.toList group
     unless (length groupList == 1) .
-        raiseError . ClassProcessingErrorMutuallyRecursive $
+        raiseError . ClassProcessorErrorMutuallyRecursive $
         groupList
     let className = head groupList
         class' = fromJust $ HM.lookup className allClasses
         classSignature =
             fromJust . HM.lookup className $
-            getClassProcessorStateSignatures globalState
+            getClassProcessorOutputSignatures globalState
         newState = globalState <> initial
     result <- processClass newState class' classSignature
-    writeDebugOutput mempty {getClassDebugOutputOutputs = Just [result]}
+    writeDebugOutput
+        mempty {getClassProcessorDebugOutputOutputs = Just [result]}
     return $ initial <> result
 
 -- | Gets dependencies of classes

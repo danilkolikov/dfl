@@ -14,18 +14,19 @@ module Frontend.Inference.Type.Processor
 import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Inference.Equalities
+import qualified Frontend.Inference.Expression as T
 import Frontend.Inference.InferenceProcessor
 import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver
-import qualified Frontend.Inference.Type.Ast as T
 import Frontend.Inference.Type.Equalities
 import Frontend.Inference.Type.WithDependencies
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
 -- | Debug output of type inference
-type TypeInferenceDebugOutput = InferenceDebugOutput L.Expression (T.Exp, TypeSignature)
+type TypeInferenceDebugOutput
+     = InferenceDebugOutput L.Expression (T.Exp, TypeSignature)
 
 -- | Infers types of provided expressions
 inferTypesOfExpressions ::

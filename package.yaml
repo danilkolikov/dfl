@@ -69,7 +69,6 @@ library:
   - Frontend.Desugaring.Processor
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class
-  - Frontend.Inference.Class.Ast
   - Frontend.Inference.Class.Base
   - Frontend.Inference.Class.Processor
   - Frontend.Inference.Class.Single
@@ -97,15 +96,14 @@ library:
   - Frontend.Inference.Sort
   - Frontend.Inference.Substitution
   - Frontend.Inference.Type
-  - Frontend.Inference.Type.Ast
   - Frontend.Inference.Type.Equalities
   - Frontend.Inference.Type.Processor
   - Frontend.Inference.Type.WithDependencies
-  - Frontend.Inference.TypeSynonyms.Base
-  - Frontend.Inference.TypeSynonyms.Dependencies
-  - Frontend.Inference.TypeSynonyms.Expand
-  - Frontend.Inference.TypeSynonyms.Expander
-  - Frontend.Inference.TypeSynonyms.Processor
+  - Frontend.Inference.TypeSynonym.Base
+  - Frontend.Inference.TypeSynonym.Dependencies
+  - Frontend.Inference.TypeSynonym.Expand
+  - Frontend.Inference.TypeSynonym.Expander
+  - Frontend.Inference.TypeSynonym.Processor
   - Frontend.Inference.Unification
   - Frontend.Inference.Util.Debug
   - Frontend.Inference.Util.HashMap

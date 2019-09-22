@@ -1,14 +1,14 @@
 {- |
-Module      :  Frontend.Inference.TypeSynonyms.Expand
+Module      :  Frontend.Inference.TypeSynonym.Expand
 Description :  Functions for expanding of type synonyms
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Functions for expanding of type synonyms
 -}
-module Frontend.Inference.TypeSynonyms.Expand
+module Frontend.Inference.TypeSynonym.Expand
     ( expandTypeSynonyms
-    , TypeSynonymsExpandingError(..)
+    , TypeSynonymExpandingError(..)
     , TypeSynonymExpander
     , runTypeSynonymExpander
     , raiseError
@@ -29,27 +29,27 @@ import Frontend.Inference.Variables
 import Frontend.Syntax.Position
 
 -- | Errors which can be encountered during expansions of type synonyms
-data TypeSynonymsExpandingError
-    = TypeSynonymsExpandingErrorwWrongNumberOfArgs Ident
+data TypeSynonymExpandingError
+    = TypeSynonymExpandingErrorwWrongNumberOfArgs Ident
                                                    Int
                                                    Int -- ^ Wrong number of arguments
-    | TypeSynonymsExpandingErrorSynonymInInstance (WithLocation Ident)
+    | TypeSynonymExpandingErrorSynonymInInstance (WithLocation Ident)
                                                   (WithLocation Ident) -- ^ A type synonym is used in an instance
     deriving (Eq, Show)
 
 -- | A type of objects which expand type synonyms
 type TypeSynonymExpander
-     = ReaderT (HM.HashMap Ident TypeSignature) (Except TypeSynonymsExpandingError)
+     = ReaderT (HM.HashMap Ident TypeSignature) (Except TypeSynonymExpandingError)
 
 -- | Raises an error
-raiseError :: TypeSynonymsExpandingError -> TypeSynonymExpander a
+raiseError :: TypeSynonymExpandingError -> TypeSynonymExpander a
 raiseError = lift . throwE
 
 -- | Run an expander of type synonyms
 runTypeSynonymExpander ::
        HM.HashMap Ident TypeSignature
     -> TypeSynonymExpander a
-    -> Either TypeSynonymsExpandingError a
+    -> Either TypeSynonymExpandingError a
 runTypeSynonymExpander signatures expander =
     runExcept $ runReaderT expander signatures
 
@@ -57,7 +57,7 @@ runTypeSynonymExpander signatures expander =
 expandTypeSynonyms ::
        HM.HashMap Ident TypeSignature
     -> Type
-    -> Either TypeSynonymsExpandingError Type
+    -> Either TypeSynonymExpandingError Type
 expandTypeSynonyms signatures type' =
     runTypeSynonymExpander signatures (expandType type')
 
@@ -88,7 +88,7 @@ expandApplication name args = do
                            , getTypeSignatureType = type'
                            } -> do
             when (length processedArgs < length typeParams) . raiseError $
-                TypeSynonymsExpandingErrorwWrongNumberOfArgs
+                TypeSynonymExpandingErrorwWrongNumberOfArgs
                     name
                     (length typeParams)
                     (length processedArgs)

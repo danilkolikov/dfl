@@ -15,7 +15,7 @@ import Data.Maybe (catMaybes, fromJust)
 
 import Frontend.Inference.Equalities
 import qualified Frontend.Inference.Let.Ast as L
-import qualified Frontend.Inference.Type.Ast as T
+import qualified Frontend.Inference.Expression as T
 import Frontend.Inference.Signature
 import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables hiding (Type(..))

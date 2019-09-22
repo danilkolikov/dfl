@@ -20,17 +20,16 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe, mapMaybe)
 
-import qualified Frontend.Desugaring.Final.Ast as F
-import qualified Frontend.Inference.Class.Ast as C
-import qualified Frontend.Inference.Kind.Ast as K
+import qualified Frontend.Inference.Class as C
+import Frontend.Inference.Constraint
+import Frontend.Inference.Expression
+import qualified Frontend.Inference.Instance as I
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
-import Frontend.Inference.Type.Ast
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables
 import Frontend.Syntax.EntityName (fUNCTION_NAME)
-import Frontend.Syntax.Position
 
 -- | Errors which can be encountered during translation of expressions
 data TranslationProcessorError
@@ -60,7 +59,7 @@ instance Monoid TranslationProcessorDebugOutput where
 data TranslationProcessorEnvironment = TranslationProcessorEnvironment
     { getTranslationProcessorEnvironmentTypeSignatures :: HM.HashMap Ident TypeSignature
     , getTranslationProcessorEnvironmentClasses :: HM.HashMap Ident C.Class
-    , getTranslationProcessorEnvironmentInstances :: HM.HashMap Ident K.Instance
+    , getTranslationProcessorEnvironmentInstances :: HM.HashMap Ident I.Instance
     , getTranslationProcessorEnvironmentConstraints :: [(Constraint, Ident)]
     } deriving (Eq, Show)
 
@@ -70,7 +69,7 @@ type TranslationProcessor
 -- | Translates expressions with context into expressions without context
 translateExpressions ::
        HM.HashMap Ident C.Class
-    -> HM.HashMap Ident K.Instance
+    -> HM.HashMap Ident I.Instance
     -> HM.HashMap Ident TypeSignature
     -> HM.HashMap Ident ExpWithSignature
     -> ( Either TranslationProcessorError (HM.HashMap Ident ExpWithSignature)
@@ -86,7 +85,7 @@ translateExpressions classes instances typeSignatures expressions =
 
 translateExpression ::
        HM.HashMap Ident C.Class
-    -> HM.HashMap Ident K.Instance
+    -> HM.HashMap Ident I.Instance
     -> HM.HashMap Ident TypeSignature
     -> Ident
     -> ExpWithSignature
@@ -220,21 +219,20 @@ checkTypeConstraint cls type' args = do
             lift . raiseError $
             TranslationProcessorErrorMissingInstance cls type'
 
-checkInstance :: Ident -> K.Instance -> [Type] -> SingleExpressionProcessor Exp
+checkInstance :: Ident -> I.Instance -> [Type] -> SingleExpressionProcessor Exp
 checkInstance instName inst args
-    | K.Instance { K.getInstanceContext = instanceContext
-                 , K.getInstanceTypeArgs = instanceArgs
+    | I.Instance { I.getInstanceContext = instanceContext
+                 , I.getInstanceTypeArgs = instanceArgs
                  } <- inst = do
         unless (length instanceArgs == length args) . lift . raiseError $
             TranslationProcessorErrorArgsLengthMismatch
                 instName
                 (length instanceArgs)
                 (length args)
-        let typeSubstitution =
-                HM.fromList $ zip (map getValue instanceArgs) args
-            makeConstraint (F.SimpleConstraint cls var) =
-                ConstraintVariable (getValue cls) (getValue var)
-            constraints = map (makeConstraint . getValue) instanceContext
+        let typeSubstitution = HM.fromList $ zip instanceArgs args
+            makeConstraint (SimpleConstraint cls var) =
+                ConstraintVariable cls var
+            constraints = map makeConstraint instanceContext
         resultArgs <- mapM (processConstraint typeSubstitution) constraints
         let external =
                 External

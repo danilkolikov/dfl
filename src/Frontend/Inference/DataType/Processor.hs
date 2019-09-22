@@ -19,7 +19,6 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.InferenceProcessor
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Frontend.Inference.Util.Debug

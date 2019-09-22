@@ -21,7 +21,7 @@ import Data.Maybe (fromJust, fromMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Class.Ast
+import Frontend.Inference.Class
 import Frontend.Inference.Class.Base
 import Frontend.Inference.Constraint
 import qualified Frontend.Inference.Kind.Ast as K
@@ -35,20 +35,20 @@ import Frontend.Syntax.Position
 
 -- | Processes a single class
 processClass ::
-       ClassProcessorState
+       ClassProcessorOutput
     -> K.Class
     -> TypeConstructorSignature
-    -> ClassProcessor ClassProcessorState
+    -> ClassProcessor ClassProcessorOutput
 processClass state class' signature =
     evalVariableGeneratorT $ processClass' state class' signature
 
 type SingleClassProcessor = VariableGeneratorT ClassProcessor
 
 processClass' ::
-       ClassProcessorState
+       ClassProcessorOutput
     -> K.Class
     -> TypeConstructorSignature
-    -> SingleClassProcessor ClassProcessorState
+    -> SingleClassProcessor ClassProcessorOutput
 processClass' state K.Class { K.getClassContext = context
                             , K.getClassName = name
                             , K.getClassParam = param
@@ -95,16 +95,18 @@ processClass' state K.Class { K.getClassContext = context
                 results
         methodSignatures =
             mconcat $ map getProcessingResultMethodSignatures results
-        makeMap = HM.singleton className
     return
-        ClassProcessorState
-            { getClassProcessorStateClasses = makeMap resultClass
-            , getClassProcessorStateDataTypes = makeMap dataType
-            , getClassProcessorStateSignatures = makeMap dataTypeSignature
-            , getClassProcessorStateDefaultInstances =
+        ClassProcessorOutput
+            { getClassProcessorOutputClasses =
+                  HM.singleton className resultClass
+            , getClassProcessorOutputDataTypes =
+                  HM.singleton dataTypeName dataType
+            , getClassProcessorOutputSignatures =
+                  HM.singleton dataTypeName dataTypeSignature
+            , getClassProcessorOutputDefaultInstances =
                   HM.singleton defaultInstanceName defaultInstance
-            , getClassProcessorStateMethods = methodSignatures
-            , getClassProcessorStateGetters = getters
+            , getClassProcessorOutputMethods = methodSignatures
+            , getClassProcessorOutputGetters = getters
             }
 
 data ProcessingEnvironment = ProcessingEnvironment
@@ -127,14 +129,14 @@ data ProcessingResult = ProcessingResult
 
 processSuperClass ::
        ProcessingEnvironment
-    -> ClassProcessorState
+    -> ClassProcessorOutput
     -> F.SimpleConstraint
     -> SingleClassProcessor ProcessingResult
 processSuperClass env state constr
     | ProcessingEnvironment {getProcessingEnvironmentParam = classParam} <- env
-    , ClassProcessorState { getClassProcessorStateClasses = classes
-                          , getClassProcessorStateSignatures = signatures
-                          } <- state
+    , ClassProcessorOutput { getClassProcessorOutputClasses = classes
+                           , getClassProcessorOutputSignatures = signatures
+                           } <- state
     , F.SimpleConstraint {F.getSimpleConstraintClass = className} <- constr = do
         let constraintClassName = getValue className
         Class { getClassDataTypeName = dataTypeName
@@ -142,7 +144,7 @@ processSuperClass env state constr
               } <-
             lift $
             lookupMapValue
-                (ClassProcessingErrorUnknownClass className)
+                (ClassProcessorErrorUnknownClass className)
                 constraintClassName
                 classes
         TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
@@ -150,7 +152,7 @@ processSuperClass env state constr
                                  } <-
             lift $
             lookupMapValue
-                (ClassProcessingErrorUnknownGeneratedDataType dataTypeName)
+                (ClassProcessorErrorUnknownGeneratedDataType dataTypeName)
                 dataTypeName
                 signatures
         let generatedKindParams = tail kindParams

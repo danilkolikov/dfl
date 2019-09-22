@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Inference.TypeSynonyms.Dependencies
+Module      :  Frontend.Inference.TypeSynonym.Dependencies
 Description :  Resolution of dependencies between type synonyms
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Function for resolution of dependencies between type synonyms
 -}
-module Frontend.Inference.TypeSynonyms.Dependencies
+module Frontend.Inference.TypeSynonym.Dependencies
     ( getTypeSynonymsDependencyGraph
     ) where
 

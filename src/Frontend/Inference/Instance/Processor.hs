@@ -20,9 +20,9 @@ import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromJust)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
-import qualified Frontend.Desugaring.Final.Ast as F
-import qualified Frontend.Inference.Class.Ast as C
+import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Constraint
+import qualified Frontend.Inference.Instance as I
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Util.HashMap
@@ -43,13 +43,13 @@ data InstanceProcessorError
 
 -- | A type of ouput of the instance processor
 data InstanceProcessorOutput = InstanceProcessorOutput
-    { getInstanceProcessorOutputInstances :: HM.HashMap Ident K.Instance -- ^ A map of defined instances
+    { getInstanceProcessorOutputInstances :: HM.HashMap Ident I.Instance -- ^ A map of defined instances
     , getInstanceProcessorOutputExpressions :: HM.HashMap Ident K.Expression -- ^ A map of generated instance expressions
     } deriving (Eq, Show)
 
 -- | A type of debug output of the instance processor
 data InstanceProcessorDebugOutput = InstanceProcessorDebugOutput
-    { getInstanceProcessorDebugOutputInstances :: Maybe (HM.HashMap Ident K.Instance) -- ^ A map of defined instances
+    { getInstanceProcessorDebugOutputInstances :: Maybe (HM.HashMap Ident I.Instance) -- ^ A map of defined instances
     , getInstanceProcessorDebugOutputDefaults :: Maybe (HM.HashMap Ident K.Expression) -- ^ A map of expressions for default instances
     , getInstanceProcessorDebugOutputExpressions :: Maybe (HM.HashMap Ident K.Expression) -- ^ A map of expressions for instances
     } deriving (Eq, Show)
@@ -67,50 +67,79 @@ type InstanceProcessor
 
 -- | Processes instances and generated expressions for them
 processInstances ::
-       HM.HashMap Ident C.Class
+       HM.HashMap Ident I.Instance
+    -> HM.HashMap Ident C.Class
     -> HM.HashMap Ident C.DefaultInstance
     -> [K.Instance]
     -> ( Either InstanceProcessorError InstanceProcessorOutput
        , InstanceProcessorDebugOutput)
-processInstances classes defaultInstances instances =
-    runWithDebugOutput $ processInstances' classes defaultInstances instances
+processInstances initialInstances classes defaultInstances instances =
+    runWithDebugOutput $
+    processInstances' initialInstances classes defaultInstances instances
 
 processInstances' ::
-       HM.HashMap Ident C.Class
+       HM.HashMap Ident I.Instance
+    -> HM.HashMap Ident C.Class
     -> HM.HashMap Ident C.DefaultInstance
     -> [K.Instance]
     -> InstanceProcessor InstanceProcessorOutput
-processInstances' classes defaultInstances instances = do
-    instanceMap <- foldM collectInstance HM.empty instances
+processInstances' initialInstances classes defaultInstances instances = do
+    instanceMap <- foldM (collectInstance initialInstances) HM.empty instances
     processedDefault <-
         mapHashMapWithKeyM (processDefaultInstance classes) defaultInstances
+    let allInstances = initialInstances <> instanceMap
     processedInstances <-
-        mapHashMapWithKeyM (processInstance classes instanceMap) instanceMap
+        HM.fromList <$> mapM (processInstance classes allInstances) instances
     return
         InstanceProcessorOutput
             { getInstanceProcessorOutputInstances = instanceMap
             , getInstanceProcessorOutputExpressions =
-                  processedDefault `HM.union` processedInstances
+                  processedDefault <> processedInstances
             }
 
 collectInstance ::
-       HM.HashMap Ident K.Instance
+       HM.HashMap Ident I.Instance
+    -> HM.HashMap Ident I.Instance
     -> K.Instance
-    -> InstanceProcessor (HM.HashMap Ident K.Instance)
-collectInstance instances inst@K.Instance { K.getInstanceClass = className
-                                          , K.getInstanceType = typeName
-                                          } =
-    let instanceName = IdentInstance (getValue className) (getValue typeName)
-     in case HM.lookup instanceName instances of
-            Just _ ->
-                raiseError $
-                InstanceProcessorErrorAlreadyDefined className typeName
-            Nothing -> do
-                let newMap = HM.singleton instanceName inst
-                writeDebugOutput
-                    mempty
-                        {getInstanceProcessorDebugOutputInstances = Just newMap}
-                return $ instances <> newMap
+    -> InstanceProcessor (HM.HashMap Ident I.Instance)
+collectInstance definedInstances instances inst
+    | K.Instance {K.getInstanceClass = className, K.getInstanceType = typeName} <-
+         inst =
+        let instanceName =
+                IdentInstance (getValue className) (getValue typeName)
+         in case HM.lookup instanceName (definedInstances <> instances) of
+                Just _ ->
+                    raiseError $
+                    InstanceProcessorErrorAlreadyDefined className typeName
+                Nothing -> do
+                    let newMap =
+                            HM.singleton instanceName $ convertInstance inst
+                    writeDebugOutput
+                        mempty
+                            { getInstanceProcessorDebugOutputInstances =
+                                  Just newMap
+                            }
+                    return $ instances <> newMap
+
+convertInstance :: K.Instance -> I.Instance
+convertInstance K.Instance { K.getInstanceContext = context
+                           , K.getInstanceClass = className
+                           , K.getInstanceType = typeName
+                           , K.getInstanceTypeArgs = args
+                           } =
+    let instanceClass = getValue className
+        instanceType = getValue typeName
+        instanceName = IdentInstance instanceClass instanceType
+        instanceDefaultName = IdentInstance instanceClass instanceClass
+     in I.Instance
+            { I.getInstanceContext =
+                  map removePositionsOfSimpleConstraint context
+            , I.getInstanceClass = instanceClass
+            , I.getInstanceType = instanceType
+            , I.getInstanceTypeArgs = map getValue args
+            , I.getInstanceExpression = instanceName
+            , I.getInstanceDefaultExpression = instanceDefaultName
+            }
 
 processDefaultInstance ::
        HM.HashMap Ident C.Class
@@ -172,11 +201,10 @@ processDefaultInstance classes instanceName C.DefaultInstance { C.getDefaultInst
 
 processInstance ::
        HM.HashMap Ident C.Class
-    -> HM.HashMap Ident K.Instance
-    -> Ident
+    -> HM.HashMap Ident I.Instance
     -> K.Instance
-    -> InstanceProcessor K.Expression
-processInstance classes instances instanceName inst
+    -> InstanceProcessor (Ident, K.Expression)
+processInstance classes instances inst
     | K.Instance { K.getInstanceContext = context
                  , K.getInstanceClass = className
                  , K.getInstanceType = typeName
@@ -193,7 +221,9 @@ processInstance classes instances instanceName inst
                 (InstanceProcessorErrorUnknownClass (getValue className))
                 (getValue className)
                 classes
-        let makeInstanceArg =
+        let instanceName =
+                IdentInstance (getValue className) (getValue typeName)
+            makeInstanceArg =
                 withDummyLocation . IdentGenerated IdentEnvironmentInstances
             instanceArgs =
                 zip
@@ -233,11 +263,11 @@ processInstance classes instances instanceName inst
                 { getInstanceProcessorDebugOutputExpressions =
                       Just $ HM.singleton instanceName expression
                 }
-        return expression
+        return (instanceName, expression)
 
 getInstanceSuperClassArg ::
        HM.HashMap Ident C.Class
-    -> HM.HashMap Ident K.Instance
+    -> HM.HashMap Ident I.Instance
     -> Ident
     -> [Ident]
     -> [(SimpleConstraint, WithLocation Ident)]
@@ -248,8 +278,8 @@ getInstanceSuperClassArg classes instances typeName typeParams instanceParams co
         let instanceName = IdentInstance className typeName
             instanceExp =
                 withDummyLocation . K.ExpVar . withDummyLocation $ instanceName
-        K.Instance { K.getInstanceContext = instanceContext
-                   , K.getInstanceTypeArgs = instanceTypeArgs
+        I.Instance { I.getInstanceContext = instanceContext
+                   , I.getInstanceTypeArgs = instanceTypeArgs
                    } <-
             lookupMapValue
                 (InstanceProcessorErrorUnknownInstance className typeName)
@@ -258,13 +288,10 @@ getInstanceSuperClassArg classes instances typeName typeParams instanceParams co
         case instanceContext of
             [] -> return instanceExp
             (f:rest) -> do
-                let typeMapping =
-                        HM.fromList $
-                        zip (map getValue instanceTypeArgs) typeParams
-                    mapConstraint (F.SimpleConstraint c t) =
-                        ( getValue c
-                        , fromJust $ HM.lookup (getValue t) typeMapping)
-                    mappedArgs = fmap (mapConstraint . getValue) (f NE.:| rest)
+                let typeMapping = HM.fromList $ zip instanceTypeArgs typeParams
+                    mapConstraint (SimpleConstraint c t) =
+                        (c, fromJust $ HM.lookup t typeMapping)
+                    mappedArgs = fmap mapConstraint (f NE.:| rest)
                 args <-
                     mapM
                         (getInstanceArgs classes instanceName instanceParams)

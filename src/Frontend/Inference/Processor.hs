@@ -12,15 +12,15 @@ module Frontend.Inference.Processor
     , defaultInferenceProcessorOutput
     , InferenceProcessorError(..)
     , InferenceError(..)
-    , TypeSynonymsProcessingError(..)
-    , ClassProcessingError(..)
+    , TypeSynonymProcessorError(..)
+    , ClassProcessorError(..)
     , DataTypeProcessorError(..)
     , InstanceProcessorError(..)
     , TranslationProcessorError(..)
     , InferenceProcessorDebugOutput(..)
-    , KindInferenceDebugOutput(..)
-    , TypeSynonymsDebugOutput(..)
-    , ClassDebugOutput(..)
+    , KindProcessorDebugOutput(..)
+    , TypeSynonymProcessorDebugOutput(..)
+    , ClassProcessorDebugOutput(..)
     , DataTypeProcessorDebugOutput(..)
     , InstanceProcessorDebugOutput(..)
     , TypeInferenceDebugOutput
@@ -32,10 +32,12 @@ import qualified Data.HashMap.Lazy as HM
 import Frontend.Desugaring.Final.Ast (Ident)
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.BuiltIns
-import qualified Frontend.Inference.Class.Ast as C
+import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Class.Processor
 import Frontend.Inference.DataType.Processor
+import qualified Frontend.Inference.Expression as T
 import Frontend.Inference.InferenceProcessor (InferenceError(..))
+import qualified Frontend.Inference.Instance as I
 import Frontend.Inference.Instance.Processor
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Kind.Processor
@@ -43,16 +45,15 @@ import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Let.Processor
 import Frontend.Inference.Signature
 import Frontend.Inference.Translation.Processor
-import qualified Frontend.Inference.Type.Ast as T
 import Frontend.Inference.Type.Processor
-import Frontend.Inference.TypeSynonyms.Processor
+import Frontend.Inference.TypeSynonym.Processor
 import Frontend.Inference.Util.Debug
 
 -- | Errors which can be encounterd during inference
 data InferenceProcessorError
     = InferenceProcessorErrorKind KindProcessorError -- ^ Errors of kind inference
-    | InferenceProcessorErrorTypeSynonym TypeSynonymsProcessingError -- ^ Errors of type synonym expanding
-    | InferenceProcessorErrorClass ClassProcessingError -- ^ Errors of class processing
+    | InferenceProcessorErrorTypeSynonym TypeSynonymProcessorError -- ^ Errors of type synonym expanding
+    | InferenceProcessorErrorClass ClassProcessorError -- ^ Errors of class processing
     | InferenceProcessorErrorDataType DataTypeProcessorError -- ^ Errors of data type processing
     | InferenceProcessorErrorInstance InstanceProcessorError -- ^ Errors of instance processing
     | InferenceProcessorErrorType InferenceError -- ^ Errors of type inference
@@ -61,9 +62,9 @@ data InferenceProcessorError
 
 -- | Debug output of inference processing
 data InferenceProcessorDebugOutput = InferenceProcessorDebugOutput
-    { getInferenceProcessorDebugOutputKinds :: Maybe KindInferenceDebugOutput
-    , getInferenceProcessorDebugOutputTypeSynonyms :: Maybe TypeSynonymsDebugOutput
-    , getInferenceProcessorDebugOutputClasses :: Maybe ClassDebugOutput
+    { getInferenceProcessorDebugOutputKinds :: Maybe KindProcessorDebugOutput
+    , getInferenceProcessorDebugOutputTypeSynonyms :: Maybe TypeSynonymProcessorDebugOutput
+    , getInferenceProcessorDebugOutputClasses :: Maybe ClassProcessorDebugOutput
     , getInferenceProcessorDebugOutputDataTypes :: Maybe DataTypeProcessorDebugOutput
     , getInferenceProcessorDebugOutputInstances :: Maybe InstanceProcessorDebugOutput
     , getInferenceProcessorDebugOutputLet :: Maybe (HM.HashMap Ident L.Expression)
@@ -100,7 +101,9 @@ data InferenceProcessorOutput = InferenceProcessorOutput
     { getInferenceProcessorOutputTypeConstructors :: Signatures TypeConstructorSignature
     , getInferenceProcessorOutputTypeSynonyms :: Signatures TypeSignature
     , getInferenceProcessorOutputClasses :: HM.HashMap Ident C.Class
+    , getInferenceProcessorOutputInstances :: HM.HashMap Ident I.Instance
     , getInferenceProcessorOutputConstructors :: HM.HashMap Ident TypeSignature
+    , getInferenceProcessorOutputMethods :: HM.HashMap Ident TypeSignature
     , getInferenceProcessorOutputExpressions :: HM.HashMap Ident T.ExpWithSignature
     } deriving (Eq, Show)
 
@@ -111,7 +114,9 @@ defaultInferenceProcessorOutput =
         { getInferenceProcessorOutputTypeConstructors = defaultKindSignatures
         , getInferenceProcessorOutputTypeSynonyms = defaultTypeSynonyms
         , getInferenceProcessorOutputClasses = HM.empty
+        , getInferenceProcessorOutputInstances = HM.empty
         , getInferenceProcessorOutputConstructors = defaultConstructors
+        , getInferenceProcessorOutputMethods = HM.empty
         , getInferenceProcessorOutputExpressions =
               HM.map (\sig -> (undefined, sig)) defaultExpressions
         }
@@ -136,7 +141,9 @@ processModule' initialState module'
     | InferenceProcessorOutput { getInferenceProcessorOutputTypeConstructors = initialTypeConstructors
                                , getInferenceProcessorOutputTypeSynonyms = initialTypeSynonyms
                                , getInferenceProcessorOutputClasses = initialClasses
+                               , getInferenceProcessorOutputInstances = initialInstances
                                , getInferenceProcessorOutputConstructors = initialConstructors
+                               , getInferenceProcessorOutputMethods = initialMethods
                                , getInferenceProcessorOutputExpressions = initialExpWithSignatures
                                } <- initialState
         -- Infer kinds for data types
@@ -167,13 +174,13 @@ processModule' initialState module'
                 (F.getModuleTypeSynonyms module')
                 astWithKinds
         -- Generate types for classes
-        ClassProcessorState { getClassProcessorStateClasses = newClasses
-                            , getClassProcessorStateDataTypes = classDataTypes
-                            , getClassProcessorStateSignatures = classDataTypeSignatures
-                            , getClassProcessorStateDefaultInstances = defaultInstances
-                            , getClassProcessorStateMethods = classMethods
-                            , getClassProcessorStateGetters = classGetters
-                            } <-
+        ClassProcessorOutput { getClassProcessorOutputClasses = newClasses
+                             , getClassProcessorOutputDataTypes = classDataTypes
+                             , getClassProcessorOutputSignatures = classDataTypeSignatures
+                             , getClassProcessorOutputDefaultInstances = defaultInstances
+                             , getClassProcessorOutputMethods = classMethods
+                             , getClassProcessorOutputGetters = classGetters
+                             } <-
             wrapErrorAndDebugOutput
                 InferenceProcessorErrorClass
                 (\debug ->
@@ -209,7 +216,11 @@ processModule' initialState module'
                          { getInferenceProcessorDebugOutputInstances =
                                Just debug
                          }) $
-            processInstances allClasses defaultInstances instancesWithDataTypes
+            processInstances
+                initialInstances
+                allClasses
+                defaultInstances
+                instancesWithDataTypes
         -- Get rid of let expressions
         let allExpressions =
                 astExpressions <> classGetters <> instanceExpressions
@@ -219,8 +230,9 @@ processModule' initialState module'
                 { getInferenceProcessorDebugOutputLet =
                       Just expressionsWithoutLet
                 }
-        let allSignatures =
-                HM.map snd initialExpWithSignatures <> classMethods <>
+        let allMethods = initialMethods <> classMethods
+            allSignatures =
+                HM.map snd initialExpWithSignatures <> allMethods <>
                 allConstructors
         -- Infer types for expressions
         newExpWithTypes <-
@@ -230,6 +242,7 @@ processModule' initialState module'
                      mempty {getInferenceProcessorDebugOutputType = Just debug}) $
             inferTypesOfExpressions allSignatures expressionsWithoutLet
         -- Translate polymorphic functions
+        let allInstances = initialInstances <> instanceMap
         translatedExpWithTypes <-
             wrapErrorAndDebugOutput
                 InferenceProcessorErrorTranslation
@@ -240,7 +253,7 @@ processModule' initialState module'
                          }) $
             translateExpressions
                 allClasses
-                instanceMap
+                allInstances
                 allSignatures
                 newExpWithTypes
         return
@@ -249,7 +262,9 @@ processModule' initialState module'
                       newTypeConstructors
                 , getInferenceProcessorOutputTypeSynonyms = newTypeSynonyms
                 , getInferenceProcessorOutputClasses = newClasses
+                , getInferenceProcessorOutputInstances = instanceMap
                 , getInferenceProcessorOutputConstructors = constructors
+                , getInferenceProcessorOutputMethods = classMethods
                 , getInferenceProcessorOutputExpressions =
                       translatedExpWithTypes
                 }
