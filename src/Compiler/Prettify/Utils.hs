@@ -15,7 +15,7 @@ import Data.Tuple (swap)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
 import Frontend.Inference.Constraint
-import Frontend.Inference.Processor (KindInferenceEnvironmentItem)
+import Frontend.Inference.Kind.Processor (KindInferenceEnvironmentItem)
 import Frontend.Inference.Signature
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position

@@ -23,7 +23,7 @@ data AstWithKinds = AstWithKinds
     , getAstWithKindsDataTypes :: HM.HashMap Ident DataType
     , getAstWithKindsInstances :: [Instance]
     , getAstWithKindsExpressions :: HM.HashMap Ident Expression
-    }
+    } deriving (Eq, Show)
 
 -- | Definition of a data type
 data DataType = DataType

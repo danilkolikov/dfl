@@ -8,6 +8,7 @@ Base functions for type inference
 -}
 module Frontend.Inference.Type.Processor
     ( inferTypesOfExpressions
+    , TypeInferenceDebugOutput
     ) where
 
 import qualified Data.HashMap.Lazy as HM
@@ -23,12 +24,15 @@ import Frontend.Inference.Type.WithDependencies
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
 
+-- | Debug output of type inference
+type TypeInferenceDebugOutput = InferenceDebugOutput L.Expression (T.Exp, TypeSignature)
+
 -- | Infers types of provided expressions
 inferTypesOfExpressions ::
        Signatures TypeSignature
     -> HM.HashMap Ident L.Expression
     -> ( Either InferenceError (Signatures (T.Exp, TypeSignature))
-       , InferenceDebugOutput L.Expression (T.Exp, TypeSignature))
+       , TypeInferenceDebugOutput)
 inferTypesOfExpressions initialState expressions =
     evalVariableGenerator . runWithDebugOutputT $
     inferMultipleGroupsGeneric

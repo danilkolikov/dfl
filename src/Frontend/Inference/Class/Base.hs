@@ -30,13 +30,14 @@ data ClassProcessingError
     | ClassProcessingErrorDependencyResolution DependencyResolverError -- ^ Dependency resolution error
     | ClassProcessingErrorUnknownClass (WithLocation Ident) -- ^ Unknown class
     | ClassProcessingErrorUnknownGeneratedDataType Ident -- ^ Unknown generated data type
+    deriving (Eq, Show)
 
 -- | A type of debug output of class processing
 data ClassDebugOutput = ClassDebugOutput
     { getClassDebugOutputDependencyGraph :: Maybe DependencyGraph -- ^ Dependency graph
     , getClassDebugOutputDependencyGroups :: Maybe [HS.HashSet Ident] -- ^ Dependency groups
     , getClassDebugOutputOutputs :: Maybe [ClassProcessorState] -- ^ Outputs of processing of each class
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup ClassDebugOutput where
     ClassDebugOutput g1 d1 o1 <> ClassDebugOutput g2 d2 o2 =
@@ -52,16 +53,18 @@ data ClassProcessorState = ClassProcessorState
     , getClassProcessorStateSignatures :: HM.HashMap Ident TypeConstructorSignature -- ^ Signatures of generated data types
     , getClassProcessorStateDefaultInstances :: HM.HashMap Ident DefaultInstance -- ^ Default instances of classes
     , getClassProcessorStateMethods :: HM.HashMap Ident TypeSignature -- ^ Signatures of methods
-    }
+    , getClassProcessorStateGetters :: HM.HashMap Ident K.Expression -- ^ Getters of class' components
+    } deriving (Eq, Show)
 
 instance Semigroup ClassProcessorState where
-    ClassProcessorState c1 d1 sig1 i1 m1 <> ClassProcessorState c2 d2 sig2 i2 m2 =
+    ClassProcessorState c1 d1 sig1 i1 m1 g1 <> ClassProcessorState c2 d2 sig2 i2 m2 g2 =
         ClassProcessorState
             (c1 <> c2)
             (d1 <> d2)
             (sig1 <> sig2)
             (i1 <> i2)
             (m1 <> m2)
+            (g1 <> g2)
 
 instance Monoid ClassProcessorState where
-    mempty = ClassProcessorState mempty mempty mempty mempty mempty
+    mempty = ClassProcessorState mempty mempty mempty mempty mempty mempty

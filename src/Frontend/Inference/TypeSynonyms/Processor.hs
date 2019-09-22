@@ -30,7 +30,7 @@ type TypeSynonymsProcessor
 data TypeSynonymsDebugOutput = TypeSynonymsDebugOutput
     { getTypeSynonymsDebugOutputSignatures :: Maybe (Signatures TypeSignature)
     , getTypeSynonymsDebugOutputAst :: Maybe AstWithKinds
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup TypeSynonymsDebugOutput where
     TypeSynonymsDebugOutput s1 a1 <> TypeSynonymsDebugOutput s2 a2 =

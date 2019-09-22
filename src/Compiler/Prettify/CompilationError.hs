@@ -19,9 +19,6 @@ import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Processor
 import Frontend.Inference.TypeSynonyms.Expand (TypeSynonymsExpandingError(..))
-import Frontend.Inference.TypeSynonyms.Processor
-    ( TypeSynonymsProcessingError(..)
-    )
 import Frontend.Inference.Unification
 import Frontend.Syntax.Position (WithLocation(WithLocation))
 import Frontend.Syntax.Processor
@@ -35,7 +32,7 @@ prettifyCompilationError err =
         CompilerErrorParser p -> prettifyParserError p
         CompilerErrorFixity f -> prettifyFixityError f
         CompilerErrorDesugaring d -> prettifyDesugaringError d
-        CompilerErrorInference i -> prettifyCombinedInferenceError i
+        CompilerErrorInference i -> prettifyInferenceProcessorError i
 
 prettifyLexerError :: LexicalError -> String
 prettifyLexerError err =
@@ -158,13 +155,8 @@ prettifyExpressionDesugaringError expressionError =
             "Expressions share the same name: " ++
             prettifyName name1 ++ " and " ++ prettifyName name2
 
-prettifyCombinedInferenceError :: CombinedInferenceError -> String
-prettifyCombinedInferenceError err =
-    case err of
-        CombinedInferenceErrorInference infErr ->
-            prettifyInferenceError "Inference error: " infErr
-        CombinedInferenceErrorTypeSynonyms typeSynonymsErr ->
-            prettifyTypeSynonymsProcessingError typeSynonymsErr
+prettifyInferenceProcessorError :: InferenceProcessorError -> String
+prettifyInferenceProcessorError = show
 
 prettifyInferenceError :: String -> InferenceError -> String
 prettifyInferenceError label err =

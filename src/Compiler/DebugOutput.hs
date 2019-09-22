@@ -9,10 +9,7 @@ Debug output of the DFL compiler
 module Compiler.DebugOutput where
 
 import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import Frontend.Inference.Processor
-    ( ExpandTypeSynonymsOutput
-    , InferenceDebugOutput(..)
-    )
+import Frontend.Inference.Processor (InferenceProcessorDebugOutput(..))
 import Frontend.Syntax.Processor
     ( FixityResolutionOutput(..)
     , Module
@@ -21,13 +18,8 @@ import Frontend.Syntax.Processor
 
 import Compiler.Prettify.Ast (prettifyAst)
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
-import Compiler.Prettify.ExpandTypeSynonymsOutput
-    ( prettifyExpandTypeSynonymsOutput
-    )
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
-import Compiler.Prettify.InferenceDebugOutput (prettifyInferenceDebugOutput)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
-import Compiler.Prettify.Utils
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -41,9 +33,7 @@ data DebugOutputType
     | DebugOutputTypeAst -- ^ Abstract syntax tree
     | DebugOutputTypeFixityResolution -- ^ AST and fixity of operators
     | DebugOutputTypeDesugaredAst -- ^ Desugared AST
-    | DebugOutputTypeInferredKinds -- ^ Inferred kind information
-    | DebugOutputTypeTypeSynonyms -- ^ Expanded type synonyms
-    | DebugOutputTypeInferredTypes -- ^ Inferred types
+    | DebugOutputTypeInference -- ^ Output of inference
 
 -- | Class for types which can be converted to the debug output
 class HasDebugOutput a where
@@ -65,15 +55,5 @@ instance HasDebugOutput DesugaringOutput where
     getDebugOutput a =
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
-instance (Prettifiable a, Prettifiable s) =>
-         HasDebugOutput (InferenceDebugOutput a s) where
-    getDebugOutput a =
-        DebugOutput
-            (prettifyInferenceDebugOutput a)
-            DebugOutputTypeInferredKinds
-
-instance HasDebugOutput ExpandTypeSynonymsOutput where
-    getDebugOutput a =
-        DebugOutput
-            (prettifyExpandTypeSynonymsOutput a)
-            DebugOutputTypeTypeSynonyms
+instance HasDebugOutput InferenceProcessorDebugOutput where
+    getDebugOutput a = DebugOutput (show a) DebugOutputTypeInference

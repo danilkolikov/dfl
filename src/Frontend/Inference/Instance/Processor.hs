@@ -39,19 +39,20 @@ data InstanceProcessorError
                                             Ident -- ^ Required instance is not defined
     | InstanceProcessorErrorUnsatisfiedConstraint Ident
                                                   Ident -- ^ Constraint of an instance is not satisfied
+    deriving (Eq, Show)
 
 -- | A type of ouput of the instance processor
 data InstanceProcessorOutput = InstanceProcessorOutput
     { getInstanceProcessorOutputInstances :: HM.HashMap Ident K.Instance -- ^ A map of defined instances
     , getInstanceProcessorOutputExpressions :: HM.HashMap Ident K.Expression -- ^ A map of generated instance expressions
-    }
+    } deriving (Eq, Show)
 
 -- | A type of debug output of the instance processor
 data InstanceProcessorDebugOutput = InstanceProcessorDebugOutput
     { getInstanceProcessorDebugOutputInstances :: Maybe (HM.HashMap Ident K.Instance) -- ^ A map of defined instances
     , getInstanceProcessorDebugOutputDefaults :: Maybe (HM.HashMap Ident K.Expression) -- ^ A map of expressions for default instances
     , getInstanceProcessorDebugOutputExpressions :: Maybe (HM.HashMap Ident K.Expression) -- ^ A map of expressions for instances
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup InstanceProcessorDebugOutput where
     InstanceProcessorDebugOutput i1 d1 e1 <> InstanceProcessorDebugOutput i2 d2 e2 =

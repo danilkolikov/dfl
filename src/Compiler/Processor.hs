@@ -21,8 +21,7 @@ compileSourceFile :: (Compiler m) => m ()
 compileSourceFile = do
     let initialInfixOperators = HM.empty
         initialDesugaringState = emptyDesugaringState
-        initialKindInferenceState = defaultKindSignatures
-        initialTypeSynonyms = defaultTypeSynonyms
+        initialInferenceState = defaultInferenceProcessorOutput
     fileName <- getSourceFileName
     fileContent <- readFileContent fileName
     lexems <- traceStep $ lexicalAnalysis fileName fileContent
@@ -33,16 +32,10 @@ compileSourceFile = do
         traceStep $ fixityResolution initialInfixOperators ast
     DesugaringOutput {getDesugaringOutputAst = desugared} <-
         traceStep $ desugarParsedModule resolvedFixity initialDesugaringState
-    inferredKinds <-
-        traceStepWithDebugOutput $
-        inferKinds desugared initialKindInferenceState
-    ExpandTypeSynonymsOutput {getExpandTypeSynonymSignatures = expandedTypeSynonyms} <-
-        traceStep $
-        expandTypeSynonyms desugared inferredKinds initialTypeSynonyms
+    inferenceOutput <-
+        traceStepWithDebugOutput $ processModule initialInferenceState desugared
     writeOutput
         Output
             { getInfixOperators = infixOperators
-            , getInferredKinds = inferredKinds
-            , getExpandedTypeSynonyms = expandedTypeSynonyms
-            , getInferredTypes = HM.empty
+            , getInferenceOutput = inferenceOutput
             }

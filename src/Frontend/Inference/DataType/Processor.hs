@@ -30,12 +30,13 @@ import Frontend.Syntax.Position
 data DataTypeProcessorError
     = DataTypeProcessorErrorUnknownType (WithLocation F.Ident) -- ^ Unknown data type
     | DataTypeProcessorErrorUnknownClass (WithLocation F.Ident) -- ^ Can't derive instance
+    deriving (Eq, Show)
 
 -- | Output of data type processing
 data DataTypeProcessorOutput = DataTypeProcessorOutput
     { getDataTypeProcessorOutputConstructors :: HM.HashMap F.Ident TypeSignature
     , getDataTypeProcessorOutputInstances :: [K.Instance]
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup DataTypeProcessorOutput where
     DataTypeProcessorOutput c1 i1 <> DataTypeProcessorOutput c2 i2 =
@@ -48,7 +49,7 @@ instance Monoid DataTypeProcessorOutput where
 data DataTypeProcessorDebugOutput = DataTypeProcessorDebugOutput
     { getDataTypeProcessorDebugOutputConstructors :: Maybe (HM.HashMap F.Ident TypeSignature)
     , getDataTypeProcessorDebugOutputInstances :: Maybe [K.Instance]
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup DataTypeProcessorDebugOutput where
     DataTypeProcessorDebugOutput c1 i1 <> DataTypeProcessorDebugOutput c2 i2 =

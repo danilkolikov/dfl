@@ -14,14 +14,11 @@ import Compiler.Prettify.Utils
 
 prettifyOutput :: Output -> String
 prettifyOutput Output { getInfixOperators = operators
-                      , getInferredKinds = kinds
-                      , getExpandedTypeSynonyms = signatures
+                      , getInferenceOutput = inferenceOutput
                       } =
     unlines
-        [ prettifyHeader "Infix operators"
+        [ prettifyHeader "Infix operators:"
         , prettifyOperators operators
-        , prettifyHeader "Inferred kinds"
-        , prettify kinds
-        , prettifyHeader "Type synonyms"
-        , prettify signatures
+        , prettifyHeader "Inference output:"
+        , show inferenceOutput
         ]

@@ -29,9 +29,9 @@ import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Signature (Signatures)
 import Frontend.Inference.Solver
+import Frontend.Inference.Unification
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Variables
-import Frontend.Inference.Unification
 
 -- | A processor of inference of multiple groups
 type InferenceProcessor a o
@@ -51,7 +51,7 @@ data InferenceDebugOutput a s = InferenceDebugOutput
     , getInferenceDebugOutputDependencyGroups :: Maybe [HS.HashSet Ident] -- ^ Dependency groups
     , getInferenceDebugOutputDependencyGroupOutputs :: Maybe [SingleGroupInferenceDebugOutput (HM.HashMap Ident a) (HM.HashMap Ident s)] -- ^ Processed dependency groups
     , getInferenceDebugOutputSignatures :: Maybe (HM.HashMap Ident s) -- ^ Output signatures
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup (InferenceDebugOutput a s) where
     InferenceDebugOutput i1 gr1 g1 o1 sig1 <> InferenceDebugOutput i2 gr2 g2 o2 sig2 =
@@ -81,7 +81,7 @@ data SingleGroupInferenceDebugOutput a s = SingleGroupInferenceDebugOutput
     { getSingleGroupInferenceDebugOutputInput :: Maybe a -- ^ Current group
     , getSingleGroupInferenceDebugOutputSolver :: Maybe SolverDebugOutput -- ^ Debug output of a solver
     , getSingleGroupInferenceDebugOutputSignatures :: Maybe s -- ^ Inferred signatures
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup (SingleGroupInferenceDebugOutput a s) where
     (SingleGroupInferenceDebugOutput i1 so1 sig1) <> (SingleGroupInferenceDebugOutput i2 so2 sig2) =

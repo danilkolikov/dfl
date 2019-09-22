@@ -43,11 +43,12 @@ data TranslationProcessorError
     | TranslationProcessorErrorArgsLengthMismatch Ident
                                                   Int
                                                   Int -- ^ Mismatch of the number of arguments of instance and constraint
+    deriving (Eq, Show)
 
 -- | Debug output of expression translation process
 newtype TranslationProcessorDebugOutput = TranslationProcessorDebugOutput
     { getTranslationProcessorDebugOutputExpressions :: Maybe (HM.HashMap Ident ExpWithSignature)
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup TranslationProcessorDebugOutput where
     TranslationProcessorDebugOutput e1 <> TranslationProcessorDebugOutput e2 =
@@ -61,7 +62,7 @@ data TranslationProcessorEnvironment = TranslationProcessorEnvironment
     , getTranslationProcessorEnvironmentClasses :: HM.HashMap Ident C.Class
     , getTranslationProcessorEnvironmentInstances :: HM.HashMap Ident K.Instance
     , getTranslationProcessorEnvironmentConstraints :: [(Constraint, Ident)]
-    }
+    } deriving (Eq, Show)
 
 type TranslationProcessor
      = WithDebugOutput TranslationProcessorError TranslationProcessorDebugOutput
@@ -77,7 +78,10 @@ translateExpressions ::
 translateExpressions classes instances typeSignatures expressions =
     runWithDebugOutput $
     mapHashMapWithKeyM
-        (translateExpression classes instances typeSignatures)
+        (translateExpression
+             classes
+             instances
+             (typeSignatures <> HM.map snd expressions))
         expressions
 
 translateExpression ::

@@ -9,7 +9,7 @@ Definitions of errors, which can be encountered during compilation
 module Compiler.Error where
 
 import Frontend.Desugaring.Processor (DesugaringError)
-import Frontend.Inference.Processor (CombinedInferenceError)
+import Frontend.Inference.Processor (InferenceProcessorError)
 import Frontend.Syntax.Processor
     ( FixityResolutionError
     , LexicalError
@@ -22,7 +22,7 @@ data CompilationError
     | CompilerErrorParser ParserError -- ^ Parser error
     | CompilerErrorFixity FixityResolutionError -- ^ Error of fixity resolution
     | CompilerErrorDesugaring DesugaringError -- ^ Desugaring error
-    | CompilerErrorInference CombinedInferenceError -- ^ Error of type/kind inference
+    | CompilerErrorInference InferenceProcessorError -- ^ Error of the inference step
     deriving (Eq, Show)
 
 -- | Class of types which can be converted to a CompilationError
@@ -44,5 +44,5 @@ instance IsCompilationError FixityResolutionError where
 instance IsCompilationError DesugaringError where
     wrapToCompilationError = CompilerErrorDesugaring
 
-instance IsCompilationError CombinedInferenceError where
+instance IsCompilationError InferenceProcessorError where
     wrapToCompilationError = CompilerErrorInference

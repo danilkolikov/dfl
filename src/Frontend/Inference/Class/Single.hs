@@ -84,7 +84,7 @@ processClass' state K.Class { K.getClassContext = context
             createDataType signature dataTypeName results
         (defaultInstanceName, defaultInstance) =
             createDefaultInstance className classParam results
-        resultClass =
+        (resultClass, getters) =
             createClass
                 context
                 className
@@ -104,6 +104,7 @@ processClass' state K.Class { K.getClassContext = context
             , getClassProcessorStateDefaultInstances =
                   HM.singleton defaultInstanceName defaultInstance
             , getClassProcessorStateMethods = methodSignatures
+            , getClassProcessorStateGetters = getters
             }
 
 data ProcessingEnvironment = ProcessingEnvironment
@@ -296,19 +297,22 @@ createClass ::
     -> [Ident]
     -> Ident
     -> [ProcessingResult]
-    -> Class
+    -> (Class, HM.HashMap Ident K.Expression)
 createClass context className classParam dataType methodNames defaultInstanceName results =
     let dataTypeGetters = mconcat $ map getProcessingResultGetters results
         classGetters = HM.map (getValue . K.getExpressionName) dataTypeGetters
-     in Class
-            { getClassContext = map removePositionsOfSimpleConstraint context
-            , getClassName = className
-            , getClassParam = classParam
-            , getClassDataTypeName = getValue $ K.getDataTypeName dataType
-            , getClassGetters = classGetters
-            , getClassMethods = methodNames
-            , getClassDefaultInstanceName = defaultInstanceName
-            }
+        resultClass =
+            Class
+                { getClassContext =
+                      map removePositionsOfSimpleConstraint context
+                , getClassName = className
+                , getClassParam = classParam
+                , getClassDataTypeName = getValue $ K.getDataTypeName dataType
+                , getClassGetters = classGetters
+                , getClassMethods = methodNames
+                , getClassDefaultInstanceName = defaultInstanceName
+                }
+     in (resultClass, dataTypeGetters)
 
 createGetter :: ProcessingEnvironment -> Ident -> (Ident, K.Expression)
 createGetter ProcessingEnvironment { getProcessingEnvironmentClassName = className

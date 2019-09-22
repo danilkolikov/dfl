@@ -10,6 +10,7 @@ module Frontend.Inference.Kind.Processor
     ( inferKinds
     , KindInferenceDebugOutput(..)
     , KindInferenceEnvironmentItem(..)
+    , KindProcessorError(..)
     ) where
 
 import Control.Applicative ((<|>))
@@ -23,14 +24,21 @@ import Frontend.Inference.Signature
 import Frontend.Inference.Util.Debug
 
 type KindInferenceProcessor
-     = WithDebugOutput InferenceError KindInferenceDebugOutput
+     = WithDebugOutput KindProcessorError KindInferenceDebugOutput
+
+-- | Errors which can be encountered during type processing
+data KindProcessorError
+    = KindProcessorErrorInference InferenceError -- ^ Kind inference error
+    | KindProcessorErrorInstanceCheck InferenceError -- ^ Instance check error
+    | KindProcessorErrorAstCheck InferenceError -- ^ Signatures check error
+    deriving (Eq, Show)
 
 -- | A type of debug output of kind inference
 data KindInferenceDebugOutput = KindInferenceDebugOutput
     { getKindInferenceDebugOutputInference :: Maybe (InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
     , getKindInferenceDebugOutputInstances :: Maybe (SingleGroupInferenceDebugOutput [F.Instance] [()])
     , getKindInferenceDebugOutputCheck :: Maybe [SingleGroupInferenceDebugOutput F.TypeSignature TypeConstructorSignature]
-    }
+    } deriving (Eq, Show)
 
 instance Semigroup KindInferenceDebugOutput where
     KindInferenceDebugOutput i1 in1 c1 <> KindInferenceDebugOutput i2 in2 c2 =
@@ -43,8 +51,8 @@ instance Monoid KindInferenceDebugOutput where
 inferKinds ::
        Signatures TypeConstructorSignature
     -> F.Module
-    -> ( Either InferenceError ( Signatures TypeConstructorSignature
-                               , A.AstWithKinds)
+    -> ( Either KindProcessorError ( Signatures TypeConstructorSignature
+                                   , A.AstWithKinds)
        , KindInferenceDebugOutput)
 inferKinds signatures module' =
     runWithDebugOutput (processModule signatures module')
@@ -56,18 +64,21 @@ processModule ::
                               , A.AstWithKinds)
 processModule initialSignatures module' = do
     inferredSignatures <-
-        wrapDebugOutput
+        wrapErrorAndDebugOutput
+            KindProcessorErrorInference
             (\debug ->
                  mempty {getKindInferenceDebugOutputInference = Just debug}) $
         inferKindsOfModule initialSignatures module'
     let allSignatures = initialSignatures <> inferredSignatures
     _ <-
-        wrapDebugOutput
+        wrapErrorAndDebugOutput
+            KindProcessorErrorInstanceCheck
             (\debug ->
                  mempty {getKindInferenceDebugOutputInstances = Just debug}) $
         checkKindsOfExpressions allSignatures (F.getModuleInstances module')
     ast <-
-        wrapDebugOutput
+        wrapErrorAndDebugOutput
+            KindProcessorErrorAstCheck
             (\debug -> mempty {getKindInferenceDebugOutputCheck = Just debug}) $
         checkModule allSignatures module'
     return (inferredSignatures, ast)
