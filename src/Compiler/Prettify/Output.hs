@@ -10,6 +10,7 @@ module Compiler.Prettify.Output where
 
 import Compiler.Output
 import Compiler.Prettify.FixityResolutionOutput (prettifyOperators)
+import Compiler.Prettify.InferenceProcessorOutput ()
 import Compiler.Prettify.Utils
 
 prettifyOutput :: Output -> String
@@ -18,7 +19,6 @@ prettifyOutput Output { getInfixOperators = operators
                       } =
     unlines
         [ prettifyHeader "Infix operators:"
-        , prettifyOperators operators
-        , prettifyHeader "Inference output:"
-        , show inferenceOutput
+        , indentLines $ prettifyOperators operators
+        , prettifyWithHeader "Inference output:" $ Indented inferenceOutput
         ]

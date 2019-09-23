@@ -6,6 +6,8 @@ License     :  MIT
 
 Functions for pretty printing of InferenceDebugOutput
 -}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Compiler.Prettify.InferenceDebugOutput where
 
 import qualified Data.HashMap.Lazy as HM
@@ -20,6 +22,14 @@ import Frontend.Inference.InferenceProcessor
 import Frontend.Inference.Solver
 import Frontend.Inference.Substitution
 
+instance (Prettifiable a, Prettifiable s) =>
+         Prettifiable (InferenceDebugOutput a s) where
+    prettify = prettifyInferenceDebugOutput
+
+instance (Prettifiable a, Prettifiable s) =>
+         Prettifiable (SingleGroupInferenceDebugOutput a s) where
+    prettify = prettifySingleGroupDebugOutput
+
 prettifyInferenceDebugOutput ::
        (Prettifiable a, Prettifiable s) => InferenceDebugOutput a s -> String
 prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput = input
@@ -30,14 +40,6 @@ prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput
                                                   } =
     let prettifyInput i =
             unlines [prettifyHeader "Inference input:", prettify i]
-        prettifyGraph deps =
-            unlines
-                [ prettifyHeader "Dependency graph"
-                , prettifyDependencyGraph deps
-                ]
-        prettifyGroups grps =
-            unlines $
-            prettifyHeader "Dependency groups" : map prettifyGroupIdents grps
         prettifyOutputs outs =
             unlines $
             prettifyHeader "Group outputs:" :
@@ -51,6 +53,14 @@ prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput
         , prettifyOutputs <$> outputs
         , prettifyDOSignatures <$> signatures
         ]
+
+prettifyGraph :: DependencyGraph -> String
+prettifyGraph deps =
+    unlines [prettifyHeader "Dependency graph", prettifyDependencyGraph deps]
+
+prettifyGroups :: [HS.HashSet Ident] -> String
+prettifyGroups grps =
+    unlines $ prettifyHeader "Dependency groups" : map prettifyGroupIdents grps
 
 prettifyDependencyGraph :: DependencyGraph -> String
 prettifyDependencyGraph =

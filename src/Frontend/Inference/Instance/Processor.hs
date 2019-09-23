@@ -35,7 +35,7 @@ data InstanceProcessorError
     | InstanceProcessorErrorUnknownClass Ident -- ^ Unknown class
     | InstanceProcessorErrorUnknownClassComponent Ident
                                                   Ident -- ^ Unknown component of a class (superclass / method)
-    | InstanceProcessorErrorUnknownInstance Ident
+    | InstanceProcessorErrorMissingInstance Ident
                                             Ident -- ^ Required instance is not defined
     | InstanceProcessorErrorUnsatisfiedConstraint Ident
                                                   Ident -- ^ Constraint of an instance is not satisfied
@@ -130,7 +130,6 @@ convertInstance K.Instance { K.getInstanceContext = context
     let instanceClass = getValue className
         instanceType = getValue typeName
         instanceName = IdentInstance instanceClass instanceType
-        instanceDefaultName = IdentInstance instanceClass instanceClass
      in I.Instance
             { I.getInstanceContext =
                   map removePositionsOfSimpleConstraint context
@@ -138,7 +137,6 @@ convertInstance K.Instance { K.getInstanceContext = context
             , I.getInstanceType = instanceType
             , I.getInstanceTypeArgs = map getValue args
             , I.getInstanceExpression = instanceName
-            , I.getInstanceDefaultExpression = instanceDefaultName
             }
 
 processDefaultInstance ::
@@ -282,7 +280,7 @@ getInstanceSuperClassArg classes instances typeName typeParams instanceParams co
                    , I.getInstanceTypeArgs = instanceTypeArgs
                    } <-
             lookupMapValue
-                (InstanceProcessorErrorUnknownInstance className typeName)
+                (InstanceProcessorErrorMissingInstance className typeName)
                 instanceName
                 instances
         case instanceContext of

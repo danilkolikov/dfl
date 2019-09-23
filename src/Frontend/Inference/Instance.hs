@@ -18,5 +18,4 @@ data Instance = Instance
     , getInstanceType :: Ident -- ^ Name of a type
     , getInstanceTypeArgs :: [Ident] -- ^ Arguments of a type
     , getInstanceExpression :: Ident -- ^ An expression, generated for the instance
-    , getInstanceDefaultExpression :: Ident -- ^ An expression, generated for the default instance
     } deriving (Eq, Show)

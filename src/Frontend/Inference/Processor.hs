@@ -12,6 +12,7 @@ module Frontend.Inference.Processor
     , defaultInferenceProcessorOutput
     , InferenceProcessorError(..)
     , InferenceError(..)
+    , KindProcessorError(..)
     , TypeSynonymProcessorError(..)
     , ClassProcessorError(..)
     , DataTypeProcessorError(..)

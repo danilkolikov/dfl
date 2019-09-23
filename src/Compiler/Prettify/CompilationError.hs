@@ -156,7 +156,98 @@ prettifyExpressionDesugaringError expressionError =
             prettifyName name1 ++ " and " ++ prettifyName name2
 
 prettifyInferenceProcessorError :: InferenceProcessorError -> String
-prettifyInferenceProcessorError = show
+prettifyInferenceProcessorError err =
+    "Inference error: " ++
+    case err of
+        InferenceProcessorErrorKind kindError -> prettifyKindError kindError
+        InferenceProcessorErrorTypeSynonym typeSynonymError ->
+            prettifyTypeSynonymProcessorError typeSynonymError
+        InferenceProcessorErrorClass classError -> prettifyClassError classError
+        InferenceProcessorErrorDataType dataType ->
+            prettifyDataTypeError dataType
+        InferenceProcessorErrorInstance instErr -> prettifyInstanceError instErr
+        InferenceProcessorErrorType infErr ->
+            prettifyInferenceError "Type inference error: " infErr
+        InferenceProcessorErrorTranslation translationError ->
+            prettifyTranslationError translationError
+
+prettifyKindError :: KindProcessorError -> String
+prettifyKindError err =
+    "Kind inference error:" ++
+    case err of
+        KindProcessorErrorInference infErr ->
+            prettifyInferenceError "Kind inference error: " infErr
+        KindProcessorErrorInstanceCheck instErr ->
+            prettifyInferenceError "Instance kind checking error: " instErr
+        KindProcessorErrorAstCheck checkErr ->
+            prettifyInferenceError "AST checking error: " checkErr
+
+prettifyClassError :: ClassProcessorError -> String
+prettifyClassError err =
+    "Class error: " ++
+    case err of
+        ClassProcessorErrorRecursive name ->
+            "Class " ++ prettify name ++ " should not be a superclass of itself"
+        ClassProcessorErrorMutuallyRecursive classes ->
+            "Classes " ++
+            intercalate ", " (map prettify classes) ++
+            " form recursive superclass hierarchy"
+        ClassProcessorErrorDependencyResolution depErr ->
+            prettifyDependencyError depErr
+        ClassProcessorErrorUnknownClass name ->
+            "Unknown class: " ++ prettify name
+        ClassProcessorErrorUnknownGeneratedDataType name ->
+            "Unknown generated data type: " ++ prettify name
+
+prettifyDataTypeError :: DataTypeProcessorError -> String
+prettifyDataTypeError err =
+    "Data type error: " ++
+    case err of
+        DataTypeProcessorErrorUnknownType name ->
+            "Unknown data type: " ++ prettify name
+        DataTypeProcessorErrorCanNotDerive name ->
+            "Can't derive an instance of the class " ++ prettify name
+
+prettifyInstanceError :: InstanceProcessorError -> String
+prettifyInstanceError err =
+    "Instance error: " ++
+    case err of
+        InstanceProcessorErrorAlreadyDefined old new ->
+            "Instance " ++
+            prettifyName new ++ " is already defined at " ++ prettify old
+        InstanceProcessorErrorUnknownClass name ->
+            "Unknown class: " ++ prettify name
+        InstanceProcessorErrorUnknownClassComponent className compName ->
+            "Unknown component " ++
+            prettify compName ++ " of a class " ++ prettify className
+        InstanceProcessorErrorMissingInstance className typeName ->
+            "Instance of the class " ++
+            prettify className ++
+            " with type " ++ prettify typeName ++ " is not defined"
+        InstanceProcessorErrorUnsatisfiedConstraint instName className ->
+            "Constraint " ++
+            prettify className ++
+            " of the instance " ++ prettify instName ++ " is not satisfied"
+
+prettifyTranslationError :: TranslationProcessorError -> String
+prettifyTranslationError err =
+    "Translation error: " ++
+    case err of
+        TranslationProcessorErrorUnknownExpression name ->
+            "Unknown expression: " ++ prettify name
+        TranslationProcessorErrorUnknownClass name ->
+            "Unknown class: " ++ prettify name
+        TranslationProcessorErrorUnsatisfiedConstraint cls var ->
+            "Constraint " ++
+            prettify cls ++
+            " of variable " ++ prettify var ++ " is not satisfied"
+        TranslationProcessorErrorMissingInstance cls inst ->
+            "Instance of the class " ++
+            prettify cls ++ " with type " ++ prettify inst ++ " is not defined"
+        TranslationProcessorErrorArgsLengthMismatch inst expected got ->
+            "Mismatching length of arguments for the instance " ++
+            prettify inst ++
+            ", expected " ++ show expected ++ ", but got " ++ show got
 
 prettifyInferenceError :: String -> InferenceError -> String
 prettifyInferenceError label err =

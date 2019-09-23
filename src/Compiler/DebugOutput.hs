@@ -16,10 +16,13 @@ import Frontend.Syntax.Processor
     , TokenStream(..)
     )
 
-import Compiler.Prettify.Ast (prettifyAst)
+import Compiler.Prettify.Ast ()
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
+import Compiler.Prettify.InferenceProcessorDebugOutput ()
+import Compiler.Prettify.PrettyPrintable (prettifyAst)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
+import Compiler.Prettify.Utils
 
 -- | Debug output of a step
 data DebugOutput = DebugOutput
@@ -56,4 +59,4 @@ instance HasDebugOutput DesugaringOutput where
         DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
 
 instance HasDebugOutput InferenceProcessorDebugOutput where
-    getDebugOutput a = DebugOutput (show a) DebugOutputTypeInference
+    getDebugOutput a = DebugOutput (prettify a) DebugOutputTypeInference

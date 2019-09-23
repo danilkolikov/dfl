@@ -28,7 +28,7 @@ import Frontend.Syntax.Position
 -- | Type of the error which can be encountered during data type processing
 data DataTypeProcessorError
     = DataTypeProcessorErrorUnknownType (WithLocation F.Ident) -- ^ Unknown data type
-    | DataTypeProcessorErrorUnknownClass (WithLocation F.Ident) -- ^ Can't derive instance
+    | DataTypeProcessorErrorCanNotDerive (WithLocation F.Ident) -- ^ Can't derive instance
     deriving (Eq, Show)
 
 -- | Output of data type processing
@@ -172,7 +172,7 @@ deriveInstance ::
 deriveInstance typeName args constructors className = do
     generateInstance <-
         lookupMapValue
-            (DataTypeProcessorErrorUnknownClass className)
+            (DataTypeProcessorErrorCanNotDerive className)
             (getValue className)
             iNSTANCE_GENERATORS
     let instance' = generateInstance typeName args constructors

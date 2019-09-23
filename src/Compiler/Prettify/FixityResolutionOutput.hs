@@ -10,7 +10,8 @@ module Compiler.Prettify.FixityResolutionOutput where
 
 import qualified Data.HashMap.Lazy as HM
 
-import Compiler.Prettify.Ast
+import Compiler.Prettify.Ast ()
+import Compiler.Prettify.PrettyPrintable
 import Compiler.Prettify.Utils
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Processor
