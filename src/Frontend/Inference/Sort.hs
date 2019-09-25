@@ -14,7 +14,7 @@ import Data.Maybe (fromMaybe)
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
 import Frontend.Inference.AlgebraicExp
-import Frontend.Inference.Expression
+import Frontend.Inference.WithVariables
 import Frontend.Inference.Substitution
 import Frontend.Syntax.EntityName
 

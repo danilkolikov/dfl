@@ -14,10 +14,12 @@ import qualified Data.List.NonEmpty as NE
 
 import Data.Maybe (fromMaybe)
 import Frontend.Desugaring.Final.Ast (Ident(..))
+import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.AlgebraicExp
-import Frontend.Inference.Expression
 import Frontend.Inference.Substitution
+import Frontend.Inference.WithVariables
 import Frontend.Syntax.EntityName
+import Frontend.Syntax.Position
 
 -- | Type of an expression
 data Type
@@ -92,3 +94,14 @@ instance IsAlgebraicExp Type where
                                      return $
                                      TypeApplication funcType (hd NE.:| tl)
                 | otherwise -> Nothing
+
+-- | Drops information about positions
+removePositionsOfType :: WithLocation F.Type -> Type
+removePositionsOfType type' =
+    case getValue type' of
+        F.TypeVar name -> TypeVar (getValue name)
+        F.TypeConstr name -> TypeConstr (getValue name)
+        F.TypeFunction from to ->
+            TypeFunction (removePositionsOfType from) (removePositionsOfType to)
+        F.TypeApplication func args ->
+            TypeApplication (removePositionsOfType func) (fmap removePositionsOfType args)

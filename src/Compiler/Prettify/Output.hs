@@ -10,22 +10,15 @@ module Compiler.Prettify.Output where
 
 import Compiler.Output
 import Compiler.Prettify.FixityResolutionOutput (prettifyOperators)
-import Compiler.Prettify.TypeSignatures
+import Compiler.Prettify.InferenceProcessorOutput ()
 import Compiler.Prettify.Utils
 
 prettifyOutput :: Output -> String
 prettifyOutput Output { getInfixOperators = operators
-                      , getInferredKinds = kinds
-                      , getExpandedTypeSynonyms = signatures
-                      , getInferredTypes = types
+                      , getInferenceOutput = inferenceOutput
                       } =
     unlines
-        [ prettifyHeader "Infix operators"
-        , prettifyOperators operators
-        , prettifyHeader "Inferred kinds"
-        , prettifySignatures kinds
-        , prettifyHeader "Type synonyms"
-        , prettifySignatures signatures
-        , prettifyHeader "Inferred types"
-        , prettifyTypeSignatures types
+        [ prettifyHeader "Infix operators:"
+        , indentLines $ prettifyOperators operators
+        , prettifyWithHeader "Inference output:" $ Indented inferenceOutput
         ]

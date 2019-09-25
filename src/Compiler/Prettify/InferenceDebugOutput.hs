@@ -6,58 +6,61 @@ License     :  MIT
 
 Functions for pretty printing of InferenceDebugOutput
 -}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Compiler.Prettify.InferenceDebugOutput where
 
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
-import Data.List (intercalate)
 import Data.Maybe (catMaybes)
 
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast
-import Frontend.Inference.Base.DebugOutput
-import Frontend.Inference.Base.Variables
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
+import Frontend.Inference.InferenceProcessor
 import Frontend.Inference.Solver
 import Frontend.Inference.Substitution
 
-prettifyInferenceDebugOutput :: InferenceDebugOutput -> String
-prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputSignatures = signatures
+instance (Prettifiable a, Prettifiable s) =>
+         Prettifiable (InferenceDebugOutput a s) where
+    prettify = prettifyInferenceDebugOutput
+
+instance (Prettifiable a, Prettifiable s) =>
+         Prettifiable (SingleGroupInferenceDebugOutput a s) where
+    prettify = prettifySingleGroupDebugOutput
+
+prettifyInferenceDebugOutput ::
+       (Prettifiable a, Prettifiable s) => InferenceDebugOutput a s -> String
+prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput = input
                                                   , getInferenceDebugOutputDependencyGraph = graph
                                                   , getInferenceDebugOutputDependencyGroups = groups
                                                   , getInferenceDebugOutputDependencyGroupOutputs = outputs
-                                                  , getInferenceDebugOutputTypeVariableEqualities = typeVariableEqualities
+                                                  , getInferenceDebugOutputSignatures = signatures
                                                   } =
-    let prettifyDOSignatures sigs =
-            unlines
-                [ prettifyHeader "Inference of explicit signatures:"
-                , prettifySingleGroupDebugOutput sigs
-                ]
-        prettifyGraph deps =
-            unlines
-                [ prettifyHeader "Dependency graph"
-                , prettifyDependencyGraph deps
-                ]
-        prettifyGroups grps =
-            unlines $
-            prettifyHeader "Dependency groups" : map prettifyGroupIdents grps
+    let prettifyInput i =
+            unlines [prettifyHeader "Inference input:", prettify i]
         prettifyOutputs outs =
             unlines $
             prettifyHeader "Group outputs:" :
             map prettifySingleGroupDebugOutput outs
-        prettifyDOTypeVariableEqualities eqs =
-            unlines
-                [ prettifyHeader "Type variable equalities"
-                , prettifyTypeVariableEqualitiesMap eqs
-                ]
+        prettifyDOSignatures sigs =
+            unlines [prettifyHeader "Inferred signatures:", prettify sigs]
      in unlines . catMaybes $
-        [ prettifyDOSignatures <$> signatures
+        [ prettifyInput <$> input
         , prettifyGraph <$> graph
         , prettifyGroups <$> groups
         , prettifyOutputs <$> outputs
-        , prettifyDOTypeVariableEqualities <$> typeVariableEqualities
+        , prettifyDOSignatures <$> signatures
         ]
+
+prettifyGraph :: DependencyGraph -> String
+prettifyGraph deps =
+    unlines [prettifyHeader "Dependency graph", prettifyDependencyGraph deps]
+
+prettifyGroups :: [HS.HashSet Ident] -> String
+prettifyGroups grps =
+    unlines $ prettifyHeader "Dependency groups" : map prettifyGroupIdents grps
 
 prettifyDependencyGraph :: DependencyGraph -> String
 prettifyDependencyGraph =
@@ -68,21 +71,22 @@ prettifyDependencyGraph =
 prettifyGroupIdents :: HS.HashSet Ident -> String
 prettifyGroupIdents = unwords . map prettify . HS.toList
 
-prettifySingleGroupDebugOutput :: SingleGroupInferenceDebugOutput -> String
-prettifySingleGroupDebugOutput SingleGroupInferenceDebugOutput { getSingleGroupInferenceDebugOutputGroup = group
-                                                               , getSingleGroupInferenceDebugOutputNested = nested
+prettifySingleGroupDebugOutput ::
+       (Prettifiable a, Prettifiable s)
+    => SingleGroupInferenceDebugOutput a s
+    -> String
+prettifySingleGroupDebugOutput SingleGroupInferenceDebugOutput { getSingleGroupInferenceDebugOutputInput = input
                                                                , getSingleGroupInferenceDebugOutputSolver = solverDebugOutput
+                                                               , getSingleGroupInferenceDebugOutputSignatures = signatures
                                                                } =
-    let prettifyGroupHeader grp =
-            prettifyHeader $ "Group: " ++ intercalate ", " (map prettify grp)
-        prettifyNested nst =
-            unlines
-                (prettifyHeader "Nested expressions:" :
-                 map prettifyInferenceDebugOutput nst)
+    let prettifyInput i =
+            unlines [prettifyHeader "Inference input:", prettify i]
+        prettifyDOSignatures sigs =
+            unlines [prettifyHeader "Inferred signatures:", prettify sigs]
      in unlines . catMaybes $
-        [ prettifyGroupHeader <$> group
-        , prettifyNested <$> nested
+        [ prettifyInput <$> input
         , prettifySolverDebugOutput <$> solverDebugOutput
+        , prettifyDOSignatures <$> signatures
         ]
 
 prettifySolverDebugOutput :: SolverDebugOutput -> String
@@ -134,25 +138,3 @@ prettifySubstitution =
     let prettifySingle (ident, object) =
             prettify ident ++ "::=" ++ prettify object
      in unlines . map prettifySingle . HM.toList
-
-prettifyTypeVariableEqualitiesMap :: TypeVariableEqualitiesMap -> String
-prettifyTypeVariableEqualitiesMap =
-    let prettifySingle (name, equalities) =
-            unlines
-                [ prettifyHeader $ "Type variable: " ++ prettify name
-                , prettifyTypeVariableEqualities equalities
-                ]
-     in unlines . map prettifySingle . HM.toList
-
-prettifyTypeVariableEqualities :: TypeVariableEqualities -> String
-prettifyTypeVariableEqualities TypeVariableEqualities { getTypeVariableEqualitiesTypes = types
-                                                      , getTypeVariableEqualitiesKinds = kinds
-                                                      , getTypeVariableEqualitiesSorts = sorts
-                                                      } =
-    let prettifyLine :: (Prettifiable a) => [a] -> String
-        prettifyLine = intercalate " = " . map prettify
-     in unlines
-            [ "Types: " ++ prettifyLine types
-            , "Kinds: " ++ prettifyLine kinds
-            , "Sorts: " ++ prettifyLine sorts
-            ]

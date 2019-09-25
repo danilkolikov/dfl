@@ -6,15 +6,17 @@ License     :  MIT
 
 Function for resolution of dependencies of expressions
 -}
-module Frontend.Inference.Type.WithDependencies where
+module Frontend.Inference.Type.WithDependencies
+    ( getExpressionsDependencyGraph
+    ) where
 
 import Control.Monad.Trans.Reader (Reader, ask, local, runReader)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
+import Frontend.Inference.Let.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Get graph of dependencies between expressions
@@ -52,13 +54,6 @@ getExpDependencies expr =
                     (getExpDependencies success)
             failureDeps <- getIdentDependencies failure
             return $ HS.unions [nameDeps, successDeps, failureDeps]
-        ExpLet decls innerExp -> do
-            let definedIdents = HM.keysSet decls
-                withDefined = local (HS.union definedIdents)
-            declsDeps <-
-                mapM (withDefined . getExpressionDependencies) (HM.elems decls)
-            innerDeps <- withDefined $ getExpDependencies innerExp
-            return . HS.unions $ innerDeps : declsDeps
 
 -- | Get dependencies of a single ident
 getIdentDependencies :: WithLocation Ident -> DependencyGetter

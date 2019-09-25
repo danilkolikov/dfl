@@ -126,6 +126,20 @@ collectHashMap get (f:rest) = do
             Just (key, val) -> HM.insert key val hashMap
             Nothing -> hashMap
 
+-- | Collects a list of objects, returnred by processors
+collectList ::
+       (a -> DesugaringProcessor (Maybe b))
+    -> [WithLocation a]
+    -> DesugaringProcessor [b]
+collectList _ [] = return []
+collectList get (f:rest) = do
+    cur <- get . getValue $ f
+    list <- collectList get rest
+    return $
+        case cur of
+            Just val -> val : list
+            Nothing -> list
+
 -- | Function raises a DesugaringError
 raiseError :: DesugaringError -> DesugaringProcessor a
 raiseError = lift . E.throwE

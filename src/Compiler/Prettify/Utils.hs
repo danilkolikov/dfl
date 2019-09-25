@@ -14,9 +14,12 @@ import qualified Data.List.NonEmpty as NE
 import Data.Tuple (swap)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
+import qualified Frontend.Desugaring.Final.Ast as F
+import Frontend.Inference.Class (Class(..))
 import Frontend.Inference.Constraint
+import Frontend.Inference.Instance (Instance(..))
+import Frontend.Inference.Kind.Processor (KindInferenceEnvironmentItem(..))
 import Frontend.Inference.Signature
-import Frontend.Inference.Base.Common
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
 import Frontend.Syntax.Token
@@ -33,11 +36,35 @@ inversedKeywords = inverseMap keywords
 inversedOperators :: [(Operator, String)]
 inversedOperators = inverseMap operators
 
+indentLines :: String -> String
+indentLines = unlines' . map ("  " ++) . lines
+
+unlines' :: [String] -> String
+unlines' = intercalate "\n"
+
 prettifyHeader :: String -> String
-prettifyHeader header = unlines [header, replicate (length header) '-']
+prettifyHeader header = unlines' [header, replicate (length header) '-']
 
 class Prettifiable a where
     prettify :: a -> String
+
+prettifyWithHeader :: (Prettifiable a) => String -> a -> String
+prettifyWithHeader header x = unlines' [prettifyHeader header, prettify x]
+
+newtype Indented a =
+    Indented a
+
+instance (Prettifiable a) => Prettifiable (Indented a) where
+    prettify (Indented x) = indentLines $ prettify x
+
+instance (Prettifiable a) => Prettifiable [a] where
+    prettify = unlines' . map prettify
+
+instance (Prettifiable a, Prettifiable b) => Prettifiable (Either a b) where
+    prettify = either prettify prettify
+
+instance Prettifiable () where
+    prettify = show
 
 instance Prettifiable SourceLocation where
     prettify (SourceLocation start end) =
@@ -58,6 +85,10 @@ instance Prettifiable Ident where
                 "(" ++ prettifyEntityName name ++ ", " ++ show param ++ ")"
             IdentGenerated env param ->
                 "(" ++ prettify env ++ ": " ++ show param ++ ")"
+            IdentScoped idents -> intercalate "->" (map prettify idents)
+            IdentInstance className instanceName ->
+                "(" ++
+                prettify className ++ ": " ++ prettify instanceName ++ ")"
 
 instance Prettifiable IdentEnvironment where
     prettify env =
@@ -68,6 +99,9 @@ instance Prettifiable IdentEnvironment where
             IdentEnvironmentTypeVariable -> "type"
             IdentEnvironmentKindVariable -> "kind"
             IdentEnvironmentSortVariable -> "sort"
+            IdentEnvironmentInstances -> "instance"
+            IdentEnvironmentLet -> "let"
+            IdentEnvironmentTranslation -> "translation"
 
 prettifyForAll :: [(Ident, a)] -> String
 prettifyForAll [] = ""
@@ -106,13 +140,16 @@ instance Prettifiable Constraint where
         case constraint of
             ConstraintVariable class' type' ->
                 unwords [prettify class', prettify type']
-            ConstraintType class' type' args ->
+            ConstraintAppliedVariable class' type' args ->
                 unwords
                     [ prettify class'
                     , "(" ++
                       unwords (prettify type' : map prettify (NE.toList args)) ++
                       ")"
                     ]
+
+instance Prettifiable SimpleConstraint where
+    prettify (SimpleConstraint cls type') = unwords $ map prettify [cls, type']
 
 instance Prettifiable TypeConstructorSignature where
     prettify sig@TypeConstructorSignature { getTypeConstructorSignatureKindParams = kindParams
@@ -147,10 +184,69 @@ prettifyContext [] = ""
 prettifyContext constraints =
     " (" ++ intercalate ", " (map prettify constraints) ++ ") =>"
 
-prettifySignatures :: (Prettifiable s) => Signatures s -> String
-prettifySignatures sigs =
-    unlines
-        (map prettifySignature (HM.toList sigs))
+instance (Prettifiable a, Prettifiable b) => Prettifiable (HM.HashMap a b) where
+    prettify = unlines' . map prettifyPair . HM.toList
+      where
+        prettifyPair (key, value) =
+            intercalate " : " [prettify key, prettify value]
 
-prettifySignature :: (Prettifiable s) => (Ident, s) -> String
-prettifySignature (name, s) = unwords [prettify name, prettify s]
+-- An instance for ExpWithSignature
+instance (Prettifiable a, Prettifiable b) => Prettifiable (a, b) where
+    prettify (k, v) = unlines' [prettify v, prettify k]
+
+instance (Prettifiable a) => Prettifiable (WithLocation a) where
+    prettify = prettify . getValue
+
+instance Prettifiable KindInferenceEnvironmentItem where
+    prettify item =
+        case item of
+            KindInferenceEnvironmentItemTypeSynonym F.TypeSynonym {F.getTypeSynonymName = name} ->
+                unwords ["Type synonym", prettify name]
+            KindInferenceEnvironmentItemDataType F.DataType {F.getDataTypeName = name} ->
+                unwords ["DataType", prettify name]
+            KindInferenceEnvironmentItemClass F.Class {F.getClassName = name} ->
+                unwords ["Class", prettify name]
+
+instance Prettifiable Class where
+    prettify Class { getClassContext = context
+                   , getClassName = name
+                   , getClassParam = param
+                   , getClassDataTypeName = dataType
+                   , getClassGetters = getters
+                   , getClassMethods = methods
+                   , getClassDefaultInstanceName = defaultInstance
+                   } =
+        unlines'
+            [ unwords ["Class", prettify name, prettify param]
+            , indentLines $
+              unlines'
+                  [ unwords
+                        ["Context:", intercalate ", " $ map prettify context]
+                  , unwords
+                        [ "Data types:"
+                        , intercalate ", " $
+                          map prettify [dataType, defaultInstance]
+                        ]
+                  , unwords ["Methods:", unwords $ map prettify methods]
+                  , "Getters:"
+                  , prettify $ Indented getters
+                  ]
+            ]
+
+instance Prettifiable Instance where
+    prettify Instance { getInstanceContext = context
+                      , getInstanceClass = cls
+                      , getInstanceType = type'
+                      , getInstanceTypeArgs = args
+                      , getInstanceExpression = name
+                      } =
+        unlines'
+            [ unwords $
+              ["Instance", prettify cls, prettify type'] ++ map prettify args
+            , indentLines $
+              unlines'
+                  [ unwords
+                        ["Context:", intercalate ", " $ map prettify context]
+                  , unwords ["Expression:", prettify name]
+                  ]
+            ]

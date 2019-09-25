@@ -15,14 +15,11 @@ import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
-import Frontend.Inference.Base.Common
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
+import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
-import Frontend.Inference.TypeSynonyms.Expand (TypeSynonymsExpandingError(..))
-import Frontend.Inference.TypeSynonyms.Processor
-    ( TypeSynonymsProcessingError(..)
-    )
+import Frontend.Inference.TypeSynonym.Expand (TypeSynonymExpandingError(..))
 import Frontend.Inference.Unification
 import Frontend.Syntax.Position (WithLocation(WithLocation))
 import Frontend.Syntax.Processor
@@ -36,7 +33,7 @@ prettifyCompilationError err =
         CompilerErrorParser p -> prettifyParserError p
         CompilerErrorFixity f -> prettifyFixityError f
         CompilerErrorDesugaring d -> prettifyDesugaringError d
-        CompilerErrorInference i -> prettifyCombinedInferenceError i
+        CompilerErrorInference i -> prettifyInferenceProcessorError i
 
 prettifyLexerError :: LexicalError -> String
 prettifyLexerError err =
@@ -159,28 +156,128 @@ prettifyExpressionDesugaringError expressionError =
             "Expressions share the same name: " ++
             prettifyName name1 ++ " and " ++ prettifyName name2
 
-prettifyCombinedInferenceError :: CombinedInferenceError -> String
-prettifyCombinedInferenceError err =
+prettifyInferenceProcessorError :: InferenceProcessorError -> String
+prettifyInferenceProcessorError err =
+    "Inference error: " ++
     case err of
-        CombinedInferenceErrorKindInference infErr ->
-            prettifyInferenceError "Kind inference error: " infErr
-        CombinedInferenceErrorTypeSynonyms typeSynonymsErr ->
-            prettifyTypeSynonymsProcessingError typeSynonymsErr
-        CombinedInferenceErrorTypeInference infErr ->
+        InferenceProcessorErrorKind kindError -> prettifyKindError kindError
+        InferenceProcessorErrorTypeSynonym typeSynonymError ->
+            prettifyTypeSynonymProcessorError typeSynonymError
+        InferenceProcessorErrorClass classError -> prettifyClassError classError
+        InferenceProcessorErrorDataType dataType ->
+            prettifyDataTypeError dataType
+        InferenceProcessorErrorInstance instErr -> prettifyInstanceError instErr
+        InferenceProcessorErrorType infErr ->
             prettifyInferenceError "Type inference error: " infErr
+        InferenceProcessorErrorTranslation translationError ->
+            prettifyTranslationError translationError
+
+prettifyKindError :: KindProcessorError -> String
+prettifyKindError err =
+    "Kind inference error:" ++
+    case err of
+        KindProcessorErrorInference infErr ->
+            prettifyInferenceError "Kind inference error: " infErr
+        KindProcessorErrorInstanceCheck instErr ->
+            prettifyInferenceError "Instance kind checking error: " instErr
+        KindProcessorErrorAstCheck checkErr ->
+            prettifyInferenceError "AST checking error: " checkErr
+
+prettifyClassError :: ClassProcessorError -> String
+prettifyClassError err =
+    "Class error: " ++
+    case err of
+        ClassProcessorErrorRecursive name ->
+            "Class " ++ prettify name ++ " should not be a superclass of itself"
+        ClassProcessorErrorMutuallyRecursive classes ->
+            "Classes " ++
+            intercalate ", " (map prettify classes) ++
+            " form recursive superclass hierarchy"
+        ClassProcessorErrorDependencyResolution depErr ->
+            prettifyDependencyError depErr
+        ClassProcessorErrorUnknownClass name ->
+            "Unknown class: " ++ prettify name
+        ClassProcessorErrorUnknownGeneratedDataType name ->
+            "Unknown generated data type: " ++ prettify name
+
+prettifyDataTypeError :: DataTypeProcessorError -> String
+prettifyDataTypeError err =
+    "Data type error: " ++
+    case err of
+        DataTypeProcessorErrorUnknownType name ->
+            "Unknown data type: " ++ prettify name
+        DataTypeProcessorErrorCanNotDerive name ->
+            "Can't derive an instance of the class " ++ prettify name
+
+prettifyInstanceError :: InstanceProcessorError -> String
+prettifyInstanceError err =
+    "Instance error: " ++
+    case err of
+        InstanceProcessorErrorAlreadyDefined old new ->
+            "Instance " ++
+            prettifyName new ++ " is already defined at " ++ prettify old
+        InstanceProcessorErrorUnknownClass name ->
+            "Unknown class: " ++ prettify name
+        InstanceProcessorErrorUnknownType name ->
+            "Unknown generated data type: " ++ prettify name
+        InstanceProcessorErrorUnknownClassComponent className compName ->
+            "Unknown component " ++
+            prettify compName ++ " of a class " ++ prettify className
+        InstanceProcessorErrorMissingInstance className typeName ->
+            "Instance of the class " ++
+            prettify className ++
+            " with type " ++ prettify typeName ++ " is not defined"
+        InstanceProcessorErrorUnsatisfiedConstraint instName className ->
+            "Constraint " ++
+            prettify className ++
+            " of the instance " ++ prettify instName ++ " is not satisfied"
+
+prettifyTranslationError :: TranslationProcessorError -> String
+prettifyTranslationError err =
+    "Translation error: " ++
+    case err of
+        TranslationProcessorErrorUnknownExpression name ->
+            "Unknown expression: " ++ prettify name
+        TranslationProcessorErrorUnknownClass name ->
+            "Unknown class: " ++ prettify name
+        TranslationProcessorErrorUnsatisfiedConstraint cls var ->
+            "Constraint " ++
+            prettify cls ++
+            " of variable " ++ prettify var ++ " is not satisfied"
+        TranslationProcessorErrorMissingInstance cls inst ->
+            "Instance of the class " ++
+            prettify cls ++ " with type " ++ prettify inst ++ " is not defined"
+        TranslationProcessorErrorArgsLengthMismatch inst expected got ->
+            "Mismatching length of arguments for the instance " ++
+            prettify inst ++
+            ", expected " ++ show expected ++ ", but got " ++ show got
 
 prettifyInferenceError :: String -> InferenceError -> String
 prettifyInferenceError label err =
     label ++
     case err of
-        InferenceErrorSynonyms expErr ->
-            prettifyTypeSynonymsExpandingError expErr
         InferenceErrorDependencyResolution dependencyError ->
             prettifyDependencyError dependencyError
         InferenceErrorUnification unificationError ->
             prettifyUnificationError unificationError
         InferenceErrorEqualityGeneration groupError ->
             prettifyEqualitiesGenerationError groupError
+        InferenceErrorSignatureCheck checkErr ->
+            prettifySignatureCheckError checkErr
+
+prettifySignatureCheckError :: SignatureCheckError -> String
+prettifySignatureCheckError err =
+    "Signature check error: " ++
+    case err of
+        SignatureCheckErrorBoundVariable boundVar ->
+            "A free variable was bound in the type of expression: " ++
+            prettifyBoundVariable boundVar
+        SignatureCheckErrorUnexpectedConstraint constraint ->
+            "Unexpected constraint " ++ prettify constraint
+
+prettifyBoundVariable :: VariableBinding -> String
+prettifyBoundVariable (name, binding) =
+    prettify name ++ " := " ++ prettify binding
 
 prettifyDependencyError :: DependencyResolverError -> String
 prettifyDependencyError dependencyError =
@@ -201,8 +298,7 @@ prettifyUnificationError unificationError =
         UnificationErrorDifferentNumberOfArgs ->
             "Can't unify functions with different number of arguments"
 
-prettifyEqualitiesGenerationError ::
-       InferenceEqualitiesGenerationError -> String
+prettifyEqualitiesGenerationError :: EqualitiesGenerationError -> String
 prettifyEqualitiesGenerationError groupError =
     "Equality generation error: " ++
     case groupError of
@@ -210,28 +306,33 @@ prettifyEqualitiesGenerationError groupError =
             "Unknown name " ++ prettifyName name
         EqualitiesGenerationErrorUnknownType name ->
             "Unknown type " ++ prettifyName name
-        EqualitiesGenerationErrorNested err ->
-            "Nested error: " ++ prettifyInferenceError "" err
 
-prettifyTypeSynonymsProcessingError :: TypeSynonymsProcessingError -> String
-prettifyTypeSynonymsProcessingError typeSynonymsErr =
+prettifyTypeSynonymProcessorError :: TypeSynonymProcessorError -> String
+prettifyTypeSynonymProcessorError typeSynonymsErr =
     "Type synonyms processing error: " ++
     case typeSynonymsErr of
-        TypeSynonymsProcessingErrorRecursive name ->
+        TypeSynonymProcessorErrorRecursive name ->
             "Type synonym " ++
             prettify name ++ " is recursive, which is not supported"
-        TypeSynonymsProcessingErrorMutuallyRecursive names ->
+        TypeSynonymProcessorErrorMutuallyRecursive names ->
             "Type synonyms " ++
             intercalate ", " (map prettify names) ++
             " are mutually recursive, which is not supported"
-        TypeSynonymsProcessingErrorDependencyResolution dependencyError ->
+        TypeSynonymProcessorErrorDependencyResolution dependencyError ->
             prettifyDependencyError dependencyError
-        TypeSynonymsProcessingErrorExpanding expandingError ->
-            prettifyTypeSynonymsExpandingError expandingError
+        TypeSynonymProcessorErrorExpanding expandingError ->
+            prettifyTypeSynonymExpandingError expandingError
 
-prettifyTypeSynonymsExpandingError :: TypeSynonymsExpandingError -> String
-prettifyTypeSynonymsExpandingError (TypeSynonymsExpandingErrorwWrongNumberOfArgs name expected got) =
+prettifyTypeSynonymExpandingError :: TypeSynonymExpandingError -> String
+prettifyTypeSynonymExpandingError expErr =
     "Type synonym expanding error: " ++
-    "Wrong number of arguments of a type synonym " ++
-    prettifyName name ++
-    ", expected " ++ show expected ++ ", but got " ++ show got
+    case expErr of
+        TypeSynonymExpandingErrorwWrongNumberOfArgs name expected got ->
+            "Wrong number of arguments of a type synonym " ++
+            prettify name ++
+            ", expected " ++ show expected ++ ", but got " ++ show got
+        TypeSynonymExpandingErrorSynonymInInstance className typeName ->
+            "Type synonym " ++
+            prettifyName typeName ++
+            " is used in the instance of class " ++
+            prettifyName className ++ ", which is not supported"

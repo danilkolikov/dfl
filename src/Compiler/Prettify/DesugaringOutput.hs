@@ -10,7 +10,8 @@ module Compiler.Prettify.DesugaringOutput where
 
 import qualified Data.HashMap.Lazy as HM
 
-import Compiler.Prettify.Ast
+import Compiler.Prettify.DesugaredAst ()
+import Compiler.Prettify.PrettyPrintable
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Processor (DesugaringOutput(..), DesugaringState(..))
 

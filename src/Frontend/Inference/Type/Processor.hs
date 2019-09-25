@@ -1,166 +1,143 @@
 {- |
 Module      :  Frontend.Inference.Type.Processor
-Description :  Functions for type inference
+Description :  Base functions for type inference
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Processor of type inference
+Base functions for type inference
 -}
-module Frontend.Inference.Type.Processor where
+module Frontend.Inference.Type.Processor
+    ( inferTypesOfExpressions
+    , TypeInferenceDebugOutput
+    ) where
 
-import Control.Applicative ((<|>))
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (ExceptT, except, runExceptT)
-import Control.Monad.Trans.Writer.Lazy (Writer, runWriter, tell)
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
+import Data.List (find)
 
-import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Base.Common
-import Frontend.Inference.Base.DebugOutput
-import Frontend.Inference.Base.Descriptor
-import Frontend.Inference.Base.Processor hiding (writeDebugOutput)
+import Frontend.Inference.Equalities
+import qualified Frontend.Inference.Expression as T
+import Frontend.Inference.InferenceProcessor
+import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Signature
-import Frontend.Inference.Solver hiding (writeDebugOutput)
-import Frontend.Inference.Type.Classes
-import Frontend.Inference.Type.DataTypes
+import Frontend.Inference.Solver
+import Frontend.Inference.Substitution
 import Frontend.Inference.Type.Equalities
-import Frontend.Inference.Type.Signatures
 import Frontend.Inference.Type.WithDependencies
-import Frontend.Inference.TypeSynonyms.Processor (TypeSynonymSignatures)
+import Frontend.Inference.Util.Debug
+import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables
 
--- | An output of the type inference processor
-data TypeSignatures = TypeSignatures
-    { getTypeSignaturesConstructors :: HM.HashMap Ident TypeSignature
-    , getTypeSignaturesMethods :: HM.HashMap Ident TypeSignature
-    , getTypeSignaturesExpressions :: HM.HashMap Ident TypeSignature
-    } deriving (Eq, Show)
+-- | Debug output of type inference
+type TypeInferenceDebugOutput
+     = InferenceDebugOutput L.Expression (T.Exp, TypeSignature)
 
--- | A debug output of type inference
-data TypeInferenceDebugOutput = TypeInferenceDebugOutput
-    { getTypeInferenceDebugOutputConstructorsOutput :: Maybe SingleGroupInferenceDebugOutput
-    , getTypeInferenceDebugOutputMethodsOutput :: Maybe SingleGroupInferenceDebugOutput
-    , getTypeInferenceDebugOutputExpressions :: Maybe InferenceDebugOutput
-    }
+-- | Infers types of provided expressions
+inferTypesOfExpressions ::
+       Signatures TypeSignature
+    -> HM.HashMap Ident L.Expression
+    -> ( Either InferenceError (Signatures (T.Exp, TypeSignature))
+       , TypeInferenceDebugOutput)
+inferTypesOfExpressions initialState expressions =
+    evalVariableGenerator . runWithDebugOutputT $
+    inferMultipleGroupsGeneric
+        snd
+        buildDependencyGraph
+        buildEqualities
+        initialState
+        expressions
 
-instance Semigroup TypeInferenceDebugOutput where
-    TypeInferenceDebugOutput c1 m1 e1 <> TypeInferenceDebugOutput c2 m2 e2 =
-        TypeInferenceDebugOutput (c1 <|> c2) (m1 <|> m2) (e1 <|> e2)
+-- | Builds dependency graph for provided expressions
+buildDependencyGraph :: DependencyGraphBuilder L.Expression TypeSignature
+buildDependencyGraph signatures =
+    getExpressionsDependencyGraph (HM.keysSet signatures)
 
-instance Monoid TypeInferenceDebugOutput where
-    mempty =
-        TypeInferenceDebugOutput
-            { getTypeInferenceDebugOutputConstructorsOutput = Nothing
-            , getTypeInferenceDebugOutputMethodsOutput = Nothing
-            , getTypeInferenceDebugOutputExpressions = Nothing
-            }
+-- | Generates equalities for a single group
+buildEqualities ::
+       EqualitiesBuilder (HM.HashMap Ident L.Expression) TypeSignature (HM.HashMap Ident ( T.Exp
+                                                                                         , TypeSignature))
+buildEqualities signatures items =
+    let buildEqualitiesAndApplySolution = do
+            results <- generateEqualitiesForExpressions items
+            return $ \solution -> mapHashMapM (applySolution solution) results
+     in runEqualitiesGenerator'
+            buildEqualitiesAndApplySolution
+            emptyEqualitiesGeneratorEnvironment
+                {getExpressionSignatures = signatures}
 
--- | An empty type signature
-emptyTypeSignatures :: TypeSignatures
-emptyTypeSignatures =
-    TypeSignatures
-        { getTypeSignaturesConstructors = HM.empty
-        , getTypeSignaturesMethods = HM.empty
-        , getTypeSignaturesExpressions = HM.empty
-        }
+-- | Applies solution of the system of type equations to the single result of generation of equalities
+applySolution ::
+       Solution
+    -> ( (T.Exp, TypeSignature)
+       , (Substitution Type, Substitution Kind)
+       , Maybe TypeSignature)
+    -> Either SignatureCheckError (T.Exp, TypeSignature)
+applySolution sol ((exp', typeSig), subs, expectedSig) =
+    let appliedExp = applyTypeSolution sol exp'
+        appliedTypeSig = applyTypeSolutionAndGeneralise sol typeSig
+        constraints = getSolutionTypeConstraints sol
+        finalTypeSig = appliedTypeSig {getTypeSignatureContext = constraints}
+     in case expectedSig of
+            Nothing -> return (appliedExp, finalTypeSig) -- No predefined type signature
+            Just signature ->
+                checkSignatures sol subs signature finalTypeSig >>
+                return (appliedExp, signature)
 
--- | A processor of type inference
-type Processor = ExceptT InferenceError (Writer [TypeInferenceDebugOutput])
+checkSignatures ::
+       Solution
+    -> (Substitution Type, Substitution Kind)
+    -> TypeSignature
+    -> TypeSignature
+    -> Either SignatureCheckError ()
+checkSignatures solution (typeSub, kindSub) expected got
+    | TypeSignature {getTypeSignatureContext = expectedContext} <- expected
+    , TypeSignature {getTypeSignatureContext = gotContext} <- got
+    , Solution { getSolutionTypeSubstitution = solutionTypeSub
+               , getSolutionKindSubstitution = solutionKindSub
+               } <- solution =
+        let isTypeVariable type' =
+                case type' of
+                    TypeVar {} -> True
+                    _ -> False
+            isKindVariable kind =
+                case kind of
+                    KindVar {} -> True
+                    _ -> False
+         in do checkVariableBinding
+                   isKindVariable
+                   (second Left)
+                   kindSub
+                   solutionKindSub
+               checkVariableBinding
+                   isTypeVariable
+                   (second Right)
+                   typeSub
+                   solutionTypeSub
+               checkContexts expectedContext gotContext
 
--- | Writes debug output
-writeDebugOutput :: TypeInferenceDebugOutput -> Processor ()
-writeDebugOutput = lift . tell . return
+checkVariableBinding ::
+       (Substitutable a)
+    => (a -> Bool)
+    -> ((Ident, a) -> VariableBinding)
+    -> Substitution a
+    -> Substitution a
+    -> Either SignatureCheckError ()
+checkVariableBinding isVariable wrapper initialSub solutionSub =
+    mapM_ checkParam $ HM.keys initialSub
+  where
+    composedSub = initialSub `compose` solutionSub
+    checkParam name =
+        case HM.lookup name composedSub of
+            Nothing -> return ()
+            Just found ->
+                if isVariable found
+                    then return ()
+                    else Left . SignatureCheckErrorBoundVariable $
+                         wrapper (name, found)
 
--- | Infers types of functions in the module
-inferTypes ::
-       Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
-    -> TypeSignatures
-    -> F.Module
-    -> (Either InferenceError TypeSignatures, TypeInferenceDebugOutput)
-inferTypes signatures typeSynonymSignatures typeSignatures module' =
-    let processor =
-            inferTypes' signatures typeSynonymSignatures typeSignatures module'
-        result = runWriter $ runExceptT processor
-     in second mconcat result
-
--- | Infer types of functions in the module
-inferTypes' ::
-       Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
-    -> TypeSignatures
-    -> F.Module
-    -> Processor TypeSignatures
-inferTypes' signatures typeSynonymSignatures typeSignatures module'
-    | TypeSignatures { getTypeSignaturesConstructors = initialConstructorSignatures
-                     , getTypeSignaturesMethods = initialMethodSignatures
-                     , getTypeSignaturesExpressions = initialExpressionSignatures
-                     } <- typeSignatures
-    , F.Module { F.getModuleDataTypes = dataTypes
-               , F.getModuleClasses = classes
-               , F.getModuleExpressions = expressions
-               } <- module' = do
-        let constructors =
-                HM.unions . map createConstructorSignatures . HM.elems $
-                dataTypes
-            methods = HM.unions . map createClassSignatures . HM.elems $ classes
-            inferSignatures =
-                inferTypeSignatures' signatures typeSynonymSignatures
-            (inferConstructors, constructorOutput) =
-                inferSignatures constructors
-            (inferMethods, methodsOutput) = inferSignatures methods
-        writeDebugOutput
-            mempty
-                { getTypeInferenceDebugOutputConstructorsOutput =
-                      Just constructorOutput
-                , getTypeInferenceDebugOutputMethodsOutput = Just methodsOutput
-                }
-        constructorSignatures <- except inferConstructors
-        methodSignatures <- except inferMethods
-        let descriptor =
-                typeInferenceDescriptor signatures typeSynonymSignatures
-            inferenceEnvironment =
-                InferenceEnvironment
-                    { getInferenceEnvironmentSignatures =
-                          initialConstructorSignatures <> constructorSignatures <>
-                          initialMethodSignatures <>
-                          methodSignatures <>
-                          initialExpressionSignatures
-                    , getInferenceEnvironmentTypeVariables = HM.empty
-                    }
-            (result, debugOutput) =
-                runInfer
-                    descriptor
-                    inferenceEnvironment
-                    emptyVariableGeneratorState
-                    expressions
-        writeDebugOutput
-            mempty {getTypeInferenceDebugOutputExpressions = Just debugOutput}
-        (expressionSignatures, _, _) <- except result
-        return
-            TypeSignatures
-                { getTypeSignaturesConstructors = constructorSignatures
-                , getTypeSignaturesMethods = methodSignatures
-                , getTypeSignaturesExpressions = expressionSignatures
-                }
-
--- | Describes the process of a type inference
-typeInferenceDescriptor ::
-       Signatures TypeConstructorSignature
-    -> TypeSynonymSignatures
-    -> InferenceDescriptor F.Expressions TypeSignature
-typeInferenceDescriptor signatures typeSynonyms =
-    InferenceDescriptor
-        { getInferenceDescriptorSignaturesGetter =
-              inferTypeSignatures signatures typeSynonyms
-        , getInferenceDescriptorDependenyGraphBuilder =
-              getExpressionsDependencyGraph . HM.keysSet
-        , getInferenceDescriptorSingleGroup =
-              SingleGroupInferenceDescriptor
-                  { getSingleGroupInferenceDescriptorEqualitiesBuilder =
-                        generateEqualitiesForExpressions
-                  , getSingleGroupInferenceDescriptorApplySolution =
-                        const applyTypeSolution -- Ignore type variables
-                  }
-        }
+checkContexts :: [Constraint] -> [Constraint] -> Either SignatureCheckError ()
+checkContexts expected got =
+    case find (not . (`elem` expected)) got of
+        Just unexpected ->
+            Left $ SignatureCheckErrorUnexpectedConstraint unexpected
+        Nothing -> return ()

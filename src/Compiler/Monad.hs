@@ -62,7 +62,5 @@ debugOutputTypeToSuffix type' =
         DebugOutputTypeLexems -> "lexems"
         DebugOutputTypeAst -> "ast"
         DebugOutputTypeDesugaredAst -> "desugared"
-        DebugOutputTypeInferredKinds -> "kinds"
         DebugOutputTypeFixityResolution -> "fixity"
-        DebugOutputTypeTypeSynonyms -> "synonyms"
-        DebugOutputTypeInferredTypes -> "types"
+        DebugOutputTypeInference -> "inference"

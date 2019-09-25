@@ -222,7 +222,7 @@ data GTyCon
 -- | Class in a type context
 data Class
     = ClassSimple (WithLocation QTyCls)
-                  (WithLocation TyVar) -- ^ Application "SomeClass a b c"
+                  (WithLocation TyVar) -- ^ Application "SomeClass a"
     | ClassApplied (WithLocation QTyCls)
                    (WithLocation TyVar)
                    (NonEmpty (WithLocation AType)) -- ^ Application "SomeClass (a Foo Bar)"
