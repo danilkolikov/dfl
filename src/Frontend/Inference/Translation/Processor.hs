@@ -75,13 +75,46 @@ translateExpressions ::
     -> ( Either TranslationProcessorError (HM.HashMap Ident ExpWithSignature)
        , TranslationProcessorDebugOutput)
 translateExpressions classes instances typeSignatures expressions =
-    runWithDebugOutput $
-    mapHashMapWithKeyM
-        (translateExpression
-             classes
-             instances
-             (typeSignatures <> HM.map snd expressions))
-        expressions
+    runWithDebugOutput $ do
+        translatedMethods <-
+            mconcat <$>
+            mapM (translateMethods typeSignatures) (HM.elems classes)
+        translatedExpressions <-
+            mapHashMapWithKeyM
+                (translateExpression
+                     classes
+                     instances
+                     (typeSignatures <> HM.map snd expressions))
+                expressions
+        return $ translatedMethods <> translatedExpressions
+
+translateMethods ::
+       Signatures TypeSignature
+    -> C.Class
+    -> TranslationProcessor (HM.HashMap Ident ExpWithSignature)
+translateMethods typeSignatures C.Class { C.getClassMethods = methods
+                                        , C.getClassGetters = getters
+                                        } =
+    let translateMethod name = do
+            signature <-
+                lookupMapValue
+                    (TranslationProcessorErrorUnknownExpression name)
+                    name
+                    typeSignatures
+            getterName <-
+                lookupMapValue
+                    (TranslationProcessorErrorUnknownExpression name)
+                    name
+                    getters
+            let body =
+                    ExpExternal
+                        External
+                            { getExternalName = getterName
+                            , getExternalKindArgs = HM.empty
+                            , getExternalTypeArgs = HM.empty
+                            }
+            return (name, (body, signature))
+     in HM.fromList <$> mapM translateMethod methods
 
 translateExpression ::
        HM.HashMap Ident C.Class

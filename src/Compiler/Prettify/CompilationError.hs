@@ -17,6 +17,7 @@ import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
+import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
 import Frontend.Inference.TypeSynonym.Expand (TypeSynonymExpandingError(..))
 import Frontend.Inference.Unification
@@ -217,6 +218,8 @@ prettifyInstanceError err =
             prettifyName new ++ " is already defined at " ++ prettify old
         InstanceProcessorErrorUnknownClass name ->
             "Unknown class: " ++ prettify name
+        InstanceProcessorErrorUnknownType name ->
+            "Unknown generated data type: " ++ prettify name
         InstanceProcessorErrorUnknownClassComponent className compName ->
             "Unknown component " ++
             prettify compName ++ " of a class " ++ prettify className
@@ -259,6 +262,22 @@ prettifyInferenceError label err =
             prettifyUnificationError unificationError
         InferenceErrorEqualityGeneration groupError ->
             prettifyEqualitiesGenerationError groupError
+        InferenceErrorSignatureCheck checkErr ->
+            prettifySignatureCheckError checkErr
+
+prettifySignatureCheckError :: SignatureCheckError -> String
+prettifySignatureCheckError err =
+    "Signature check error: " ++
+    case err of
+        SignatureCheckErrorBoundVariable boundVar ->
+            "A free variable was bound in the type of expression: " ++
+            prettifyBoundVariable boundVar
+        SignatureCheckErrorUnexpectedConstraint constraint ->
+            "Unexpected constraint " ++ prettify constraint
+
+prettifyBoundVariable :: VariableBinding -> String
+prettifyBoundVariable (name, binding) =
+    prettify name ++ " := " ++ prettify binding
 
 prettifyDependencyError :: DependencyResolverError -> String
 prettifyDependencyError dependencyError =

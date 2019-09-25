@@ -11,7 +11,9 @@ module Frontend.Inference.Type.Processor
     , TypeInferenceDebugOutput
     ) where
 
+import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
+import Data.List (find)
 
 import Frontend.Inference.Equalities
 import qualified Frontend.Inference.Expression as T
@@ -19,9 +21,11 @@ import Frontend.Inference.InferenceProcessor
 import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Signature
 import Frontend.Inference.Solver
+import Frontend.Inference.Substitution
 import Frontend.Inference.Type.Equalities
 import Frontend.Inference.Type.WithDependencies
 import Frontend.Inference.Util.Debug
+import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables
 
 -- | Debug output of type inference
@@ -55,17 +59,85 @@ buildEqualities ::
 buildEqualities signatures items =
     let buildEqualitiesAndApplySolution = do
             results <- generateEqualitiesForExpressions items
-            return $ \solution -> HM.map (applySolution solution) results
+            return $ \solution -> mapHashMapM (applySolution solution) results
      in runEqualitiesGenerator'
             buildEqualitiesAndApplySolution
             emptyEqualitiesGeneratorEnvironment
                 {getExpressionSignatures = signatures}
 
 -- | Applies solution of the system of type equations to the single result of generation of equalities
-applySolution :: Solution -> (T.Exp, TypeSignature) -> (T.Exp, TypeSignature)
-applySolution sol (exp', typeSig) =
+applySolution ::
+       Solution
+    -> ( (T.Exp, TypeSignature)
+       , (Substitution Type, Substitution Kind)
+       , Maybe TypeSignature)
+    -> Either SignatureCheckError (T.Exp, TypeSignature)
+applySolution sol ((exp', typeSig), subs, expectedSig) =
     let appliedExp = applyTypeSolution sol exp'
         appliedTypeSig = applyTypeSolutionAndGeneralise sol typeSig
         constraints = getSolutionTypeConstraints sol
         finalTypeSig = appliedTypeSig {getTypeSignatureContext = constraints}
-     in (appliedExp, finalTypeSig)
+     in case expectedSig of
+            Nothing -> return (appliedExp, finalTypeSig) -- No predefined type signature
+            Just signature ->
+                checkSignatures sol subs signature finalTypeSig >>
+                return (appliedExp, signature)
+
+checkSignatures ::
+       Solution
+    -> (Substitution Type, Substitution Kind)
+    -> TypeSignature
+    -> TypeSignature
+    -> Either SignatureCheckError ()
+checkSignatures solution (typeSub, kindSub) expected got
+    | TypeSignature {getTypeSignatureContext = expectedContext} <- expected
+    , TypeSignature {getTypeSignatureContext = gotContext} <- got
+    , Solution { getSolutionTypeSubstitution = solutionTypeSub
+               , getSolutionKindSubstitution = solutionKindSub
+               } <- solution =
+        let isTypeVariable type' =
+                case type' of
+                    TypeVar {} -> True
+                    _ -> False
+            isKindVariable kind =
+                case kind of
+                    KindVar {} -> True
+                    _ -> False
+         in do checkVariableBinding
+                   isKindVariable
+                   (second Left)
+                   kindSub
+                   solutionKindSub
+               checkVariableBinding
+                   isTypeVariable
+                   (second Right)
+                   typeSub
+                   solutionTypeSub
+               checkContexts expectedContext gotContext
+
+checkVariableBinding ::
+       (Substitutable a)
+    => (a -> Bool)
+    -> ((Ident, a) -> VariableBinding)
+    -> Substitution a
+    -> Substitution a
+    -> Either SignatureCheckError ()
+checkVariableBinding isVariable wrapper initialSub solutionSub =
+    mapM_ checkParam $ HM.keys initialSub
+  where
+    composedSub = initialSub `compose` solutionSub
+    checkParam name =
+        case HM.lookup name composedSub of
+            Nothing -> return ()
+            Just found ->
+                if isVariable found
+                    then return ()
+                    else Left . SignatureCheckErrorBoundVariable $
+                         wrapper (name, found)
+
+checkContexts :: [Constraint] -> [Constraint] -> Either SignatureCheckError ()
+checkContexts expected got =
+    case find (not . (`elem` expected)) got of
+        Just unexpected ->
+            Left $ SignatureCheckErrorUnexpectedConstraint unexpected
+        Nothing -> return ()

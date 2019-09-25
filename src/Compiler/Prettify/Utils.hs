@@ -60,6 +60,9 @@ instance (Prettifiable a) => Prettifiable (Indented a) where
 instance (Prettifiable a) => Prettifiable [a] where
     prettify = unlines' . map prettify
 
+instance (Prettifiable a, Prettifiable b) => Prettifiable (Either a b) where
+    prettify = either prettify prettify
+
 instance Prettifiable () where
     prettify = show
 

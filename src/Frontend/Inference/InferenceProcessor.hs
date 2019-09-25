@@ -8,6 +8,8 @@ A non-recursive generic processor of type and kind inference
 -}
 module Frontend.Inference.InferenceProcessor
     ( InferenceError(..)
+    , SignatureCheckError(..)
+    , VariableBinding
     , Signatures
     , InferenceProcessor
     , InferenceDebugOutput(..)
@@ -25,6 +27,7 @@ import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
+import Frontend.Inference.Constraint (Constraint)
 import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Signature (Signatures)
@@ -42,7 +45,17 @@ data InferenceError
     = InferenceErrorDependencyResolution DependencyResolverError -- ^ An error happened during resolution of dependency groups
     | InferenceErrorEqualityGeneration EqualitiesGenerationError -- ^ An error happened during generation of equalities for a single group
     | InferenceErrorUnification UnificationError -- ^ An error happened during unification
+    | InferenceErrorSignatureCheck SignatureCheckError -- ^ An error of signature check
     deriving (Eq, Show)
+
+-- | A type of error which may be encountered during check of explicit signatures
+data SignatureCheckError
+    = SignatureCheckErrorBoundVariable VariableBinding -- ^ A free variable was bound
+    | SignatureCheckErrorUnexpectedConstraint Constraint -- ^ An unexpected type constraint was introduced
+    deriving (Eq, Show)
+
+-- | An unexpected binding of either kind or type variable
+type VariableBinding = (Ident, Either Kind Type)
 
 -- | A debug output of inference of multiple groups
 data InferenceDebugOutput a s = InferenceDebugOutput
@@ -100,7 +113,8 @@ instance Monoid (SingleGroupInferenceDebugOutput a s) where
 
 -- | Output of a process of building of equalities
 type EqualitiesBuilderOutput o
-     = Either EqualitiesGenerationError (Solution -> o, Equalities)
+     = Either EqualitiesGenerationError ( Solution -> Either SignatureCheckError o
+                                        , Equalities)
 
 -- | A function which builds a system of equalities
 type EqualitiesBuilder a s o
@@ -187,7 +201,8 @@ inferSingleGroup buildEqualities knownSignatures group = do
                  mempty {getSingleGroupInferenceDebugOutputSolver = Just debug}) $
         solveEqualities equalities
     -- Apply solution to get signatures
-    let finalSignatures = getFinalSignatures solution
+    finalSignatures <-
+        wrapEither InferenceErrorSignatureCheck $ getFinalSignatures solution
     writeDebugOutput
         mempty
             { getSingleGroupInferenceDebugOutputSignatures =

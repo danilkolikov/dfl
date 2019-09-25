@@ -89,7 +89,7 @@ buildEqualities ::
 buildEqualities genEqualities applySolution signatures items =
     let buildEqualitiesAndApplySolution = do
             result <- genEqualities items
-            return $ applySolution result
+            return $ \solution -> Right $ applySolution result solution
      in runEqualitiesGenerator'
             buildEqualitiesAndApplySolution
             emptyEqualitiesGeneratorEnvironment
@@ -108,7 +108,7 @@ buildEqualitiesForChecking ::
        BaseEqualitiesGeneratorFunction a b
     -> EqualitiesBuilder a TypeConstructorSignature b
 buildEqualitiesForChecking genEqualities signatures items =
-    let buildEqualitiesAndApplySolution = const <$> genEqualities items
+    let buildEqualitiesAndApplySolution = const . Right <$> genEqualities items
      in runEqualitiesGenerator'
             buildEqualitiesAndApplySolution
             emptyEqualitiesGeneratorEnvironment

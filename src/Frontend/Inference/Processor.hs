@@ -12,6 +12,7 @@ module Frontend.Inference.Processor
     , defaultInferenceProcessorOutput
     , InferenceProcessorError(..)
     , InferenceError(..)
+    , SignatureCheckError(..)
     , KindProcessorError(..)
     , TypeSynonymProcessorError(..)
     , ClassProcessorError(..)
@@ -37,7 +38,10 @@ import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Class.Processor
 import Frontend.Inference.DataType.Processor
 import qualified Frontend.Inference.Expression as T
-import Frontend.Inference.InferenceProcessor (InferenceError(..))
+import Frontend.Inference.InferenceProcessor
+    ( InferenceError(..)
+    , SignatureCheckError(..)
+    )
 import qualified Frontend.Inference.Instance as I
 import Frontend.Inference.Instance.Processor
 import qualified Frontend.Inference.Kind.Ast as K
@@ -218,6 +222,7 @@ processModule' initialState module'
                                Just debug
                          }) $
             processInstances
+                typeConstructorsWithClasses
                 initialInstances
                 allClasses
                 defaultInstances

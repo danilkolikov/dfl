@@ -17,10 +17,10 @@ import Data.Bifunctor (second)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.Signature
-import Frontend.Inference.Substitution
 import Frontend.Inference.Constraint
 import Frontend.Inference.Expression (External(..))
+import Frontend.Inference.Signature
+import Frontend.Inference.Substitution
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.Position
 
@@ -318,9 +318,9 @@ lookupExpressionSignature name = do
 lookupTypeOfExpression ::
        WithLocation Ident -> EqualitiesGenerator ((Type, Kind, Sort), External)
 lookupTypeOfExpression name = do
-    (res, (typeSub, kindSub)) <-
+    ((t, k, s, _), (typeSub, kindSub)) <-
         lookupExpressionSignature name >>= specialiseExpressionSignature
-    return (res, External (getValue name) typeSub kindSub)
+    return ((t, k, s), External (getValue name) typeSub kindSub)
 
 -- | Generates new kind and sort variables for an ident
 specialiseKindVariable :: Ident -> EqualitiesGenerator (Ident, (Kind, Sort))
@@ -361,7 +361,7 @@ specialiseTypeSignature ::
        (WithType a, WithTypeParams a, WithContext a)
     => ((Kind, Sort), Substitution Kind)
     -> a
-    -> EqualitiesGenerator ( (Type, Kind, Sort)
+    -> EqualitiesGenerator ( (Type, Kind, Sort, [Constraint])
                            , (Substitution Type, Substitution Kind))
 specialiseTypeSignature ((expectedKind, expectedSort), kindSubstitution) sig = do
     specialisedType <- mapM (specialiseTypeVariable . fst) (getTypeParams sig)
@@ -383,7 +383,7 @@ specialiseTypeSignature ((expectedKind, expectedSort), kindSubstitution) sig = d
     -- Saves information about the kind
     writeHasKindEqualities [(resultType, resKind)]
     return
-        ( (resultType, resKind, expectedSort)
+        ( (resultType, resKind, expectedSort, resultConstraints)
         , (typeSubstitution, kindSubstitution))
 
 -- | Specialises the kind of a data type. Function creates new kind and sort
@@ -407,7 +407,7 @@ specialiseExpressionSignature ::
        , WithContext a
        )
     => a
-    -> EqualitiesGenerator ( (Type, Kind, Sort)
+    -> EqualitiesGenerator ( (Type, Kind, Sort, [Constraint])
                            , (Substitution Type, Substitution Kind))
 specialiseExpressionSignature signature = do
     kind <- specialiseDataTypeSignature signature

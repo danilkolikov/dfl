@@ -196,7 +196,9 @@ processMethod ::
     -> K.Method
     -> SingleClassProcessor ProcessingResult
 processMethod env method
-    | ProcessingEnvironment {getProcessingEnvironmentParam = param} <- env
+    | ProcessingEnvironment { getProcessingEnvironmentClassName = className
+                            , getProcessingEnvironmentParam = param
+                            } <- env
     , K.Method { K.getMethodName = name
                , K.getMethodType = signature
                , K.getMethodDefault = body
@@ -228,6 +230,12 @@ processMethod env method
             fieldName = getValue name
             (_, getter) = createGetter env fieldName
             defaultMethod = fromMaybe undefinedExp body
+            finalSignature =
+                signature
+                -- Append the current class to the context
+                    { getTypeSignatureContext =
+                          ConstraintVariable className param : methodContext
+                    }
             makeMap = HM.singleton fieldName
         return
             ProcessingResult
@@ -237,7 +245,7 @@ processMethod env method
                 , getProcessingResultGetters = makeMap getter
                 , getProcessingResultContext = resultContext
                 , getProcessingResultDefaultMethods = makeMap defaultMethod
-                , getProcessingResultMethodSignatures = makeMap signature
+                , getProcessingResultMethodSignatures = makeMap finalSignature
                 }
 
 createDataType ::

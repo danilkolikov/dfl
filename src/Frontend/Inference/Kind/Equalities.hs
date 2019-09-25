@@ -77,7 +77,14 @@ generateEqualitiesUsingSignature params generator signature = do
     ((expectedKind, expectedSort), _) <- specialiseDataTypeSignature signature
     writeKindEqualities [(resultKind, expectedKind)]
     writeSortEqualities [(genSort, expectedSort)]
-    return (signature, params)
+    let expectedSignature =
+            TypeConstructorSignature
+                { getTypeConstructorSignatureSort = expectedSort
+                , getTypeConstructorSignatureKindParams = []
+                , getTypeConstructorSignatureKind = expectedKind
+                , getTypeConstructorSignatureTypeParams = []
+                }
+    return (expectedSignature, params)
 
 -- | A class of types for which it's posible to generator equalities between
 -- | kinds and sorts

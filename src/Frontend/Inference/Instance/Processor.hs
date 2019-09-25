@@ -24,6 +24,8 @@ import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Constraint
 import qualified Frontend.Inference.Instance as I
 import qualified Frontend.Inference.Kind.Ast as K
+import Frontend.Inference.Signature
+import Frontend.Inference.Substitution
 import Frontend.Inference.Util.Debug
 import Frontend.Inference.Util.HashMap
 import Frontend.Syntax.Position
@@ -33,6 +35,7 @@ data InstanceProcessorError
     = InstanceProcessorErrorAlreadyDefined (WithLocation Ident)
                                            (WithLocation Ident) -- ^ Instance is already defined
     | InstanceProcessorErrorUnknownClass Ident -- ^ Unknown class
+    | InstanceProcessorErrorUnknownType Ident -- ^ Unknown generated data type
     | InstanceProcessorErrorUnknownClassComponent Ident
                                                   Ident -- ^ Unknown component of a class (superclass / method)
     | InstanceProcessorErrorMissingInstance Ident
@@ -67,29 +70,39 @@ type InstanceProcessor
 
 -- | Processes instances and generated expressions for them
 processInstances ::
-       HM.HashMap Ident I.Instance
+       Signatures TypeConstructorSignature
+    -> HM.HashMap Ident I.Instance
     -> HM.HashMap Ident C.Class
     -> HM.HashMap Ident C.DefaultInstance
     -> [K.Instance]
     -> ( Either InstanceProcessorError InstanceProcessorOutput
        , InstanceProcessorDebugOutput)
-processInstances initialInstances classes defaultInstances instances =
+processInstances dataTypeSignatures initialInstances classes defaultInstances instances =
     runWithDebugOutput $
-    processInstances' initialInstances classes defaultInstances instances
+    processInstances'
+        dataTypeSignatures
+        initialInstances
+        classes
+        defaultInstances
+        instances
 
 processInstances' ::
-       HM.HashMap Ident I.Instance
+       Signatures TypeConstructorSignature
+    -> HM.HashMap Ident I.Instance
     -> HM.HashMap Ident C.Class
     -> HM.HashMap Ident C.DefaultInstance
     -> [K.Instance]
     -> InstanceProcessor InstanceProcessorOutput
-processInstances' initialInstances classes defaultInstances instances = do
+processInstances' dataTypeSignatures initialInstances classes defaultInstances instances = do
     instanceMap <- foldM (collectInstance initialInstances) HM.empty instances
     processedDefault <-
-        mapHashMapWithKeyM (processDefaultInstance classes) defaultInstances
+        mapHashMapWithKeyM
+            (processDefaultInstance dataTypeSignatures classes)
+            defaultInstances
     let allInstances = initialInstances <> instanceMap
     processedInstances <-
-        HM.fromList <$> mapM (processInstance classes allInstances) instances
+        HM.fromList <$>
+        mapM (processInstance dataTypeSignatures classes allInstances) instances
     return
         InstanceProcessorOutput
             { getInstanceProcessorOutputInstances = instanceMap
@@ -140,69 +153,117 @@ convertInstance K.Instance { K.getInstanceContext = context
             }
 
 processDefaultInstance ::
-       HM.HashMap Ident C.Class
+       Signatures TypeConstructorSignature
+    -> HM.HashMap Ident C.Class
     -> Ident
     -> C.DefaultInstance
     -> InstanceProcessor K.Expression
-processDefaultInstance classes instanceName C.DefaultInstance { C.getDefaultInstanceClassName = className
-                                                              , C.getDefaultInstanceMethods = methods
-                                                              } = do
-    C.Class { C.getClassContext = context
-            , C.getClassDataTypeName = dataTypeName
-            , C.getClassMethods = methodNames
-            , C.getClassGetters = getters
-            } <-
-        lookupMapValue
-            (InstanceProcessorErrorUnknownClass className)
-            className
-            classes
-    let lookupGetter (SimpleConstraint superClass _) =
+processDefaultInstance dataTypeSignatures classes instanceName defaultInstance
+    | C.DefaultInstance { C.getDefaultInstanceClassName = className
+                        , C.getDefaultInstanceMethods = methods
+                        } <- defaultInstance = do
+        C.Class { C.getClassContext = context
+                , C.getClassDataTypeName = dataTypeName
+                , C.getClassMethods = methodNames
+                , C.getClassGetters = getters
+                } <-
             lookupMapValue
-                (InstanceProcessorErrorUnknownClassComponent
-                     className
-                     superClass)
-                superClass
-                getters
-    superClassGetters <- mapM lookupGetter context
-    let inputIdent =
-            withDummyLocation $ IdentGenerated IdentEnvironmentInstances 0
-        inputVar = withDummyLocation $ K.ExpVar inputIdent
-        makeSuperClassArg getterName =
-            let getter =
-                    withDummyLocation . K.ExpVar $ withDummyLocation getterName
-             in withDummyLocation $ K.ExpApplication getter (inputVar NE.:| [])
-        superClassArgs = map makeSuperClassArg superClassGetters
-        lookupMethod methodName =
-            lookupMapValue
-                (InstanceProcessorErrorUnknownClassComponent
-                     className
-                     methodName)
-                methodName
-                methods
-    methodArgs <- mapM lookupMethod methodNames
-    let applicationExp =
-            createInstanceApplication dataTypeName superClassArgs methodArgs
-        finalExp =
-            withDummyLocation $ K.ExpAbstraction inputIdent applicationExp
-        expression =
-            K.Expression
-                { K.getExpressionName = withDummyLocation instanceName
-                , K.getExpressionBody = finalExp
-                , K.getExpressionType = Nothing
+                (InstanceProcessorErrorUnknownClass className)
+                className
+                classes
+        let lookupGetter (SimpleConstraint superClass _) =
+                lookupMapValue
+                    (InstanceProcessorErrorUnknownClassComponent
+                         className
+                         superClass)
+                    superClass
+                    getters
+        superClassGetters <- mapM lookupGetter context
+        let inputIdent =
+                withDummyLocation $ IdentGenerated IdentEnvironmentInstances 0
+            inputVar = withDummyLocation $ K.ExpVar inputIdent
+            makeSuperClassArg getterName =
+                let getter =
+                        withDummyLocation . K.ExpVar $
+                        withDummyLocation getterName
+                 in withDummyLocation $
+                    K.ExpApplication getter (inputVar NE.:| [])
+            superClassArgs = map makeSuperClassArg superClassGetters
+            lookupMethod methodName =
+                lookupMapValue
+                    (InstanceProcessorErrorUnknownClassComponent
+                         className
+                         methodName)
+                    methodName
+                    methods
+        methodArgs <- mapM lookupMethod methodNames
+        let applicationExp =
+                createInstanceApplication dataTypeName superClassArgs methodArgs
+            finalExp =
+                withDummyLocation $ K.ExpAbstraction inputIdent applicationExp
+        signature <-
+            createInstanceTypeSignature Nothing dataTypeSignatures dataTypeName
+        let expression =
+                K.Expression
+                    { K.getExpressionName = withDummyLocation instanceName
+                    , K.getExpressionBody = finalExp
+                    , K.getExpressionType = Just signature
+                    }
+        writeDebugOutput
+            mempty
+                { getInstanceProcessorDebugOutputDefaults =
+                      Just $ HM.singleton instanceName expression
                 }
-    writeDebugOutput
-        mempty
-            { getInstanceProcessorDebugOutputDefaults =
-                  Just $ HM.singleton instanceName expression
+        return expression
+
+createInstanceTypeSignature ::
+       Maybe (Ident, Ident, [Ident])
+    -> Signatures TypeConstructorSignature
+    -> Ident
+    -> InstanceProcessor TypeSignature
+createInstanceTypeSignature argument dataTypeSignatures dataTypeName = do
+    TypeConstructorSignature { getTypeConstructorSignatureSort = sort
+                             , getTypeConstructorSignatureKindParams = kindParams
+                             , getTypeConstructorSignatureKind = kind
+                             , getTypeConstructorSignatureTypeParams = typeParams
+                             } <-
+        lookupMapValue
+            (InstanceProcessorErrorUnknownType dataTypeName)
+            dataTypeName
+            dataTypeSignatures
+    let dataType = TypeConstr dataTypeName
+        appliedDataType =
+            case map (TypeVar . fst) typeParams of
+                [] -> dataType
+                f:rest -> TypeApplication dataType (f NE.:| rest)
+        resultType =
+            case argument of
+                Nothing -> TypeFunction appliedDataType appliedDataType -- Default instance
+                Just (typeParam, typeName, typeArgs) ->
+                    let argType = TypeVar typeName
+                        arg =
+                            case map TypeVar typeArgs of
+                                [] -> argType
+                                f:rest -> TypeApplication argType (f NE.:| rest)
+                        sub = HM.singleton typeParam arg
+                     in substitute sub appliedDataType
+    return
+        TypeSignature
+            { getTypeSignatureSort = sort
+            , getTypeSignatureKindParams = kindParams
+            , getTypeSignatureKind = kind
+            , getTypeSignatureTypeParams = typeParams
+            , getTypeSignatureType = resultType
+            , getTypeSignatureContext = [] -- Context of instances is always empty
             }
-    return expression
 
 processInstance ::
-       HM.HashMap Ident C.Class
+       Signatures TypeConstructorSignature
+    -> HM.HashMap Ident C.Class
     -> HM.HashMap Ident I.Instance
     -> K.Instance
     -> InstanceProcessor (Ident, K.Expression)
-processInstance classes instances inst
+processInstance dataTypeSignatures classes instances inst
     | K.Instance { K.getInstanceContext = context
                  , K.getInstanceClass = className
                  , K.getInstanceType = typeName
@@ -210,6 +271,7 @@ processInstance classes instances inst
                  , K.getInstanceMethods = methods
                  } <- inst = do
         C.Class { C.getClassContext = classContext
+                , C.getClassParam = param
                 , C.getClassDataTypeName = dataTypeName
                 , C.getClassMethods = methodNames
                 , C.getClassDefaultInstanceName = defaultInstanceName
@@ -219,8 +281,9 @@ processInstance classes instances inst
                 (InstanceProcessorErrorUnknownClass (getValue className))
                 (getValue className)
                 classes
-        let instanceName =
-                IdentInstance (getValue className) (getValue typeName)
+        let typeName' = getValue typeName
+            typeParams' = map getValue typeParams
+            instanceName = IdentInstance (getValue className) typeName'
             makeInstanceArg =
                 withDummyLocation . IdentGenerated IdentEnvironmentInstances
             instanceArgs =
@@ -233,7 +296,7 @@ processInstance classes instances inst
                      classes
                      instances
                      (getValue typeName)
-                     (map getValue typeParams)
+                     typeParams'
                      instanceArgs)
                 classContext
         methodArgs <-
@@ -250,11 +313,16 @@ processInstance classes instances inst
             makeLambda (_, ident) res =
                 withDummyLocation $ K.ExpAbstraction ident res
             instanceExp = foldr makeLambda instanceApplication instanceArgs
-            expression =
+        signature <-
+            createInstanceTypeSignature
+                (Just (param, typeName', typeParams'))
+                dataTypeSignatures
+                dataTypeName
+        let expression =
                 K.Expression
                     { K.getExpressionName = withDummyLocation instanceName
                     , K.getExpressionBody = instanceExp
-                    , K.getExpressionType = Nothing
+                    , K.getExpressionType = Just signature
                     }
         writeDebugOutput
             mempty

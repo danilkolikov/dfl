@@ -11,12 +11,13 @@ module Frontend.Inference.Type.Equalities where
 import Control.Monad.Trans.Reader (asks)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (fromJust)
 
 import Frontend.Inference.Equalities
-import qualified Frontend.Inference.Let.Ast as L
 import qualified Frontend.Inference.Expression as T
+import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Signature
+import Frontend.Inference.Substitution
 import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables hiding (Type(..))
 import Frontend.Syntax.EntityName
@@ -24,16 +25,16 @@ import Frontend.Syntax.Position
 
 -- | Collects equalities between types of expressions
 generateEqualitiesForExpressions ::
-       L.Expressions -> EqualitiesGenerator (Signatures (T.Exp, TypeSignature))
+       L.Expressions
+    -> EqualitiesGenerator (Signatures ( (T.Exp, TypeSignature)
+                                       , (Substitution Type, Substitution Kind)
+                                       , Maybe TypeSignature))
 generateEqualitiesForExpressions exprs = do
-    definedSignatures <- asks getExpressionSignatures
-    let exprNames = HM.keys exprs
-        createSignatureForItem name =
-            case HM.lookup name definedSignatures of
-                Just _ -> return Nothing -- Signature is already defined
-                Nothing -> (\sig -> Just (name, sig)) <$> createSignature
-    allSignatures <- mapM createSignatureForItem exprNames
-    let newSignatures = HM.fromList $ catMaybes allSignatures
+    let createSignatureForExp L.Expression {L.getExpressionType = signature} =
+            case signature of
+                Just sig -> return sig
+                Nothing -> createSignature
+    newSignatures <- mapHashMapM createSignatureForExp exprs
     withExpressions newSignatures $
         mapHashMapM generateEqualitiesForExpression exprs
 
@@ -53,20 +54,33 @@ createSignature = do
 
 -- | Generates equalities for an expression
 generateEqualitiesForExpression ::
-       L.Expression -> EqualitiesGenerator (T.Exp, TypeSignature)
+       L.Expression
+    -> EqualitiesGenerator ( (T.Exp, TypeSignature)
+                           , (Substitution Type, Substitution Kind)
+                           , Maybe TypeSignature)
 generateEqualitiesForExpression L.Expression { L.getExpressionName = name
                                              , L.getExpressionBody = body
+                                             , L.getExpressionType = type'
                                              } = do
     (exp', (resultType, resultKind, resultSort)) <-
         generateEqualitiesForExp body
     signature <-
         asks $ fromJust . HM.lookup (getValue name) . getExpressionSignatures
-    ((expectedType, expectedKind, expectedSort), _) <-
+    ((expectedType, expectedKind, expectedSort, expectedConstraints), subs) <-
         specialiseExpressionSignature signature
     writeTypeEqualities [(resultType, expectedType)]
     writeKindEqualities [(resultKind, expectedKind)]
     writeSortEqualities [(resultSort, expectedSort)]
-    return (exp', signature)
+    let expectedSignature =
+            TypeSignature
+                { getTypeSignatureSort = expectedSort
+                , getTypeSignatureKindParams = []
+                , getTypeSignatureKind = expectedKind
+                , getTypeSignatureTypeParams = []
+                , getTypeSignatureType = expectedType
+                , getTypeSignatureContext = expectedConstraints
+                }
+    return ((exp', expectedSignature), subs, type')
 
 -- | Generates equalities for an expression
 generateEqualitiesForExp ::
