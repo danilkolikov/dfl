@@ -147,7 +147,7 @@ instance Parseable Literal where
             , LiteralString <$> parser
             ]
 
-instance Parseable Module where
+instance (Parseable a) => Parseable (Module a) where
     parser =
         safeChoice
             [ do expect_ KeywordModule
@@ -178,6 +178,12 @@ instance Parseable ImpExpList where
                  , ImpExpSome <$> parser `sepBy1P` SpecialComma
                  , return ImpExpNothing
                  ])
+
+instance Parseable Header where
+    parser = do
+        expect_ SpecialLCurly
+        decls <- try parser `sepEndBy` try (some $ expect SpecialSemicolon)
+        return $ Header decls
 
 instance Parseable Body where
     parser =

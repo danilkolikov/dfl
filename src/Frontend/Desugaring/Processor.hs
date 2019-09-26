@@ -33,7 +33,9 @@ data DesugaringOutput = DesugaringOutput
 
 -- | Desugar parsed module
 desugarParsedModule ::
-       A.Module -> DesugaringState -> Either DesugaringError DesugaringOutput
+       A.Module A.Body
+    -> DesugaringState
+    -> Either DesugaringError DesugaringOutput
 desugarParsedModule parsedModule state =
     let initialModule = desugarToModule (withDummyLocation parsedModule)
         result =

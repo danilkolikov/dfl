@@ -82,7 +82,7 @@ instance Tokenisable Literal where
     toTokens (LiteralChar x) = toTokens x
     toTokens (LiteralString x) = toTokens x
 
-instance Tokenisable Module where
+instance (Tokenisable a) => Tokenisable (Module a) where
     toTokens (ModuleExplicit name exports body) =
         [TokenKeyword KeywordModule] ++
         toTokens name ++

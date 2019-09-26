@@ -69,11 +69,16 @@ data Literal
     deriving (Show, Eq)
 
 -- | Module
-data Module
+data Module a
     = ModuleExplicit (WithLocation QModId)
                      (Maybe [WithLocation Export])
-                     (WithLocation Body) -- ^ Named module
-    | ModuleImplicit (WithLocation Body) -- ^ Implicit module
+                     (WithLocation a) -- ^ Named module
+    | ModuleImplicit (WithLocation a) -- ^ Implicit module
+    deriving (Show, Eq)
+
+-- | A list of imports of a module
+data Header =
+    Header [WithLocation ImpDecl] -- ^ Imports
     deriving (Show, Eq)
 
 -- | Body of a module

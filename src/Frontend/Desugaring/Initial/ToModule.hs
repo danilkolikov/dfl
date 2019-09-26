@@ -28,7 +28,7 @@ import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Desugar object to a Module
-desugarToModule :: WithLocation Module -> WithLocation D.Module
+desugarToModule :: WithLocation (Module Body) -> WithLocation D.Module
 desugarToModule md =
     md $>
     case getValue md of

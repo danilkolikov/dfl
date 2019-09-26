@@ -140,7 +140,7 @@ instance (FixityResolvable a) => FixityResolvable (NE.NonEmpty a) where
 instance (FixityResolvable a) => FixityResolvable (WithLocation a) where
     fixityResolver (WithLocation x loc) = apF1 (`WithLocation` loc) x
 
-instance FixityResolvable Module where
+instance (FixityResolvable a) => FixityResolvable (Module a) where
     fixityResolver (ModuleExplicit name export body) =
         apF1 (ModuleExplicit name export) body
     fixityResolver (ModuleImplicit body) = apF1 ModuleImplicit body

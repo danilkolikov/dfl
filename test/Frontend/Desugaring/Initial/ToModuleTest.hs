@@ -33,7 +33,8 @@ import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Utils.RandomSelector
 
-getModuleExample :: RandomSelector (WithLocation Module, WithLocation D.Module)
+getModuleExample ::
+       RandomSelector (WithLocation (Module Body), WithLocation D.Module)
 getModuleExample =
     selectFromRandom
         [ do (nameEx, nameRes) <- getIdentExample

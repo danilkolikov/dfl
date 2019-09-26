@@ -66,7 +66,8 @@ testSuite =
         describe "Composite parsers" $ do
             it "parses Literal" $
                 shouldParseAllExamples (Proxy :: Proxy Literal)
-            it "parses Module" $ shouldParseAllExamples (Proxy :: Proxy Module)
+            it "parses Module" $
+                shouldParseAllExamples (Proxy :: Proxy (Module Body))
             it "parses ImpExpList" $
                 shouldParseAllExamples (Proxy :: Proxy ImpExpList)
             it "parses Export" $ shouldParseAllExamples (Proxy :: Proxy Export)

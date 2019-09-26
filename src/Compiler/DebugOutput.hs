@@ -20,7 +20,7 @@ import Compiler.Prettify.Ast ()
 import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
 import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
 import Compiler.Prettify.InferenceProcessorDebugOutput ()
-import Compiler.Prettify.PrettyPrintable (prettifyAst)
+import Compiler.Prettify.PrettyPrintable (PrettyPrintable, prettifyAst)
 import Compiler.Prettify.TokenStream (prettifyTokenStream)
 import Compiler.Prettify.Utils
 
@@ -45,7 +45,7 @@ class HasDebugOutput a where
 instance HasDebugOutput TokenStream where
     getDebugOutput a = DebugOutput (prettifyTokenStream a) DebugOutputTypeLexems
 
-instance HasDebugOutput Module where
+instance (PrettyPrintable a) => HasDebugOutput (Module a) where
     getDebugOutput a = DebugOutput (prettifyAst a) DebugOutputTypeAst
 
 instance HasDebugOutput FixityResolutionOutput where

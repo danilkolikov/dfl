@@ -23,7 +23,7 @@ instance PrettyPrintable Literal where
     prettyPrint (LiteralChar x) = prettyPrint x
     prettyPrint (LiteralString x) = prettyPrint x
 
-instance PrettyPrintable Module where
+instance (PrettyPrintable a) => PrettyPrintable (Module a) where
     prettyPrint (ModuleExplicit name exports body) = do
         header <-
             joinPrinters
