@@ -12,11 +12,11 @@ module Compiler.Prettify.CompilationError where
 
 import Data.List (intercalate)
 
+import Compiler.Module.Base
 import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
-import Util.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
@@ -28,6 +28,7 @@ import Frontend.Syntax.Lexer
 import Frontend.Syntax.Position
 import Frontend.Syntax.Processor
 import Frontend.Syntax.Token (VarId(..))
+import Util.DependencyResolver
 
 instance Prettifiable FrontendProcessorError where
     prettify err =
@@ -350,3 +351,11 @@ instance Prettifiable TypeSynonymExpandingError where
                 prettifyName typeName ++
                 " is used in the instance of class " ++
                 prettifyName className ++ ", which is not supported"
+
+instance Prettifiable DependencyBuilderError where
+    prettify err =
+        "Module dependency error: " ++
+        case err of
+            DependencyBuilderErrorCycle cycles ->
+                "Files " ++ show cycles ++ " form a cycle"
+            DependencyBuilderErrorMissingFile name -> "Missing file: " ++ name

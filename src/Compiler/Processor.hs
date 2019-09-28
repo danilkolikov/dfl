@@ -8,19 +8,14 @@ Processor of compilation of DFL files
 -}
 module Compiler.Processor where
 
-import Compiler.Base
-import Compiler.Prettify.CompilationError ()
-import Frontend.Processor
+import Data.Maybe (isJust)
 
--- | Compile a single source file
-compileSourceFile :: (Compiler m) => m ()
-compileSourceFile = do
-    let initialState = emptyFrontendProcessorOutput
-    fileName <- getSourceFileName
-    fileContent <- readFileContent fileName
-    HeaderProcessorOutput {getHeaderProcessorOutputTokens = tokens} <-
-        traceStepWithDebugOutput $ processModuleHeader fileName fileContent
-    output <-
-        traceStepWithDebugOutput $
-        processSourceFile initialState fileName tokens
-    writeOutput output
+import Compiler.Environment
+import Compiler.Module.Processor
+import Compiler.Monad
+
+-- | Compiles source files
+compile :: Environment -> IO Bool
+compile environment = do
+    result <- runCompiler compileMultipleModules environment
+    return $ isJust result

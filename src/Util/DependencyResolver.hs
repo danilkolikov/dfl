@@ -15,6 +15,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (Except, runExcept, throwE)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Trans.State (StateT, evalStateT, get, modify)
+import Data.Foldable (asum)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.Hashable (Hashable)
@@ -113,6 +114,37 @@ depthFirstSearch node =
                 sorted <- mapM depthFirstSearch (HS.toList dependencies)
                 return $ concat sorted ++ [node]
 
+-- | Checks presence of cycles in a graph
+checkCycles ::
+       (Eq a, Hashable a)
+    => HS.HashSet a
+    -> a
+    -> VisitedTracker a (Maybe (HS.HashSet a))
+checkCycles chain node =
+    get >>= \visited ->
+        if node `HS.member` visited
+            then if node `HS.member` chain
+                     then return $ Just chain
+                     else return Nothing
+            else do
+                modify $ HS.insert node
+                dependencies <- lift $ lookupNode node
+                asum <$>
+                    mapM
+                        (checkCycles $ HS.insert node chain)
+                        (HS.toList dependencies)
+
+-- | Checks that a graph has at least 1 cycle
+findCycle ::
+       (Eq a, Hashable a)
+    => DependencyGraph a
+    -> Either (DependencyResolverError a) (Maybe (HS.HashSet a))
+findCycle graph =
+    let resolver =
+            runVisitedTracker . (asum <$>) . mapM (checkCycles HS.empty) $
+            HM.keys graph
+     in runDependencyResolver resolver graph
+
 -- | Sort the nodes in the graph topologically
 topologicalSort :: (Eq a, Hashable a) => DependencyResolver a [a]
 topologicalSort = do
@@ -153,6 +185,7 @@ condenseGraph compGraph = do
     processed <- mapM processComponent $ HM.toList compGraph
     return $ HM.unions processed
 
+-- | A type of nodes, corresponding to strongly connected components
 newtype Component =
     Component Int
     deriving (Eq, Hashable, Show)

@@ -14,9 +14,9 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
+import System.Directory (doesFileExist)
 
 import Compiler.Base
-import Compiler.DebugOutput
 import Compiler.Environment
 import Compiler.Prettify.Utils
 
@@ -35,28 +35,12 @@ instance MonadIO CompilerMonad where
 instance Compiler CompilerMonad where
     getEnvironmentComponent = CompilerMonad . lift . asks
     readFileContent = liftIO . readFile
+    doesFileExist = liftIO . System.Directory.doesFileExist
     handleResult res =
         case res of
             Left e -> do
                 liftIO . putStrLn . prettify $ e
                 fail "An error was encountered"
             Right r -> return r
-    writeDebugOutput debug = do
-        fileName <-
-            getOutputFileName . debugOutputTypeToSuffix $
-            getDebugOutputType debug
-        liftIO $ writeFile fileName (prettify debug)
-    writeOutput output = do
-        fileName <- getOutputFileName "out"
+    writeToFile fileName output = do
         liftIO . writeFile fileName $ prettify output
-
--- | Get name of an output file
-getOutputFileName :: (Compiler m) => String -> m String
-getOutputFileName suffix = (++ '.' : suffix) <$> getSourceFileName
-
--- | Get appropriate suffix for a debug output type
-debugOutputTypeToSuffix :: DebugOutputType -> String
-debugOutputTypeToSuffix type' =
-    case type' of
-        DebugOutputTypeHeader -> "header"
-        DebugOutputTypeFrontend -> "frontend"
