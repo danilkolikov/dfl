@@ -52,7 +52,7 @@ import Frontend.Inference.Signature
 import Frontend.Inference.Translation.Processor
 import Frontend.Inference.Type.Processor
 import Frontend.Inference.TypeSynonym.Processor
-import Frontend.Inference.Util.Debug
+import Util.Debug
 
 -- | Errors which can be encounterd during inference
 data InferenceProcessorError

@@ -14,8 +14,18 @@ import qualified Data.List.NonEmpty as NE (toList)
 
 import Compiler.Prettify.PrettyPrintable
 import Compiler.Prettify.PrettyPrinter
+import Compiler.Prettify.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Token
+
+instance (PrettyPrintable a) => Prettifiable (Module a) where
+    prettify = prettifyAst
+
+instance Prettifiable Body where
+    prettify = prettifyAst
+
+instance Prettifiable Header where
+    prettify = prettifyAst
 
 instance PrettyPrintable Literal where
     prettyPrint (LiteralInteger x) = prettyPrint x
@@ -43,6 +53,9 @@ instance PrettyPrintable Body where
         printedImps <- mapM prettyPrint imps
         printedTops <- mapM prettyPrint tops
         multipleLines $ printedImps ++ printedTops
+
+instance PrettyPrintable Header where
+    prettyPrint (Header imps) = mapM prettyPrint imps >>= multipleLines
 
 instance PrettyPrintable ImpExpList where
     prettyPrint ImpExpAll = inParens (prettyPrint OperatorDDot)

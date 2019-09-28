@@ -9,16 +9,12 @@ Test suite for the parser of DFL.
 module Frontend.Syntax.ParserTest where
 
 import Data.Proxy
-import Data.Void
 
 import Test.Hspec
-
-import Text.Megaparsec (ParseErrorBundle)
 
 import Frontend.Syntax.Ast hiding (minus)
 import Frontend.Syntax.Parser
 import Frontend.Syntax.Position (WithLocation(..), sourceLocation)
-import Frontend.Syntax.Stream (TokenStream)
 import Frontend.Syntax.Token
 import Frontend.Syntax.Utils.AstExamples (WithExamples(..))
 import Frontend.Syntax.Utils.Tokenisable
@@ -191,12 +187,9 @@ testSuite =
     parseState ::
            Parser a
         -> [WithLocation Token]
-        -> (Either (ParseErrorBundle TokenStream Void) a, ParserState)
+        -> (Either ParserError a, ParserState)
     parseState parser' = runParser parser' ""
-    parseSimple ::
-           Parser a
-        -> [WithLocation Token]
-        -> Either (ParseErrorBundle TokenStream Void) a
+    parseSimple :: Parser a -> [WithLocation Token] -> Either ParserError a
     parseSimple parser' tokens = fst $ parseState parser' tokens
     shouldParse ::
            (Tokenisable a, Show a, Eq a)

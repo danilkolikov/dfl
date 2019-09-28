@@ -13,7 +13,6 @@ import qualified Frontend.Syntax.FixityResolutionTest as FixityResolution
 import qualified Frontend.Syntax.LayoutTest as Layout
 import qualified Frontend.Syntax.LexerTest as Lexer
 import qualified Frontend.Syntax.ParserTest as Parser
-import qualified Frontend.Syntax.ProcessorTest as Processor
 
 testSuite :: IO ()
 testSuite = do
@@ -22,4 +21,3 @@ testSuite = do
     Parser.testSuite
     FixityResolution.testSuite
     AstChecker.testSuite
-    Processor.testSuite

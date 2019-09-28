@@ -11,6 +11,7 @@ module Compiler.Prettify.Utils where
 import qualified Data.HashMap.Lazy as HM
 import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NE
+import Data.Maybe (catMaybes)
 import Data.Tuple (swap)
 
 import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
@@ -42,6 +43,9 @@ indentLines = unlines' . map ("  " ++) . lines
 unlines' :: [String] -> String
 unlines' = intercalate "\n"
 
+unlineMaybes :: [Maybe String] -> String
+unlineMaybes = unlines' . catMaybes
+
 prettifyHeader :: String -> String
 prettifyHeader header = unlines' [header, replicate (length header) '-']
 
@@ -49,7 +53,8 @@ class Prettifiable a where
     prettify :: a -> String
 
 prettifyWithHeader :: (Prettifiable a) => String -> a -> String
-prettifyWithHeader header x = unlines' [prettifyHeader header, prettify x]
+prettifyWithHeader header x =
+    unlines' [prettifyHeader header, prettify $ Indented x]
 
 newtype Indented a =
     Indented a
@@ -65,6 +70,9 @@ instance (Prettifiable a, Prettifiable b) => Prettifiable (Either a b) where
 
 instance Prettifiable () where
     prettify = show
+
+instance Prettifiable Char where
+    prettify = return
 
 instance Prettifiable SourceLocation where
     prettify (SourceLocation start end) =

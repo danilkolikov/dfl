@@ -21,7 +21,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Frontend.Desugaring.Final.Ast as F
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Inference.WithVariables
 import Frontend.Syntax.Position
 

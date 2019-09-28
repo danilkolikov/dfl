@@ -27,7 +27,7 @@ import Frontend.Inference.Constraint
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
-import Frontend.Inference.Util.Debug (lookupMapValue)
+import Util.Debug (lookupMapValue)
 import Frontend.Inference.Variables
 import Frontend.Inference.WithVariables
 import Frontend.Syntax.EntityName (uNDEFINED_NAME)

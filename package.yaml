@@ -31,7 +31,6 @@ library:
   - Compiler.Environment
   - Compiler.Error
   - Compiler.Monad
-  - Compiler.Output
   - Compiler.Processor
   - Frontend.Desugaring.Final.AssignmentDesugaring
   - Frontend.Desugaring.Final.Ast
@@ -105,22 +104,25 @@ library:
   - Frontend.Inference.TypeSynonym.Expander
   - Frontend.Inference.TypeSynonym.Processor
   - Frontend.Inference.Unification
-  - Frontend.Inference.Util.Debug
   - Frontend.Inference.Util.HashMap
   - Frontend.Inference.Variables
   - Frontend.Inference.WithVariables
+  - Frontend.Processor
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
   - Frontend.Syntax.EntityName
   - Frontend.Syntax.FixityResolution
+  - Frontend.Syntax.HeaderProcessor
   - Frontend.Syntax.Layout
   - Frontend.Syntax.Lexer
   - Frontend.Syntax.NamedEntity
   - Frontend.Syntax.Parser
+  - Frontend.Syntax.ParserError
   - Frontend.Syntax.Position
   - Frontend.Syntax.Processor
   - Frontend.Syntax.Stream
   - Frontend.Syntax.Token
+  - Util.Debug
 
 tests:
   dfl-test:

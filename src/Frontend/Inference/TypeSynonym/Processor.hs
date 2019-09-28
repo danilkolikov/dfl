@@ -20,7 +20,7 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Signature
 import Frontend.Inference.TypeSynonym.Base
 import Frontend.Inference.TypeSynonym.Expander
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Inference.Variables
 
 type TypeSynonymProcessor

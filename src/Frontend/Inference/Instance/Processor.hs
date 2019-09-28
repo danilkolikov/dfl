@@ -26,7 +26,7 @@ import qualified Frontend.Inference.Instance as I
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Inference.Util.HashMap
 import Frontend.Syntax.Position
 

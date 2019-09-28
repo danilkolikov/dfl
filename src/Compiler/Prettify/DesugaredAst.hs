@@ -243,6 +243,9 @@ instance PrettyPrintable Module where
             , printIndentedMap exps
             ]
 
+instance Prettifiable Module where
+    prettify = prettifyAst
+
 instance Prettifiable TypeSignature where
     prettify = prettifyAst
 

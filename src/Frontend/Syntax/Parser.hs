@@ -10,8 +10,11 @@ module Frontend.Syntax.Parser
     ( Parser
     , ParserState
     , Parseable(..)
+    , ParserError(..)
     , runParser
     , runParser'
+    , parseModule
+    , parseHeader
     , minus
     , colon
     ) where
@@ -22,14 +25,14 @@ import Control.Monad.Combinators (many, sepEndBy)
 import Control.Monad.Combinators.NonEmpty (sepBy1, sepEndBy1, some)
 import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Trans.State as ST (State, get, put, runState)
+import Data.Bifunctor (first)
 import Data.List (find)
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Set as S
 import Data.Void (Void)
 import Text.Megaparsec
-    ( ParseErrorBundle
-    , ParsecT
+    ( ParsecT
     , State(..)
     , (<?>)
     , between
@@ -43,6 +46,7 @@ import Text.Megaparsec
     )
 
 import Frontend.Syntax.Ast hiding (minus)
+import Frontend.Syntax.ParserError
 import Frontend.Syntax.Position
     ( SourceLocation(..)
     , WithLocation(..)
@@ -57,22 +61,46 @@ type ParserState = Maybe SourceLocation
 -- | Parser of DFL
 type Parser = ParsecT Void TokenStream (ST.State ParserState)
 
+-- | Errors which can be encountered during parsing
+data ParserError
+    = ParserErrorParser SourceLocation
+                        (Maybe (WithLocation Token))
+                        [String] -- ^ Standard parser error
+    | ParserErrorUnexpected SourceLocation -- ^ Unknown error from the parser's machinery
+    deriving (Eq, Show)
+
 -- | Run parser and return its state
 runParser ::
        Parser a -- ^ Parser to run
     -> String -- ^ File name
     -> [WithLocation Token] -- ^ List of tokens, returned by a lexer
-    -> (Either (ParseErrorBundle TokenStream Void) a, ParserState)
+    -> (Either ParserError a, ParserState)
 runParser parser' str tokens =
-    ST.runState (runParserT parser' str (TokenStream tokens)) Nothing
+    let state = runParserT parser' str (TokenStream tokens)
+        result = ST.runState state Nothing
+     in first (first wrapParserBundle) result
+  where
+    wrapParserBundle =
+        wrapLocationBundle
+            (getLocation . (tokens !!))
+            ParserErrorParser
+            (\pos _ -> ParserErrorUnexpected pos)
 
--- | Run parser and don't return its state
+-- | Runs a parser and ignores its state
 runParser' ::
        Parser a -- ^ Parser to run
     -> String -- ^ File name
     -> [WithLocation Token] -- ^ List of tokens, returned by a lexer
-    -> Either (ParseErrorBundle TokenStream Void) a
+    -> Either ParserError a
 runParser' parser' str tokens = fst $ runParser parser' str tokens
+
+-- | Parses a header of a module
+parseHeader :: String -> TokenStream -> Either ParserError (Module Header)
+parseHeader fileName stream = runParser' parser fileName (getTokens stream)
+
+-- | Parses a module
+parseModule :: String -> TokenStream -> Either ParserError (Module Body)
+parseModule fileName stream = runParser' parser fileName (getTokens stream)
 
 -- | Class of types which can be parsed from the list of tokens
 class Parseable a where
@@ -523,7 +551,7 @@ instance Parseable AExp where
                       , liftP1 AExpParens
                       ]
                 , inBrackets $ do
-                      first <- parser
+                      firstElem <- parser
                       safeChoice
                           [ do expect_ SpecialComma
                                second <- parser
@@ -531,21 +559,25 @@ instance Parseable AExp where
                                    [ do expect_ OperatorDDot
                                         end <- safeOptional parser
                                         return $
-                                            AExpSequence first (Just second) end
+                                            AExpSequence
+                                                firstElem
+                                                (Just second)
+                                                end
                                    , do expect_ SpecialComma
                                         rest <- parser `sepByP` SpecialComma
                                         return $
                                             AExpList
-                                                (first NE.:| (second : rest))
-                                   , return $ AExpList (first NE.:| [second])
+                                                (firstElem NE.:| (second : rest))
+                                   , return $
+                                     AExpList (firstElem NE.:| [second])
                                    ]
                           , do expect_ OperatorBar
                                quals <- parser `sepBy1P` SpecialComma
-                               return $ AExpListCompr first quals
+                               return $ AExpListCompr firstElem quals
                           , do expect_ OperatorDDot
                                end <- safeOptional parser
-                               return $ AExpSequence first Nothing end
-                          , return $ AExpList (first NE.:| [])
+                               return $ AExpSequence firstElem Nothing end
+                          , return $ AExpList (firstElem NE.:| [])
                           ]
                 ]
         parseFBind :: Parser (NE.NonEmpty (WithLocation FBind))

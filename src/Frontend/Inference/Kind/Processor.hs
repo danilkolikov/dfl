@@ -21,7 +21,7 @@ import qualified Frontend.Inference.Kind.Ast as A
 import Frontend.Inference.Kind.Base
 import Frontend.Inference.Kind.Checker
 import Frontend.Inference.Signature
-import Frontend.Inference.Util.Debug
+import Util.Debug
 
 type KindProcessor = WithDebugOutput KindProcessorError KindProcessorDebugOutput
 

@@ -26,7 +26,7 @@ import Frontend.Inference.Class.Single
 import Frontend.Inference.DependencyResolver
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Syntax.Position
 
 -- | Processes provided type classes - generates data types and collects methods

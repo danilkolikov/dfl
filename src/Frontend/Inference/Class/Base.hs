@@ -17,7 +17,7 @@ import Frontend.Inference.Class
 import Frontend.Inference.DependencyResolver
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Syntax.Position
 
 -- | A type of the class processor

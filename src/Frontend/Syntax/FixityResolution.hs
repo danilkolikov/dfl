@@ -10,6 +10,7 @@ Fixity resolution of expressions in DFL. Follows algorithms, defined in
 module Frontend.Syntax.FixityResolution
     ( InfixOperator(..)
     , InfixOperators
+    , resolveModuleFixity
     , minusInfixOperator
     , defaultInfixOperator
     , FixityResolutionError(..)
@@ -118,6 +119,22 @@ runFixityResolver ::
     -> ResolverState
     -> Either FixityResolutionError (a, ResolverState)
 runFixityResolver r st = E.runExcept (ST.runStateT r st)
+
+-- | Resolves fixity of the module given the initial set of operators and returns
+--   fixity of operators, defined in this module
+resolveModuleFixity ::
+       (FixityResolvable a)
+    => InfixOperators
+    -> Module a
+    -> Either FixityResolutionError (Module a, InfixOperators)
+resolveModuleFixity initialOperators module' =
+    let prepareResult (result, [newOperators, _]) = (result, newOperators)
+        prepareResult _ = error "Unexpected configuration of infix operators"
+        resolutionResult =
+            runFixityResolver
+                (fixityResolver module')
+                [HM.empty, initialOperators]
+     in prepareResult <$> resolutionResult
 
 -- | Type for classes which support resolution of fixity
 class FixityResolvable a where

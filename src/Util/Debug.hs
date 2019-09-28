@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Inference.Util.Debug
+Module      :  Util.Debug
 Description :  Functions for debug output
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Functions and types for easier debug output
 -}
-module Frontend.Inference.Util.Debug
+module Util.Debug
     ( WithDebugOutput
     , runWithDebugOutput
     , WithDebugOutputT

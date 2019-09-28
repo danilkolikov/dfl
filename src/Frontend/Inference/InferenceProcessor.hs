@@ -33,7 +33,7 @@ import Frontend.Inference.Equalities
 import Frontend.Inference.Signature (Signatures)
 import Frontend.Inference.Solver
 import Frontend.Inference.Unification
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Inference.Variables
 
 -- | A processor of inference of multiple groups

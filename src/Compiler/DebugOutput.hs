@@ -8,55 +8,24 @@ Debug output of the DFL compiler
 -}
 module Compiler.DebugOutput where
 
-import Frontend.Desugaring.Processor (DesugaringOutput(..))
-import Frontend.Inference.Processor (InferenceProcessorDebugOutput(..))
-import Frontend.Syntax.Processor
-    ( FixityResolutionOutput(..)
-    , Module
-    , TokenStream(..)
-    )
-
-import Compiler.Prettify.Ast ()
-import Compiler.Prettify.DesugaringOutput (prettifyDesugaringOutput)
-import Compiler.Prettify.FixityResolutionOutput (prettifyFixityResolutionOutput)
-import Compiler.Prettify.InferenceProcessorDebugOutput ()
-import Compiler.Prettify.PrettyPrintable (PrettyPrintable, prettifyAst)
-import Compiler.Prettify.TokenStream (prettifyTokenStream)
+import Compiler.Prettify.FrontendProcessorOutput ()
+import Compiler.Prettify.SyntaxProcessorDebugOutput ()
 import Compiler.Prettify.Utils
-
--- | Debug output of a step
-data DebugOutput = DebugOutput
-    { getDebugOutputValue :: String -- ^ String with the debug output
-    , getDebugOutputType :: DebugOutputType -- ^ Type of a debug output
-    }
+import Frontend.Processor
 
 -- | Type of debug output
 data DebugOutputType
-    = DebugOutputTypeLexems -- ^ List of lexems
-    | DebugOutputTypeAst -- ^ Abstract syntax tree
-    | DebugOutputTypeFixityResolution -- ^ AST and fixity of operators
-    | DebugOutputTypeDesugaredAst -- ^ Desugared AST
-    | DebugOutputTypeInference -- ^ Output of inference
+    = DebugOutputTypeHeader -- ^ Header parser debug output
+    | DebugOutputTypeFrontend -- ^ Frontend debug output
 
 -- | Class for types which can be converted to the debug output
-class HasDebugOutput a where
-    getDebugOutput :: a -> DebugOutput -- ^ Convert object to the debug output
+class (Prettifiable a) =>
+      IsDebugOutput a
+    where
+    getDebugOutputType :: a -> DebugOutputType -- ^ Get type of the debug output
 
-instance HasDebugOutput TokenStream where
-    getDebugOutput a = DebugOutput (prettifyTokenStream a) DebugOutputTypeLexems
+instance IsDebugOutput FrontendProcessorDebugOutput where
+    getDebugOutputType _ = DebugOutputTypeFrontend
 
-instance (PrettyPrintable a) => HasDebugOutput (Module a) where
-    getDebugOutput a = DebugOutput (prettifyAst a) DebugOutputTypeAst
-
-instance HasDebugOutput FixityResolutionOutput where
-    getDebugOutput a =
-        DebugOutput
-            (prettifyFixityResolutionOutput a)
-            DebugOutputTypeFixityResolution
-
-instance HasDebugOutput DesugaringOutput where
-    getDebugOutput a =
-        DebugOutput (prettifyDesugaringOutput a) DebugOutputTypeDesugaredAst
-
-instance HasDebugOutput InferenceProcessorDebugOutput where
-    getDebugOutput a = DebugOutput (prettify a) DebugOutputTypeInference
+instance IsDebugOutput HeaderProcessorDebugOutput where
+    getDebugOutputType _ = DebugOutputTypeHeader

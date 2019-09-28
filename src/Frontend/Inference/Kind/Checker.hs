@@ -25,7 +25,7 @@ import qualified Frontend.Inference.Kind.Ast as A
 import Frontend.Inference.Kind.Base
 import Frontend.Inference.Signature
 import Frontend.Inference.Type
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Inference.Util.HashMap
 import Frontend.Syntax.Position
 
