@@ -73,7 +73,6 @@ library:
   - Frontend.Inference.Class.Single
   - Frontend.Inference.Constraint
   - Frontend.Inference.DataType.Processor
-  - Frontend.Inference.DependencyResolver
   - Frontend.Inference.Equalities
   - Frontend.Inference.Expression
   - Frontend.Inference.InferenceProcessor
@@ -123,6 +122,7 @@ library:
   - Frontend.Syntax.Stream
   - Frontend.Syntax.Token
   - Util.Debug
+  - Util.DependencyResolver
 
 tests:
   dfl-test:

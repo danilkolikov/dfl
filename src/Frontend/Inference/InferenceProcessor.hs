@@ -28,7 +28,7 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
 import Frontend.Inference.Constraint (Constraint)
-import Frontend.Inference.DependencyResolver
+import Util.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.Signature (Signatures)
 import Frontend.Inference.Solver
@@ -42,7 +42,7 @@ type InferenceProcessor a o
 
 -- | A type of errors which may be encountered during type inference
 data InferenceError
-    = InferenceErrorDependencyResolution DependencyResolverError -- ^ An error happened during resolution of dependency groups
+    = InferenceErrorDependencyResolution (DependencyResolverError Ident) -- ^ An error happened during resolution of dependency groups
     | InferenceErrorEqualityGeneration EqualitiesGenerationError -- ^ An error happened during generation of equalities for a single group
     | InferenceErrorUnification UnificationError -- ^ An error happened during unification
     | InferenceErrorSignatureCheck SignatureCheckError -- ^ An error of signature check
@@ -60,7 +60,7 @@ type VariableBinding = (Ident, Either Kind Type)
 -- | A debug output of inference of multiple groups
 data InferenceDebugOutput a s = InferenceDebugOutput
     { getInferenceDebugOutputInput :: Maybe (HM.HashMap Ident a) -- ^ Input of inference
-    , getInferenceDebugOutputDependencyGraph :: Maybe DependencyGraph -- ^ Dependency graph
+    , getInferenceDebugOutputDependencyGraph :: Maybe (DependencyGraph Ident) -- ^ Dependency graph
     , getInferenceDebugOutputDependencyGroups :: Maybe [HS.HashSet Ident] -- ^ Dependency groups
     , getInferenceDebugOutputDependencyGroupOutputs :: Maybe [SingleGroupInferenceDebugOutput (HM.HashMap Ident a) (HM.HashMap Ident s)] -- ^ Processed dependency groups
     , getInferenceDebugOutputSignatures :: Maybe (HM.HashMap Ident s) -- ^ Output signatures
@@ -122,7 +122,7 @@ type EqualitiesBuilder a s o
 
 -- | A function which builds a dependency graph
 type DependencyGraphBuilder a s
-     = Signatures s -> HM.HashMap Ident a -> DependencyGraph
+     = Signatures s -> HM.HashMap Ident a -> DependencyGraph Ident
 
 -- | Infer signatures of multiple (possibly mutually dependent) groups
 inferMultipleGroups ::

@@ -103,7 +103,6 @@ instance Prettifiable IdentEnvironment where
         case env of
             IdentEnvironmentRecordDesugaring -> "record"
             IdentEnvironmentExpressionDesugaring -> "exp"
-            IdentEnvironmentDependencyResolution -> "dep"
             IdentEnvironmentTypeVariable -> "type"
             IdentEnvironmentKindVariable -> "kind"
             IdentEnvironmentSortVariable -> "sort"

@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Inference.DependencyResolverTest
+Module      :  Util.DependencyResolverTest
 Description :  Tests for the dependency resolver
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Tests for the dependency resolver
 -}
-module Frontend.Inference.DependencyResolverTest
+module Util.DependencyResolverTest
     ( testSuite
     ) where
 
@@ -17,7 +17,7 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
 import Frontend.Desugaring.Final.Ast (Ident(..))
-import Frontend.Inference.DependencyResolver
+import Util.DependencyResolver
 
 testSuite :: IO ()
 testSuite =
@@ -107,13 +107,18 @@ testSuite =
             Right comps
         describe "condenseGraph" $ do
             let componentsGraph =
-                    makeGraph
-                        [ ("1", ["a", "b", "c", "d"])
-                        , ("2", ["e", "f", "g"])
-                        , ("3", ["h"])
+                    HM.fromList $
+                    map
+                        (bimap Component makeNodeSet)
+                        [ (1, ["a", "b", "c", "d"])
+                        , (2, ["e", "f", "g"])
+                        , (3, ["h"])
                         ]
                 condensed =
-                    makeGraph [("1", ["2", "3"]), ("2", []), ("3", ["2"])]
+                    HM.fromList $
+                    map
+                        (bimap Component (HS.fromList . map Component))
+                        [(1, [2, 3]), (2, []), (3, [2])]
             it "condenses graph" $
                 runDependencyResolver (condenseGraph componentsGraph) graph `shouldBe`
                 Right condensed

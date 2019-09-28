@@ -18,19 +18,19 @@ import qualified Data.HashSet as HS
 import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Signature
 import Frontend.Inference.Type
 import Frontend.Inference.TypeSynonym.Dependencies
 import Frontend.Inference.TypeSynonym.Expand
 import Frontend.Inference.Variables
 import Frontend.Syntax.Position
+import Util.DependencyResolver
 
 -- | Errors which can be encountered during processing of type synonyms
 data TypeSynonymProcessorError
     = TypeSynonymProcessorErrorRecursive Ident -- ^ Recursive type synonym
     | TypeSynonymProcessorErrorMutuallyRecursive [Ident] -- ^ Mutually recursive type synonyms
-    | TypeSynonymProcessorErrorDependencyResolution DependencyResolverError -- ^ Error happened during dependency resolution
+    | TypeSynonymProcessorErrorDependencyResolution (DependencyResolverError Ident) -- ^ Error happened during dependency resolution
     | TypeSynonymProcessorErrorExpanding TypeSynonymExpandingError -- ^ Error happened during expanding
     deriving (Eq, Show)
 

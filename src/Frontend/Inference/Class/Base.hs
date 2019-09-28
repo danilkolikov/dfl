@@ -14,7 +14,7 @@ import qualified Data.HashSet as HS
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Inference.Class
-import Frontend.Inference.DependencyResolver
+import Util.DependencyResolver
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Util.Debug
@@ -28,14 +28,14 @@ type ClassProcessor
 data ClassProcessorError
     = ClassProcessorErrorRecursive Ident -- ^ Class extends itself
     | ClassProcessorErrorMutuallyRecursive [Ident] -- ^ Classes mutually extend themselves
-    | ClassProcessorErrorDependencyResolution DependencyResolverError -- ^ Dependency resolution error
+    | ClassProcessorErrorDependencyResolution (DependencyResolverError Ident) -- ^ Dependency resolution error
     | ClassProcessorErrorUnknownClass (WithLocation Ident) -- ^ Unknown class
     | ClassProcessorErrorUnknownGeneratedDataType Ident -- ^ Unknown generated data type
     deriving (Eq, Show)
 
 -- | A type of debug output of class processing
 data ClassProcessorDebugOutput = ClassProcessorDebugOutput
-    { getClassProcessorDebugOutputDependencyGraph :: Maybe DependencyGraph -- ^ Dependency graph
+    { getClassProcessorDebugOutputDependencyGraph :: Maybe (DependencyGraph Ident) -- ^ Dependency graph
     , getClassProcessorDebugOutputDependencyGroups :: Maybe [HS.HashSet Ident] -- ^ Dependency groups
     , getClassProcessorDebugOutputOutputs :: Maybe [ClassProcessorOutput] -- ^ Outputs of processing of each class
     } deriving (Eq, Show)

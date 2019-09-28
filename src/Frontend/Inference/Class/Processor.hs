@@ -23,7 +23,7 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Class
 import Frontend.Inference.Class.Base
 import Frontend.Inference.Class.Single
-import Frontend.Inference.DependencyResolver
+import Util.DependencyResolver
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Util.Debug
@@ -90,10 +90,10 @@ processDependencyGroup globalState allClasses initial group = do
     return $ initial <> result
 
 -- | Gets dependencies of classes
-getDependencies :: HM.HashMap Ident K.Class -> DependencyGraph
+getDependencies :: HM.HashMap Ident K.Class -> DependencyGraph Ident
 getDependencies = HM.map getClassDependencies
   where
-    getClassDependencies :: K.Class -> Dependencies
+    getClassDependencies :: K.Class -> Dependencies Ident
     getClassDependencies K.Class {K.getClassContext = constraints} =
         HS.fromList $
         map (getValue . F.getSimpleConstraintClass . getValue) constraints

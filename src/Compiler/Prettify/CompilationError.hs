@@ -16,7 +16,7 @@ import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
-import Frontend.Inference.DependencyResolver
+import Util.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
@@ -293,7 +293,7 @@ prettifyBoundVariable :: VariableBinding -> String
 prettifyBoundVariable (name, binding) =
     prettify name ++ " := " ++ prettify binding
 
-instance Prettifiable DependencyResolverError where
+instance (Prettifiable a) => Prettifiable (DependencyResolverError a) where
     prettify dependencyError =
         "Dependency resolution error: " ++
         case dependencyError of

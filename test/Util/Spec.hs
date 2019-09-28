@@ -1,17 +1,17 @@
 {- |
-Module      :  Frontend.Inference.Spec
+Module      :  Util.Spec
 Description :  Tests for inference of DFL
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Test suite for inference of DFL
 -}
-module Frontend.Inference.Spec
+module Util.Spec
     ( testSuite
     ) where
 
-import qualified Frontend.Inference.UnificationTest as Unification
+import qualified Util.DependencyResolverTest as DependencyResolver
 
 testSuite :: IO ()
 testSuite = do
-    Unification.testSuite
+    DependencyResolver.testSuite

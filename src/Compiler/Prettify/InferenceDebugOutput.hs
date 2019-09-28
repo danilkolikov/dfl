@@ -15,12 +15,11 @@ import qualified Data.HashSet as HS
 import Data.Maybe (catMaybes)
 
 import Compiler.Prettify.Utils
-import Frontend.Desugaring.Final.Ast
-import Frontend.Inference.DependencyResolver
 import Frontend.Inference.Equalities
 import Frontend.Inference.InferenceProcessor
 import Frontend.Inference.Solver
 import Frontend.Inference.Substitution
+import Util.DependencyResolver
 
 instance (Prettifiable a, Prettifiable s) =>
          Prettifiable (InferenceDebugOutput a s) where
@@ -54,21 +53,21 @@ prettifyInferenceDebugOutput InferenceDebugOutput { getInferenceDebugOutputInput
         , prettifyDOSignatures <$> signatures
         ]
 
-prettifyGraph :: DependencyGraph -> String
+prettifyGraph :: (Prettifiable a) => DependencyGraph a -> String
 prettifyGraph deps =
     unlines [prettifyHeader "Dependency graph", prettifyDependencyGraph deps]
 
-prettifyGroups :: [HS.HashSet Ident] -> String
+prettifyGroups :: (Prettifiable a) => [HS.HashSet a] -> String
 prettifyGroups grps =
     unlines $ prettifyHeader "Dependency groups" : map prettifyGroupIdents grps
 
-prettifyDependencyGraph :: DependencyGraph -> String
+prettifyDependencyGraph :: (Prettifiable a) => DependencyGraph a -> String
 prettifyDependencyGraph =
     let prettifyNode (node, edges) =
             prettify node ++ ": " ++ unwords (map prettify (HS.toList edges))
      in unlines . map prettifyNode . HM.toList
 
-prettifyGroupIdents :: HS.HashSet Ident -> String
+prettifyGroupIdents :: Prettifiable a => HS.HashSet a -> String
 prettifyGroupIdents = unwords . map prettify . HS.toList
 
 prettifySingleGroupDebugOutput ::
