@@ -20,10 +20,9 @@ import Data.List (intercalate)
 import Compiler.Base
 import Compiler.Environment
 import Compiler.Module.Base
-import Frontend.Processor
-import Frontend.Syntax.Ast
+import Frontend.Desugaring.Initial.Ast
+import Frontend.HeaderProcessor
 import Frontend.Syntax.Position
-import Frontend.Syntax.Token
 import Util.Debug
 import Util.DependencyResolver
 
@@ -66,6 +65,9 @@ getModuleDependencies fn@(FileName fileName) = do
                     fileContent <- readFileContent fileName
                     handleResult . fst $
                         processModuleHeader fileName fileContent
+        -- Check module name
+        unless (checkModuleName fn header) . lift . raiseError $
+            DependencyBuilderErrorMismatchingModuleName fileName
         -- Get dependencies
         let headerDependencies = getHeaderDependencies header
             requiredSourceFiles = map getSourceFile headerDependencies
@@ -74,18 +76,15 @@ getModuleDependencies fn@(FileName fileName) = do
         modify $ HM.insert fn fileDependencies
         mapM_ getModuleDependencies requiredSourceFiles
 
-getHeaderDependencies :: Module Header -> [[String]]
-getHeaderDependencies module' =
-    case module' of
-        ModuleExplicit _ _ header -> getHeaderDependencies' (getValue header)
-        ModuleImplicit header -> getHeaderDependencies' (getValue header)
-  where
-    getHeaderDependencies' (Header imports) =
-        map (getImportDependencies . getValue) imports
-    getImportDependencies (ImpDecl _ moduleName _ _) =
-        getModuleName $ getValue moduleName
-    getModuleName (Qualified path name) = map getConIdString $ path ++ [name]
-    getConIdString (ConId str) = str
+checkModuleName :: FileName -> Header -> Bool
+checkModuleName fileName (Header name _ _) = fileName == getSourceFile (getValue name)
 
-getSourceFile :: [String] -> FileName
-getSourceFile files = FileName $ intercalate "/" files ++ ".dfl"
+getHeaderDependencies :: Header -> [Ident]
+getHeaderDependencies (Header _ _ imports) =
+    map (getImportDependencies . getValue) imports
+  where
+    getImportDependencies (ImpDecl _ moduleName _ _ _) = getValue moduleName
+
+getSourceFile :: Ident -> FileName
+getSourceFile (IdentNamed name) = FileName $ intercalate "/" name ++ ".dfl"
+getSourceFile _ = error "Unexpected ident"

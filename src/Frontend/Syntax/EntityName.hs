@@ -98,6 +98,10 @@ aPPLICATION_NAME :: EntityName
 aPPLICATION_NAME = ["$"]
 
 -- Functions
+-- | Function "main"
+mAIN_NAME :: EntityName
+mAIN_NAME = ["main"]
+
 -- | Function "negate"
 nEGATE_NAME :: EntityName
 nEGATE_NAME = ["negate"]

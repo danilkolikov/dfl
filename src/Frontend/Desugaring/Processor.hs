@@ -23,7 +23,6 @@ import Frontend.Desugaring.Final.Processor
 import Frontend.Desugaring.Final.RecordDesugaring
 import Frontend.Desugaring.Initial.ToModule (desugarToModule)
 import qualified Frontend.Syntax.Ast as A
-import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Result of desugaring
 data DesugaringOutput = DesugaringOutput
@@ -37,9 +36,6 @@ desugarParsedModule ::
     -> DesugaringState
     -> Either DesugaringError DesugaringOutput
 desugarParsedModule parsedModule state =
-    let initialModule = desugarToModule (withDummyLocation parsedModule)
-        result =
-            runDesugaringProcessor
-                (desugarModule $ getValue initialModule)
-                state
+    let initialModule = desugarToModule parsedModule
+        result = runDesugaringProcessor (desugarModule initialModule) state
      in uncurry DesugaringOutput <$> result

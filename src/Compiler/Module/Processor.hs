@@ -17,6 +17,7 @@ import Compiler.Module.Base
 import Compiler.Module.Dependencies
 import Compiler.Module.Export
 import Compiler.Module.Import
+import Frontend.HeaderProcessor
 import Frontend.Processor
 import Util.DependencyResolver
 

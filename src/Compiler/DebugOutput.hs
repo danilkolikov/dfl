@@ -13,6 +13,7 @@ import Compiler.Prettify.DependencyBuilderDebugOutput ()
 import Compiler.Prettify.FrontendProcessorOutput ()
 import Compiler.Prettify.SyntaxProcessorDebugOutput ()
 import Compiler.Prettify.Utils
+import Frontend.HeaderProcessor
 import Frontend.Processor
 
 -- | Class for types which can be converted to the debug output

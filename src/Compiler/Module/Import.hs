@@ -11,10 +11,9 @@ module Compiler.Module.Import
     ) where
 
 import Compiler.Module.Base
+import Frontend.Desugaring.Initial.Ast
 import Frontend.Processor
-import Frontend.Syntax.Ast
 
 -- | Selects objects to import into a module
-selectImports ::
-       ModuleProcessorState -> Module Header -> FrontendProcessorOutput
+selectImports :: ModuleProcessorState -> Header -> FrontendProcessorOutput
 selectImports _ _ = emptyFrontendProcessorOutput

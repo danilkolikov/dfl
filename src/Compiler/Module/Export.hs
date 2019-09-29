@@ -10,10 +10,10 @@ module Compiler.Module.Export
     ( selectExports
     ) where
 
+import Frontend.Desugaring.Initial.Ast
 import Frontend.Processor
-import Frontend.Syntax.Ast
 
 -- | Selects objects to import export from a module
 selectExports ::
-       FrontendProcessorOutput -> Module Header -> FrontendProcessorOutput
+       FrontendProcessorOutput -> Header -> FrontendProcessorOutput
 selectExports state _ = state

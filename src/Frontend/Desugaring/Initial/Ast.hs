@@ -40,7 +40,8 @@ data Ident
     | IdentGenerated IdentEnvironment
                      Int -- ^ Automatically generated name
     | IdentScoped [Ident] -- ^ Scoped identifier
-    | IdentInstance Ident Ident -- ^ Instance identifiers
+    | IdentInstance Ident
+                    Ident -- ^ Instance identifiers
     deriving (Generic, Eq, Ord, Show)
 
 instance Hashable Ident
@@ -59,6 +60,13 @@ data Module =
            (ImpExpList (WithLocation Export)) -- ^ Exports
            [WithLocation ImpDecl] -- ^ Imports
            [WithLocation TopDecl] -- ^ Top-level declarations
+    deriving (Show, Eq)
+
+-- | Header of a module
+data Header =
+    Header (WithLocation Ident) -- ^ Module name
+           (ImpExpList (WithLocation Export)) -- ^ Exports
+           [WithLocation ImpDecl] -- ^ Imports
     deriving (Show, Eq)
 
 -- | Export of a module

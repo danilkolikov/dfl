@@ -8,6 +8,7 @@ Desugaring of AST nodes to objects, representing Module-s.
 -}
 module Frontend.Desugaring.Initial.ToModule
     ( desugarToModule
+    , desugarToHeader
     , desugarExport
     , desugarImpDecl
     , desugarImport
@@ -25,20 +26,32 @@ import Frontend.Desugaring.Initial.ToTopDecl (desugarToTopDecl)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
-import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Desugar object to a Module
-desugarToModule :: WithLocation (Module Body) -> WithLocation D.Module
+desugarToModule :: Module Body -> D.Module
 desugarToModule md =
-    md $>
-    case getValue md of
+    case md of
         ModuleExplicit name exports body ->
             bodyToDecls
                 (D.Module (desugarToIdent name) (desugarExports exports))
                 (getValue body)
         ModuleImplicit body ->
             bodyToDecls
-                (D.Module (makeIdent dEFAULT_MODULE_NAME) D.ImpExpAll)
+                (D.Module (makeIdent dEFAULT_MODULE_NAME) defaultExport)
+                (getValue body)
+
+-- | Desugars an object to a header
+desugarToHeader :: Module Header -> D.Header
+desugarToHeader md =
+    case md of
+        ModuleExplicit name exports body ->
+            bodyToHeader
+                (D.Header (desugarToIdent name) (desugarExports exports))
+                (getValue body)
+        ModuleImplicit body ->
+            bodyToHeader
+                (D.Header (makeIdent dEFAULT_MODULE_NAME) defaultExport)
                 (getValue body)
 
 -- Helper functions
@@ -46,6 +59,15 @@ bodyToDecls ::
        ([WithLocation D.ImpDecl] -> [WithLocation D.TopDecl] -> a) -> Body -> a
 bodyToDecls wrap (Body impDecls topDecls) =
     wrap (map desugarImpDecl impDecls) (concatMap desugarToTopDecl topDecls)
+
+-- | Converts a body to header
+bodyToHeader :: ([WithLocation D.ImpDecl] -> a) -> Header -> a
+bodyToHeader wrap (Header impDecls) = wrap (map desugarImpDecl impDecls)
+
+defaultExport :: (D.ImpExpList (WithLocation D.Export))
+defaultExport =
+    D.ImpExpSome
+        (withDummyLocation (D.ExportFunction (makeIdent mAIN_NAME)) NE.:| [])
 
 -- | Desugar Export
 desugarExport :: WithLocation Export -> WithLocation D.Export

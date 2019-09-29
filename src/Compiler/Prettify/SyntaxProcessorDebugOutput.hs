@@ -11,9 +11,10 @@ Functions for pretty printing of FixityResolutionOutput
 module Compiler.Prettify.SyntaxProcessorDebugOutput where
 
 import Compiler.Prettify.Ast ()
+import Compiler.Prettify.DesugaredAst ()
 import Compiler.Prettify.TokenStream ()
 import Compiler.Prettify.Utils
-import Frontend.Syntax.HeaderProcessor
+import Frontend.HeaderProcessor
 import Frontend.Syntax.Processor
 
 instance Prettifiable SyntaxProcessorDebugOutput where

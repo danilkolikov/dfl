@@ -17,13 +17,13 @@ import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
 import Frontend.Desugaring.Final.Ast (Ident)
 import Frontend.Desugaring.Processor
+import Frontend.HeaderProcessor
 import Frontend.Inference.Equalities
 import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
 import Frontend.Inference.TypeSynonym.Expand (TypeSynonymExpandingError(..))
 import Frontend.Inference.Unification
 import Frontend.Processor
-import Frontend.Syntax.HeaderProcessor
 import Frontend.Syntax.Lexer
 import Frontend.Syntax.Position
 import Frontend.Syntax.Processor
@@ -357,5 +357,8 @@ instance Prettifiable DependencyBuilderError where
         "Module dependency error: " ++
         case err of
             DependencyBuilderErrorCycle cycles ->
-                "Files " ++ show cycles ++ " form a cycle"
+                "Files " ++ show cycles ++ " has a cycle in imports"
             DependencyBuilderErrorMissingFile name -> "Missing file: " ++ name
+            DependencyBuilderErrorMismatchingModuleName name ->
+                "Name of the module, declared in " ++
+                name ++ " doesn't match the file name"

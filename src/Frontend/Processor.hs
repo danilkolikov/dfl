@@ -12,10 +12,6 @@ module Frontend.Processor
     , emptyFrontendProcessorOutput
     , FrontendProcessorDebugOutput(..)
     , processSourceFile
-    , HeaderProcessorError(..)
-    , HeaderProcessorOutput(..)
-    , HeaderProcessorDebugOutput(..)
-    , processModuleHeader
     ) where
 
 import Control.Applicative ((<|>))
@@ -23,7 +19,6 @@ import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Processor
 import Frontend.Inference.Processor
-import Frontend.Syntax.HeaderProcessor
 import Frontend.Syntax.Processor
 import Util.Debug
 

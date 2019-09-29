@@ -6,7 +6,7 @@ License     :  MIT
 
 Lexical analyser of DFL. Does layout-based lexing and parses header of a module.
 -}
-module Frontend.Syntax.HeaderProcessor
+module Frontend.HeaderProcessor
     ( HeaderProcessorError(..)
     , HeaderProcessorOutput(..)
     , HeaderProcessorDebugOutput(..)
@@ -20,10 +20,11 @@ module Frontend.Syntax.HeaderProcessor
 
 import Control.Applicative ((<|>))
 
-import Frontend.Syntax.Ast (Header, Module)
+import Frontend.Desugaring.Initial.Ast
 import Frontend.Syntax.Lexer (LexerError(..), runLexer)
 import Frontend.Syntax.Parser (ParserError(..), parseHeader)
 import Frontend.Syntax.Stream (TokenStream(..))
+import Frontend.Desugaring.Initial.ToModule
 import Util.Debug
 
 -- | Errors which can be encountered during processing
@@ -35,13 +36,13 @@ data HeaderProcessorError
 -- | Output of the processor
 data HeaderProcessorOutput = HeaderProcessorOutput
     { getHeaderProcessorOutputTokens :: TokenStream
-    , getHeaderProcessorOutputHeader :: Module Header
+    , getHeaderProcessorOutputHeader :: Header
     } deriving (Eq, Show)
 
 -- | Debug output of the syntax processor
 data HeaderProcessorDebugOutput = HeaderProcessorDebugOutput
     { getHeaderProcessorDebugOutputTokens :: Maybe TokenStream
-    , getHeaderProcessorDebugOutputHeader :: Maybe (Module Header)
+    , getHeaderProcessorDebugOutputHeader :: Maybe Header
     } deriving (Eq, Show)
 
 instance Semigroup HeaderProcessorDebugOutput where
@@ -67,10 +68,11 @@ processModuleHeader fileName content =
             mempty {getHeaderProcessorDebugOutputTokens = Just stream}
         header <-
             wrapEither HeaderProcessorErrorParser $ parseHeader fileName stream
+        let desugared = desugarToHeader header
         writeDebugOutput
-            mempty {getHeaderProcessorDebugOutputHeader = Just header}
+            mempty {getHeaderProcessorDebugOutputHeader = Just desugared}
         return
             HeaderProcessorOutput
                 { getHeaderProcessorOutputTokens = stream
-                , getHeaderProcessorOutputHeader = header
+                , getHeaderProcessorOutputHeader = desugared
                 }

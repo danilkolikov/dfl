@@ -251,3 +251,15 @@ instance Prettifiable TypeSignature where
 
 instance Prettifiable Instance where
     prettify = prettifyAst
+
+instance PrettyPrintable Header where
+    prettyPrint (Header name exports imports) =
+        joinPrinters
+            [ prettyPrint KeywordModule
+            , prettyPrint name
+            , prettyPrint exports
+            , multiplePrinters $ map prettyPrint imports
+            ]
+
+instance Prettifiable Header where
+    prettify = prettifyAst

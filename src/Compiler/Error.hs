@@ -11,6 +11,7 @@ module Compiler.Error where
 import Compiler.Module.Base
 import Compiler.Prettify.CompilationError ()
 import Compiler.Prettify.Utils
+import Frontend.HeaderProcessor
 import Frontend.Processor
 import Util.DependencyResolver
 

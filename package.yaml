@@ -72,6 +72,7 @@ library:
   - Frontend.Desugaring.Initial.ToType
   - Frontend.Desugaring.Initial.Utils
   - Frontend.Desugaring.Processor
+  - Frontend.HeaderProcessor
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class
   - Frontend.Inference.Class.Base
@@ -117,7 +118,6 @@ library:
   - Frontend.Syntax.AstChecker
   - Frontend.Syntax.EntityName
   - Frontend.Syntax.FixityResolution
-  - Frontend.Syntax.HeaderProcessor
   - Frontend.Syntax.Layout
   - Frontend.Syntax.Lexer
   - Frontend.Syntax.NamedEntity

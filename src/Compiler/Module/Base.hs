@@ -20,8 +20,9 @@ import Util.DependencyResolver
 
 -- | A type of errors which can be encountered during
 data DependencyBuilderError
-    = DependencyBuilderErrorMissingFile String
-    | DependencyBuilderErrorCycle [String]
+    = DependencyBuilderErrorMissingFile String -- ^ A missing module
+    | DependencyBuilderErrorCycle [String] -- ^ Cycle in module hierarchy
+    | DependencyBuilderErrorMismatchingModuleName String -- ^ Mismatching name of a module
     deriving (Eq, Show)
 
 -- | A debug output of a dependency builder
