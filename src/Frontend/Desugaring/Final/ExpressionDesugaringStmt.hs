@@ -62,7 +62,7 @@ desugarDoStmt stmt exp' =
             abstraction <-
                 desugarAltsToAbstraction (altPat NE.:| [altFail])
             let expression =
-                    Expression newIdent abstraction Nothing
+                    Expression newIdent abstraction Nothing Nothing
                 expressionFunc = withDummyLocation $ ExpVar newIdent
                 decls = HM.singleton (getValue newIdent) expression
                 bindFunction = makeExp bIND_NAME
@@ -107,7 +107,7 @@ desugarListComprehensionStmt exp' qual =
                 altFail =
                     withDummyLocation $ PreparedAltSimple failPat emptyList
             abstraction <- desugarAltsToAbstraction (altPat NE.:| [altFail])
-            let expression = Expression newIdent abstraction Nothing
+            let expression = Expression newIdent abstraction Nothing Nothing
                 expressionFunc = withDummyLocation $ ExpVar newIdent
                 decls = HM.singleton (getValue newIdent) expression
                 function = makeExp cONCAT_MAP_NAME

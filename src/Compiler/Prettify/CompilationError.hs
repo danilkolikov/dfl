@@ -162,6 +162,9 @@ instance Prettifiable ExpressionDesugaringError where
             ExpressionDesugaringErrorDuplicatedTypeDeclaration name ->
                 "Multiple type declarations for the expression " ++
                 prettifyName name
+            ExpressionDesugaringErrorDuplicatedFixityDeclaration name ->
+                "Multiple fixity declarations for the expression " ++
+                prettifyName name
             ExpressionDesugaringErrorMissingExpressionDefinition name ->
                 "Mising definition for the expression " ++ prettifyName name
             ExpressionDesugaringErrorMissingMethodType name ->

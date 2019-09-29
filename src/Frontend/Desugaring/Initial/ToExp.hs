@@ -36,13 +36,15 @@ import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
 import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Syntax.Token
 
 -- | Desugar declaration to Assignment
 desugarToAssignment :: WithLocation Decl -> [WithLocation D.Assignment] -- ^ Desugar object to assignments
 desugarToAssignment decl =
     map (decl $>) $
     case getValue decl of
-        (DeclGenDecl genDecl) -> desugarGenDecl D.AssignmentType genDecl
+        (DeclGenDecl genDecl) ->
+            desugarGenDecl D.AssignmentType D.AssignmentFixity genDecl
         (DeclFunction lhs rhs) ->
             [ case getValue lhs of
                   Left fun ->
@@ -291,21 +293,39 @@ desugarGdPat gdPat
             desugaredExp = desugarToExp exp'
          in gdPat $> D.GuardedExp desugaredGuards desugaredExp
 
+desugarFixity :: Fixity -> D.Fixity
+desugarFixity fixity =
+    case fixity of
+        Infix -> D.Infix
+        InfixL -> D.InfixL
+        InfixR -> D.InfixR
+
 -- | Desugar fixty and type declarations
 desugarGenDecl ::
        (WithLocation D.Ident -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
+    -> (WithLocation D.Ident -> D.Fixity -> Int -> a)
     -> WithLocation GenDecl
     -> [a]
-desugarGenDecl wrap genDecl =
+desugarGenDecl wrapType wrapFixity genDecl =
     case getValue genDecl of
-        GenDeclFixity {} -> []
+        GenDeclFixity fixity prec ops ->
+            let (IntT prec') = getValue prec
+                fixity' = getValue fixity
+             in NE.toList $
+                fmap
+                    (\var ->
+                         wrapFixity
+                             (desugarToIdent var)
+                             (desugarFixity fixity')
+                             prec')
+                    ops
         GenDeclTypeSig vars context type' ->
             let desugaredContext = map desugarToConstraint context
                 desugaredType = desugarToType type'
              in NE.toList $
                 fmap
                     (\var ->
-                         wrap
+                         wrapType
                              (desugarToIdent var)
                              desugaredContext
                              desugaredType)

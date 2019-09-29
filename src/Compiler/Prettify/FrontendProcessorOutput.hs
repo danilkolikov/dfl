@@ -24,7 +24,7 @@ instance Prettifiable FrontendProcessorOutput where
                                      } =
         unlines'
             [ prettifyWithHeader "Infix operators:" operators
-            , prettifyWithHeader "Dessugaring output:" desugaring
+            , prettifyWithHeader "Desugaring output:" desugaring
             , prettifyWithHeader "Inference output:" inference
             ]
 
@@ -35,6 +35,6 @@ instance Prettifiable FrontendProcessorDebugOutput where
                                           } =
         unlineMaybes
             [ prettifyWithHeader "Syntax output:" <$> syntax
-            , prettifyWithHeader "Dessugaring output:" <$> desugaring
+            , prettifyWithHeader "Desugaring output:" <$> desugaring
             , prettifyWithHeader "Inference output:" <$> inference
             ]

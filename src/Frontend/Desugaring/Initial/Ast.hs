@@ -181,6 +181,13 @@ data Type
     | TypeConstr (WithLocation Ident) -- ^ Type constructor
     deriving (Show, Eq)
 
+-- | Fixity of an operator
+data Fixity
+    = InfixL -- ^ Left associativity
+    | InfixR -- ^ Right associativity
+    | Infix -- ^ Non-associative
+    deriving (Show, Eq, Ord)
+
 -- | Assignment in top-level, `let` or `where` blocks
 data Assignment
     = AssignmentName (WithLocation Ident)
@@ -191,6 +198,9 @@ data Assignment
     | AssignmentType (WithLocation Ident)
                      [WithLocation Constraint]
                      (WithLocation Type) -- ^ Define type of a name
+    | AssignmentFixity (WithLocation Ident)
+                       Fixity
+                       Int -- ^ Assigns fixity to an operator
     deriving (Show, Eq)
 
 -- | Assignment in a class definition
@@ -201,6 +211,9 @@ data ClassAssignment
     | ClassAssignmentType (WithLocation Ident)
                           [WithLocation Constraint]
                           (WithLocation Type) -- ^ Define type of an expression
+    | ClassAssignmentFixity (WithLocation Ident)
+                            Fixity
+                            Int -- ^ Assigns fixity to an operator
     deriving (Show, Eq)
 
 -- | Assignemnt in an instance definition

@@ -131,15 +131,28 @@ instance PrettyPrintable Exp where
                           ]
                     ]
 
+instance PrettyPrintable FixitySignature where
+    prettyPrint (FixitySignature fixity prec) =
+        joinPrinters [singleLine (show fixity), singleLine (show prec)]
+
 instance PrettyPrintable Expression where
-    prettyPrint (Expression name body Nothing) =
+    prettyPrint (Expression name body Nothing Nothing) =
         joinPrinters
             [prettyPrint name, prettyPrint OperatorEq, prettyPrint body]
-    prettyPrint (Expression name body (Just sig)) =
+    prettyPrint (Expression name body Nothing (Just fixity)) =
+        multiplePrinters
+            [ joinPrinters
+                  [ prettyPrint name
+                  , prettyPrint OperatorQDot
+                  , prettyPrint fixity
+                  ]
+            , prettyPrint (Expression name body Nothing Nothing)
+            ]
+    prettyPrint (Expression name body (Just sig) fixity) =
         multiplePrinters
             [ joinPrinters
                   [prettyPrint name, prettyPrint OperatorQDot, prettyPrint sig]
-            , prettyPrint (Expression name body Nothing)
+            , prettyPrint (Expression name body Nothing fixity)
             ]
 
 instance PrettyPrintable Method where

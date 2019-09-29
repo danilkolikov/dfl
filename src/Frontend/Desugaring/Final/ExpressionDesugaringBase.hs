@@ -20,6 +20,7 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 -- | Errors which may happen during desugaring of expressions
 data ExpressionDesugaringError
     = ExpressionDesugaringErrorDuplicatedTypeDeclaration (WithLocation Ident) -- ^ Expression has multiple type declarations
+    | ExpressionDesugaringErrorDuplicatedFixityDeclaration (WithLocation Ident) -- ^ Expression has multiple fixity declarations
     | ExpressionDesugaringErrorMissingExpressionDefinition (WithLocation Ident) -- ^ Definition of an expression is missing
     | ExpressionDesugaringErrorMissingMethodType (WithLocation Ident) -- ^ Definition of a method is missing a tupe signature
     | ExpressionDesugaringErrorDifferentNumberOfArguments (WithLocation Ident) -- ^ Declarations of a function have differnt number of arguments
@@ -72,6 +73,9 @@ data PreparedAssignment
     | PreparedAssignmentType (WithLocation Ident)
                              [WithLocation Constraint]
                              (WithLocation Type) -- ^ Define type of a name
+    | PreparedAssignmentFixity (WithLocation Ident)
+                               Fixity
+                               Int -- ^ Defines fixity of an operator
     deriving (Show, Eq)
 
 -- | Statements in `do` blocks or in list comprehension

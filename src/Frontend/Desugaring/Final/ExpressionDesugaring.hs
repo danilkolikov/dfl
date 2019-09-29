@@ -33,11 +33,9 @@ desugarAssignments assignments =
 
 -- | Desugar a list of assignments to Methods
 desugarMethods ::
-       [WithLocation R.Assignment]
-    -> ExpressionDesugaringProcessor Methods
+       [WithLocation R.Assignment] -> ExpressionDesugaringProcessor Methods
 desugarMethods assignments =
     mapM desugarAssignment assignments >>= desugarPreparedMethods
-
 
 -- | Desugar a single assignment
 desugarAssignment ::
@@ -49,6 +47,8 @@ desugarAssignment assignment =
         R.AssignmentType name context type' ->
             return $
             PreparedAssignmentType name (map desugarConstraint context) type'
+        R.AssignmentFixity name fixity prec ->
+            return $ PreparedAssignmentFixity name fixity prec
         R.AssignmentName name pats exp' ->
             PreparedAssignmentName name pats <$> desugarExp exp'
         R.AssignmentPattern pat exp' ->
@@ -75,7 +75,7 @@ desugarExp e =
             let desugaredContext = map desugarConstraint context
                 typeSignature = TypeSignature desugaredContext type'
                 expression =
-                    Expression newIdent desugaredE (Just typeSignature)
+                    Expression newIdent desugaredE (Just typeSignature) Nothing
                 expressions = HM.singleton (getValue newIdent) expression
                 resExp = withDummyLocation $ ExpVar newIdent
             return $ ExpLet expressions resExp

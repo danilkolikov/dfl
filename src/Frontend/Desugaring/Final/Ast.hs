@@ -29,6 +29,8 @@ module Frontend.Desugaring.Final.Ast
     , SimpleConstraint(..)
     , TypeSignature(..)
     , Type(..)
+    , Fixity(..)
+    , FixitySignature(..)
     , Expression(..)
     , Expressions
     , Method(..)
@@ -42,6 +44,7 @@ import Data.List.NonEmpty (NonEmpty)
 import Frontend.Desugaring.Initial.Ast
     ( Const(..)
     , Export(..)
+    , Fixity(..)
     , Header(..)
     , Ident(..)
     , IdentEnvironment(..)
@@ -140,11 +143,18 @@ data TypeSignature = TypeSignature
     , getTypeSignatureType :: WithLocation Type -- ^ Type
     } deriving (Show, Eq)
 
+-- | Fixity signature of an expression
+data FixitySignature = FixitySignature
+    { getFixitySignatureFixity :: Fixity -- ^ Fixity
+    , getFixitySignaturePrecedence :: Int -- ^ Precedence
+    } deriving (Eq, Show)
+
 -- | Definition of an expression
 data Expression = Expression
     { getExpressionName :: WithLocation Ident -- ^ Name of an expression
     , getExpressionBody :: WithLocation Exp -- ^ Body of an expression
     , getExpressionType :: Maybe TypeSignature -- ^ Optional type signature
+    , getExpressionFixity :: Maybe FixitySignature -- ^ Fixity of an expression
     } deriving (Show, Eq)
 
 -- | Map of expressions

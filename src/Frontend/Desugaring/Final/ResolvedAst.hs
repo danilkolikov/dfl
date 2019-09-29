@@ -22,7 +22,13 @@ module Frontend.Desugaring.Final.ResolvedAst
 
 import Data.List.NonEmpty (NonEmpty)
 
-import Frontend.Desugaring.Initial.Ast (Const(..), Ident(..), Type(..), Constraint(..))
+import Frontend.Desugaring.Initial.Ast
+    ( Const(..)
+    , Constraint(..)
+    , Fixity(..)
+    , Ident(..)
+    , Type(..)
+    )
 import Frontend.Syntax.Position (WithLocation)
 
 -- | Assignment in top-level, `let` or `where` blocks
@@ -35,6 +41,9 @@ data Assignment
     | AssignmentType (WithLocation Ident)
                      [WithLocation Constraint]
                      (WithLocation Type) -- ^ Define type of a name
+    | AssignmentFixity (WithLocation Ident)
+                       Fixity
+                       Int -- ^ Defines fixity of an operator
     deriving (Show, Eq)
 
 -- | Assignment in a class definition
@@ -45,6 +54,9 @@ data ClassAssignment
     | ClassAssignmentType (WithLocation Ident)
                           [WithLocation Constraint]
                           (WithLocation Type) -- ^ Define type of an expression
+    | ClassAssignmentFixity (WithLocation Ident)
+                            Fixity
+                            Int -- ^ Defines fixity of an operator
     deriving (Show, Eq)
 
 -- | Assignemnt in an instance definition

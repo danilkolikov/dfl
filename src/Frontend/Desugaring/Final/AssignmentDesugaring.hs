@@ -52,7 +52,8 @@ desugarFieldGetters dataTypes = do
     let typesList = HM.elems dataTypes
     resolvedGetters <- mapM resolveFieldGetters typesList
     desugared <-
-        wrapExpressionDesugaring $ ED.desugarAssignments (concat resolvedGetters)
+        wrapExpressionDesugaring $
+        ED.desugarAssignments (concat resolvedGetters)
     let functions = map (getExpressionName . snd) $ HM.toList desugared
     mapM_ defineFunctionName functions
     return desugared
@@ -72,6 +73,8 @@ desugarClassAssignments classAssignments = do
                         (f:rest) -> I.AssignmentName name' (f NE.:| rest) exp'
                 I.ClassAssignmentType name' context' type' ->
                     I.AssignmentType name' context' type'
+                I.ClassAssignmentFixity name' fixity prec ->
+                    I.AssignmentFixity name' fixity prec
         assignments = map makeAssignment classAssignments
     resolvedAssignments <- resolveRecords assignments
     -- We need to collect method definitions as well

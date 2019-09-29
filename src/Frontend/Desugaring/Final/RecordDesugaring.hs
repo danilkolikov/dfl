@@ -75,6 +75,8 @@ desugarAssignment assignment =
     case getValue assignment of
         I.AssignmentType name context type' ->
             return $ AssignmentType name context type'
+        I.AssignmentFixity name fixity prec ->
+            return $ AssignmentFixity name fixity prec
         I.AssignmentPattern pat exp' ->
             liftM2 AssignmentPattern (desugarPattern pat) (desugarExp exp')
         I.AssignmentName name patterns exp' ->
@@ -92,6 +94,8 @@ desugarClassAssignment assignment =
     case getValue assignment of
         I.ClassAssignmentType name context type' ->
             return $ ClassAssignmentType name context type'
+        I.ClassAssignmentFixity name fixity prec ->
+            return $ ClassAssignmentFixity name fixity prec
         I.ClassAssignmentName name patterns exp' ->
             liftM2
                 (ClassAssignmentName name)

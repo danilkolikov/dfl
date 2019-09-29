@@ -63,12 +63,17 @@ desugarPreparedAssignmentsWithMethods ::
        [WithLocation PreparedAssignment]
     -> ExpressionDesugaringProcessor (Methods, Expressions)
 desugarPreparedAssignmentsWithMethods assignments = do
-    (grouped, patterns, types) <- groupAssignments assignments
+    GroupedAssignments { getGroupedAssignmentsGroups = grouped
+                       , getGroupedAssignmentsPatterns = patterns
+                       , getGroupedAssignmentsTypes = types
+                       , getGroupedAssignmentsFixities = fixities
+                       } <- groupAssignments assignments
     desugaredGroups <- mapM desugarGroup (HM.elems grouped)
     patternExprs <- concat <$> mapM desugarSinglePattern patterns
     ensureNoIntersection desugaredGroups patternExprs
     let (methodsMap, expressionsMap) =
-            splitToMethodsAndExpressions types $ desugaredGroups ++ patternExprs
+            splitToMethodsAndExpressions types fixities $
+            desugaredGroups ++ patternExprs
     return (methodsMap, expressionsMap)
 
 -- | Group of assignments
@@ -78,22 +83,36 @@ data AssignmentsGroup =
                                   , WithLocation Exp))
 
 -- | Output of the function "groupAssignments"
-type GroupedAssignments
-     = ( HM.HashMap Ident AssignmentsGroup
-       , [(WithLocation R.Pattern, WithLocation Exp)]
-       , [(WithLocation Ident, TypeSignature)])
+data GroupedAssignments = GroupedAssignments
+    { getGroupedAssignmentsGroups :: HM.HashMap Ident AssignmentsGroup
+    , getGroupedAssignmentsPatterns :: [( WithLocation R.Pattern
+                                        , WithLocation Exp)]
+    , getGroupedAssignmentsTypes :: [(WithLocation Ident, TypeSignature)]
+    , getGroupedAssignmentsFixities :: [(WithLocation Ident, FixitySignature)]
+    }
+
+instance Semigroup GroupedAssignments where
+    GroupedAssignments g1 p1 t1 f1 <> GroupedAssignments g2 p2 t2 f2 =
+        GroupedAssignments (g1 <> g2) (p1 <> p2) (t1 <> t2) (f1 <> f2)
+
+instance Monoid GroupedAssignments where
+    mempty = GroupedAssignments mempty mempty mempty mempty
 
 -- | Group assignments from the provided list of PreparedAssignment-s
 groupAssignments ::
        [WithLocation PreparedAssignment]
     -> ExpressionDesugaringProcessor GroupedAssignments
-groupAssignments = foldM processSingle (HM.empty, [], [])
+groupAssignments = foldM processSingle mempty
   where
     processSingle ::
            GroupedAssignments
         -> WithLocation PreparedAssignment
         -> ExpressionDesugaringProcessor GroupedAssignments
-    processSingle (assignments, patterns, types) f =
+    processSingle gr@GroupedAssignments { getGroupedAssignmentsGroups = assignments
+                                        , getGroupedAssignmentsPatterns = patterns
+                                        , getGroupedAssignmentsTypes = types
+                                        , getGroupedAssignmentsFixities = fixities
+                                        } f =
         case getValue f of
             PreparedAssignmentName name pats exp' ->
                 let name' = getValue name
@@ -103,37 +122,63 @@ groupAssignments = foldM processSingle (HM.empty, [], [])
                             Nothing -> AssignmentsGroup name (res NE.:| [])
                             Just (AssignmentsGroup _ group) ->
                                 AssignmentsGroup name (res NE.<| group)
-                 in return
-                        ( HM.insert name' assignment assignments
-                        , patterns
-                        , types)
+                 in return $
+                    gr <>
+                    mempty
+                        { getGroupedAssignmentsGroups =
+                              HM.insert name' assignment assignments
+                        }
             PreparedAssignmentPattern pattern' exp' ->
                 let res = (pattern', exp')
-                 in return (assignments, res : patterns, types)
+                 in return $
+                    gr <>
+                    mempty {getGroupedAssignmentsPatterns = res : patterns}
             PreparedAssignmentType name context type' -> do
                 let name' = getValue name
                     typeSignature = TypeSignature context type'
                 unless (all (\(n, _) -> getValue n /= name') types) $
                     throwE $
                     ExpressionDesugaringErrorDuplicatedTypeDeclaration name
-                return (assignments, patterns, (name, typeSignature) : types)
+                return $
+                    gr <>
+                    mempty
+                        { getGroupedAssignmentsTypes =
+                              (name, typeSignature) : types
+                        }
+            PreparedAssignmentFixity name fixity prec -> do
+                let name' = getValue name
+                    fixitySignature = FixitySignature fixity prec
+                unless (all (\(n, _) -> getValue n /= name') fixities) $
+                    throwE $
+                    ExpressionDesugaringErrorDuplicatedFixityDeclaration name
+                return $
+                    gr <>
+                    mempty
+                        { getGroupedAssignmentsFixities =
+                              (name, fixitySignature) : fixities
+                        }
 
 -- | Splits the set of signatures and expressions to methods and expressions
 splitToMethodsAndExpressions ::
        [(WithLocation Ident, TypeSignature)]
+    -> [(WithLocation Ident, FixitySignature)]
     -> [(WithLocation Ident, WithLocation Exp)]
     -> (HM.HashMap Ident Method, HM.HashMap Ident Expression)
-splitToMethodsAndExpressions types exprs =
+splitToMethodsAndExpressions types fixities exprs =
     let typesMap = HM.fromList $ map (first getValue) types
+        fixitiesMap = HM.fromList $ map (first getValue) fixities
         processExp (name, exp') =
             let name' = getValue name
+                fixity = HM.lookup name' fixitiesMap
              in case HM.lookup name' typesMap of
                     Nothing ->
                         ( HM.empty
-                        , HM.singleton name' $ Expression name exp' Nothing)
+                        , HM.singleton name' $
+                          Expression name exp' Nothing fixity)
                     Just type' ->
                         ( HM.singleton name' $ Method name type' (Just exp')
-                        , HM.singleton name' $ Expression name exp' (Just type'))
+                        , HM.singleton name' $
+                          Expression name exp' (Just type') fixity)
         processType (name, type') =
             (HM.singleton (getValue name) $ Method name type' Nothing, HM.empty)
         expNames = HS.fromList $ map (getValue . fst) exprs
