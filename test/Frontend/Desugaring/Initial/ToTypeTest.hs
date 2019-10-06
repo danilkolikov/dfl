@@ -16,13 +16,17 @@ import Test.Hspec
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE
 
-import qualified Frontend.Desugaring.Initial.Ast as D (Ident(..), Type(..))
+import Core.Ident
+import Core.PredefinedIdents
+import qualified Frontend.Desugaring.Initial.Ast as D (Type(..))
 import Frontend.Desugaring.Initial.TestUtils
-import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
+import Frontend.Desugaring.Initial.ToIdentTest
+    ( getIdentExample
+    , getSimpleIdentExample
+    )
 import Frontend.Desugaring.Initial.ToType (DesugarToType(..))
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Utils.RandomSelector
 
@@ -34,9 +38,10 @@ class WithTypeExamples a where
 instance WithTypeExamples AType where
     getTypeExample =
         selectFromRandomRecursive
-            [ do (nameEx, nameRes) <- getIdentExample
+            [ do (nameEx, nameRes) <- withSameLocation getSimpleIdentExample
                  return
-                     (nameEx $> ATypeVar nameEx, nameRes $> D.TypeVar nameRes)
+                     ( nameEx $> ATypeVar nameEx
+                     , nameRes $> D.TypeVar (IdentSimple <$> nameRes))
             , do (nameEx, nameRes) <- getIdentExample
                  return
                      ( nameEx $> ATypeConstructor nameEx
@@ -45,7 +50,7 @@ instance WithTypeExamples AType where
             [ do (firstEx, firstRes) <- getTypeExample
                  (secondEx, secondRes) <- getTypeExample
                  (restEx, restRes) <- randomList 2 getTypeExample
-                 let ident = makeTypeConstr' $ D.IdentParametrised tUPLE_NAME 4
+                 let ident = makeTypeConstr $ tUPLE 4
                  withSameLocation $
                      return
                          ( ATypeTuple firstEx secondEx restEx
@@ -53,7 +58,7 @@ instance WithTypeExamples AType where
                                ident
                                (firstRes NE.:| secondRes : restRes))
             , do (typeEx, typeRes) <- getTypeExample
-                 let ident = makeTypeConstr lIST_NAME
+                 let ident = makeTypeConstr lIST
                  withSameLocation $
                      return
                          ( ATypeList typeEx

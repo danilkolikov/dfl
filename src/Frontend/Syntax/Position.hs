@@ -62,7 +62,7 @@ data WithLocation a = WithLocation
     } deriving (Eq, Ord)
 
 instance (Show a) => Show (WithLocation a) where
-    show = show . getValue
+    show x = "(" ++ show (getValue x) ++ ")"
 
 instance Functor WithLocation where
     fmap f (WithLocation x loc) = WithLocation (f x) loc

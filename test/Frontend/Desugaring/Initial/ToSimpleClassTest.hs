@@ -13,9 +13,13 @@ module Frontend.Desugaring.Initial.ToSimpleClassTest
 
 import Test.Hspec
 
+import Core.Ident
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.TestUtils
-import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
+import Frontend.Desugaring.Initial.ToIdentTest
+    ( getIdentExample
+    , getSimpleIdentExample
+    )
 import Frontend.Desugaring.Initial.ToSimpleClass (desugarToSimpleClass)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..))
@@ -25,9 +29,11 @@ getSimpleClassExample ::
        RandomSelector (WithLocation SimpleClass, WithLocation D.SimpleClass)
 getSimpleClassExample = do
     (nameEx, nameRes) <- getIdentExample
-    (paramEx, paramRes) <- getIdentExample
+    (paramEx, paramRes) <- withSameLocation getSimpleIdentExample
     withSameLocation $
-        return (SimpleClass nameEx paramEx, D.SimpleClass nameRes paramRes)
+        return
+            ( SimpleClass nameEx paramEx
+            , D.SimpleClass nameRes (IdentSimple <$> paramRes))
 
 testSuite :: IO ()
 testSuite =

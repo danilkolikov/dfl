@@ -19,6 +19,8 @@ import Test.Hspec
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE
 
+import Core.Ident
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.TestUtils
 import Frontend.Desugaring.Initial.ToConstTest (getConstExample)
@@ -41,7 +43,6 @@ import Frontend.Desugaring.Initial.ToPatternTest (getPatternExample)
 import Frontend.Desugaring.Initial.ToTypeTest (getTypeExample)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Utils.RandomSelector
 
@@ -68,9 +69,9 @@ instance WithExpExamples RHS where
                      gdPatToGdRHS (GdPat guards exp') = GdRHS guards exp'
                      gdrhs = fmap (gdPatToGdRHS <$>) gdPatsEx
                      ex = RHSGuarded gdrhs declsEx
-                     unitPat = makePattern uNIT_NAME
+                     unitPat = makePattern uNIT
                      alt = D.AltGuarded unitPat gdPatsRes (concat declsRes)
-                     unitExp = makeExp uNIT_NAME
+                     unitExp = makeExp uNIT
                      res = D.ExpCase unitExp (wrap alt NE.:| [])
                  return (wrap ex, wrap res)
             ]
@@ -90,25 +91,38 @@ instance WithExpExamples Exp where
                          , D.ExpTyped expRes contextRes typeRes)
             ]
 
+type InfixExpExample a
+     = RandomSelector (WithLocation a, WithLocation D.InfixExp)
+
+class WithInfixExpExamples a where
+    getInfixExpExample :: InfixExpExample a
+
 instance WithExpExamples InfixExp where
-    getExpExample =
+    getExpExample = do
+        (expEx, expRes) <- getInfixExpExample
+        return (expEx, expRes $> D.ExpInfix expRes)
+
+instance WithInfixExpExamples InfixExp where
+    getInfixExpExample =
         selectFromRandomRecursive
             [ do (expEx, expRes) <- getExpExample
-                 return (expEx $> InfixExpLExp expEx, expRes)
+                 return
+                     ( expEx $> InfixExpLExp expEx
+                     , expRes $> D.InfixExpSimple expRes)
             ]
-            [ do (expEx, expRes) <- getExpExample
-                 let ident = makeExp nEGATE_NAME
+            [ do (expEx, expRes) <- getInfixExpExample
+                 (minusEx, minusRes) <- getIdentExample
                  withSameLocation $
                      return
-                         ( InfixExpNegated undefined expEx
-                         , D.ExpApplication ident (expRes NE.:| []))
-            , do (lEx, lRes) <- getExpExample
-                 (rEx, rRes) <- getExpExample
-                 (opEx, opRes) <- getOperatorExample
+                         ( InfixExpNegated minusEx expEx
+                         , D.InfixExpNegated minusRes expRes)
+            , do (lEx, lRes) <- getInfixExpExample
+                 (rEx, rRes) <- getInfixExpExample
+                 (opEx, opRes) <- getOperatorExample'
                  withSameLocation $
                      return
                          ( InfixExpApplication lEx opEx rEx
-                         , D.ExpApplication opRes (lRes NE.:| [rRes]))
+                         , D.InfixExpApplication lRes opRes rRes)
             ]
 
 instance WithExpExamples LExp where
@@ -175,7 +189,7 @@ instance WithExpExamples AExp where
             , do (firstEx, firstRes) <- getExpExample
                  (secondEx, secondRes) <- getExpExample
                  (restEx, restRes) <- randomList 2 getExpExample
-                 let func = makeExp' $ D.IdentParametrised tUPLE_NAME 4
+                 let func = makeExp $ tUPLE 4
                  withSameLocation $
                      return
                          ( AExpTuple firstEx secondEx restEx
@@ -185,8 +199,8 @@ instance WithExpExamples AExp where
             , do (patsEx, patsRes) <- randomNonEmpty 2 getExpExample
                  loc <- getRandomSourceLocation
                  let firstRes NE.:| [secondRes] = patsRes
-                     constr = makeConstr cOLON_NAME
-                     empty = makeConstr lIST_NAME
+                     constr = makeConstr cOLON
+                     empty = makeConstr lIST
                      lastRes = D.ExpApplication constr (secondRes NE.:| [empty])
                      lastRes' = WithLocation lastRes loc
                      res = D.ExpApplication constr (firstRes NE.:| [lastRes'])
@@ -197,13 +211,13 @@ instance WithExpExamples AExp where
                  (thirdEx, thirdRes) <- getExpExample
                  withSameLocation $
                      selectFromRandom
-                         [ let function = makeExp eNUM_FROM_NAME
+                         [ let function = makeExp eNUM_FROM
                             in return
                                    ( AExpSequence firstEx Nothing Nothing
                                    , D.ExpApplication
                                          function
                                          (firstRes NE.:| []))
-                         , let function = makeExp eNUM_FROM_THEN_NAME
+                         , let function = makeExp eNUM_FROM_THEN
                             in return
                                    ( AExpSequence
                                          firstEx
@@ -212,13 +226,13 @@ instance WithExpExamples AExp where
                                    , D.ExpApplication
                                          function
                                          (firstRes NE.:| [secondRes]))
-                         , let function = makeExp eNUM_FROM_TO_NAME
+                         , let function = makeExp eNUM_FROM_TO
                             in return
                                    ( AExpSequence firstEx Nothing (Just thirdEx)
                                    , D.ExpApplication
                                          function
                                          (firstRes NE.:| [thirdRes]))
-                         , let function = makeExp eNUM_FROM_THEN_TO_NAME
+                         , let function = makeExp eNUM_FROM_THEN_TO
                             in return
                                    ( AExpSequence
                                          firstEx
@@ -273,6 +287,16 @@ getOperatorExample =
              return (Right <$> opEx, opRes $> D.ExpConstr opRes)
         ]
 
+getOperatorExample' ::
+       RandomSelector (WithLocation QOp, WithLocation UserDefinedIdent)
+getOperatorExample' =
+    selectFromRandom
+        [ do (opEx, opRes) <- getIdentExample :: IdentExample QVarOp
+             return (Left <$> opEx, opRes)
+        , do (opEx, opRes) <- getIdentExample :: IdentExample QConOp
+             return (Right <$> opEx, opRes)
+        ]
+
 getAssignmentExample ::
        RandomSelector (WithLocation Decl, [WithLocation D.Assignment])
 getAssignmentExample =
@@ -296,15 +320,11 @@ getAssignmentExample =
         ]
 
 getGenDeclExample ::
-       (WithLocation D.Ident -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
+       (WithLocation UserDefinedIdent -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
     -> RandomSelector (WithLocation GenDecl, [WithLocation a])
 getGenDeclExample wrapResult =
     selectFromRandom
-        [ do loc <- getRandomSourceLocation
-             let wrap = (`WithLocation` loc)
-                 genDecl = GenDeclFixity undefined undefined undefined
-             return (wrap genDecl, [])
-        , do (varsEx, varsRes) <- randomNonEmpty 2 getIdentExample
+        [ do (varsEx, varsRes) <- randomNonEmpty 2 getIdentExample
              (contextEx, contextRes) <- randomList 2 getConstraintExample
              (typeEx, typeRes) <- getTypeExample
              loc <- getRandomSourceLocation
@@ -316,7 +336,7 @@ getGenDeclExample wrapResult =
 
 getFunLHSExample ::
        RandomSelector ( FunLHS
-                      , ( WithLocation D.Ident
+                      , ( WithLocation UserDefinedIdent
                         , NE.NonEmpty (WithLocation D.Pattern)))
 getFunLHSExample =
     selectFromRandomRecursive

@@ -15,11 +15,13 @@ import Test.Hspec
 
 import qualified Data.List.NonEmpty as NE
 
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.TestUtils
 import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
 import Frontend.Desugaring.Initial.ToModule
-    ( desugarExport
+    ( defaultExport
+    , desugarExport
     , desugarImpDecl
     , desugarImpSpec
     , desugarImport
@@ -29,27 +31,23 @@ import Frontend.Desugaring.Initial.ToModule
 import Frontend.Desugaring.Initial.ToTopDeclTest (getTopDeclExample)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Utils.RandomSelector
 
-getModuleExample ::
-       RandomSelector (WithLocation (Module Body), WithLocation D.Module)
+getModuleExample :: RandomSelector (Module Body, D.Module)
 getModuleExample =
     selectFromRandom
         [ do (nameEx, nameRes) <- getIdentExample
              (exportsEx, exportsRes) <- getExportsExample
              (bodyEx, (imps, tops)) <- getBodyExample
-             withSameLocation $
-                 return
-                     ( ModuleExplicit nameEx exportsEx bodyEx
-                     , D.Module nameRes exportsRes imps tops)
+             return
+                 ( ModuleExplicit nameEx exportsEx bodyEx
+                 , D.Module nameRes exportsRes imps tops)
         , do (bodyEx, (imps, tops)) <- getBodyExample
-             let moduleName = makeIdent dEFAULT_MODULE_NAME
-             withSameLocation $
-                 return
-                     ( ModuleImplicit bodyEx
-                     , D.Module moduleName D.ImpExpAll imps tops)
+             let moduleName = makeIdent dEFAULT_MODULE
+             return
+                 ( ModuleImplicit bodyEx
+                 , D.Module moduleName defaultExport imps tops)
         ]
 
 getExportExample :: RandomSelector (WithLocation Export, WithLocation D.Export)
@@ -110,7 +108,7 @@ getImportExample =
 
 getImpExpListExample ::
        RandomSelector ( WithLocation ImpExpList
-                      , D.ImpExpList (WithLocation D.Ident))
+                      , D.ImpExpList (WithLocation UserDefinedIdent))
 getImpExpListExample = do
     loc <- getRandomSourceLocation
     selectFromRandom

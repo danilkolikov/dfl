@@ -16,9 +16,10 @@ import Test.Hspec
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE
 
+import Core.PredefinedIdents
 import Frontend.Desugaring.Initial.Ast
     ( Const(..)
-    , Ident(..)
+    , InfixPattern(..)
     , Pattern(..)
     , PatternBinding(..)
     )
@@ -31,7 +32,6 @@ import Frontend.Desugaring.Initial.ToPattern
     )
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token (FloatT(..), IntT(..))
 import Frontend.Utils.RandomSelector
@@ -44,11 +44,7 @@ class WithPatternExamples a where
 instance WithPatternExamples APat where
     getPatternExample =
         selectFromRandomRecursive
-            [ do (varEx, varRes) <- getIdentExample
-                 (patEx, patRes) <- randomMaybe getPatternExample
-                 withSameLocation $
-                     return (APatVariable varEx patEx, PatternVar varRes patRes)
-            , do (nameEx, nameRes) <- getIdentExample
+            [ do (nameEx, nameRes) <- getIdentExample
                  withSameLocation $
                      return (APatConstructor nameEx, PatternConstr nameRes [])
             , do (constEx, constRes) <- getConstExample
@@ -56,7 +52,11 @@ instance WithPatternExamples APat where
                      return (APatLiteral constEx, PatternConst constRes)
             , withSameLocation $ return (APatWildcard, PatternWildcard)
             ]
-            [ do (nameEx, nameRes) <- getIdentExample
+            [ do (varEx, varRes) <- getIdentExample
+                 (patEx, patRes) <- randomMaybe getPatternExample
+                 withSameLocation $
+                     return (APatVariable varEx patEx, PatternVar varRes patRes)
+            , do (nameEx, nameRes) <- getIdentExample
                  (bindingsEx, bindingsRes) <-
                      randomList 2 getPatternBindingExample
                  withSameLocation $
@@ -68,7 +68,7 @@ instance WithPatternExamples APat where
             , do (firstEx, firstRes) <- getPatternExample
                  (secondEx, secondRes) <- getPatternExample
                  (restEx, restRes) <- randomList 2 getPatternExample
-                 let ident = makeIdent' $ IdentParametrised tUPLE_NAME 4
+                 let ident = makeIdent $ tUPLE 4
                  withSameLocation $
                      return
                          ( APatTuple firstEx secondEx restEx
@@ -76,8 +76,8 @@ instance WithPatternExamples APat where
             , do (patsEx, patsRes) <- randomNonEmpty 2 getPatternExample
                  loc <- getRandomSourceLocation
                  let firstRes NE.:| [secondRes] = patsRes
-                     constr = makeIdent cOLON_NAME
-                     empty = makePattern lIST_NAME
+                     constr = makeIdent cOLON
+                     empty = makePattern lIST
                      lastRes = PatternConstr constr [secondRes, empty]
                      lastRes' = WithLocation lastRes loc
                      res = PatternConstr constr [firstRes, lastRes']
@@ -109,19 +109,32 @@ instance WithPatternExamples LPat where
                          , PatternConstr nameRes (NE.toList argsRes))
             ]
 
+type InfixPatternExample a
+     = RandomSelector (WithLocation a, WithLocation InfixPattern)
+
+class WithInfixPatternExamples a where
+    getInfixPatternExample :: InfixPatternExample a
+
 instance WithPatternExamples Pat where
-    getPatternExample =
+    getPatternExample = do
+        (expEx, expRes) <- getInfixPatternExample
+        return (expEx, expRes $> PatternInfix expRes)
+
+instance WithInfixPatternExamples Pat where
+    getInfixPatternExample =
         selectFromRandomRecursive
             [ do (patEx, patRes) <- getPatternExample
-                 return (patEx $> PatSimple patEx, patRes)
+                 return
+                     ( patEx $> PatSimple patEx
+                     , patRes $> InfixPatternSimple patRes)
             ]
             [ do (opEx, opRes) <- getIdentExample
-                 (lEx, lRes) <- getPatternExample
-                 (rEx, rRes) <- getPatternExample
+                 (lEx, lRes) <- getInfixPatternExample
+                 (rEx, rRes) <- getInfixPatternExample
                  withSameLocation $
                      return
                          ( PatInfix lEx opEx rEx
-                         , PatternConstr opRes [lRes, rRes])
+                         , InfixPatternApplication lRes opRes rRes)
             ]
 
 checkPatternDesugaring ::

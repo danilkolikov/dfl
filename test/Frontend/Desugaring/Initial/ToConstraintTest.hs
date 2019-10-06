@@ -15,10 +15,14 @@ import Test.Hspec
 
 import qualified Data.List.NonEmpty as NE
 
+import Core.Ident
 import qualified Frontend.Desugaring.Initial.Ast as D (Constraint(..))
 import Frontend.Desugaring.Initial.TestUtils
 import Frontend.Desugaring.Initial.ToConstraint (desugarToConstraint)
-import Frontend.Desugaring.Initial.ToIdentTest (getIdentExample)
+import Frontend.Desugaring.Initial.ToIdentTest
+    ( getIdentExample
+    , getSimpleIdentExample
+    )
 import Frontend.Desugaring.Initial.ToTypeTest (getTypeExample)
 import Frontend.Syntax.Ast
 import Frontend.Syntax.Position (WithLocation(..))
@@ -29,17 +33,21 @@ getConstraintExample ::
 getConstraintExample =
     selectFromRandom
         [ do (nameEx, nameRes) <- getIdentExample
-             (argEx, argRes) <- getIdentExample
+             (argEx, argRes) <- withSameLocation getSimpleIdentExample
              withSameLocation $
                  return
-                     (ClassSimple nameEx argEx, D.Constraint nameRes argRes [])
+                     ( ClassSimple nameEx argEx
+                     , D.Constraint nameRes (IdentSimple <$> argRes) [])
         , do (nameEx, nameRes) <- getIdentExample
-             (argEx, argRes) <- getIdentExample
+             (argEx, argRes) <- withSameLocation getSimpleIdentExample
              (paramsEx, paramsRes) <- randomNonEmpty 2 getTypeExample
              withSameLocation $
                  return
                      ( ClassApplied nameEx argEx paramsEx
-                     , D.Constraint nameRes argRes (NE.toList paramsRes))
+                     , D.Constraint
+                           nameRes
+                           (IdentSimple <$> argRes)
+                           (NE.toList paramsRes))
         ]
 
 testSuite :: IO ()

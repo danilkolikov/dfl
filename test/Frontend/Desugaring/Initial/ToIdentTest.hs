@@ -9,6 +9,7 @@ Test suite for desugaring of objects to Ident-s
 module Frontend.Desugaring.Initial.ToIdentTest
     ( testSuite
     , getIdentExample
+    , getSimpleIdentExample
     , IdentExample
     ) where
 
@@ -16,16 +17,22 @@ import Test.Hspec hiding (example)
 
 import Data.Functor (($>))
 
-import Frontend.Desugaring.Initial.Ast (Ident(..))
+import Core.Ident
+import Core.PredefinedIdents
 import Frontend.Desugaring.Initial.TestUtils
-import Frontend.Desugaring.Initial.ToIdent (DesugarToIdent(..))
+import Frontend.Desugaring.Initial.ToIdent
+    ( DesugarToIdent(..)
+    , DesugarToSimpleIdent(..)
+    )
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 import Frontend.Syntax.Token
 import Frontend.Utils.RandomSelector
 
-type IdentExample a = RandomSelector (WithLocation a, WithLocation Ident)
+type IdentExample a
+     = RandomSelector (WithLocation a, WithLocation UserDefinedIdent)
+
+type SimpleIdentExample a = RandomSelector (a, SimpleIdent)
 
 class WithIdentExamples a where
     getIdentExample :: IdentExample a
@@ -60,31 +67,69 @@ instance (WithIdentExamples a, WithIdentExamples b) =>
                  return (Right <$> example, res)
             ]
 
+class WithSimpleIdentExamples a where
+    getSimpleIdentExample :: SimpleIdentExample a
+
+instance WithSimpleIdentExamples VarId where
+    getSimpleIdentExample = return (VarId "id", IdentNamed "id")
+
+instance WithSimpleIdentExamples ConId where
+    getSimpleIdentExample = return (ConId "Con", IdentNamed "Con")
+
+instance WithSimpleIdentExamples VarSym where
+    getSimpleIdentExample = return (VarSym "+", IdentNamed "+")
+
+instance WithSimpleIdentExamples ConSym where
+    getSimpleIdentExample = return (ConSym ":|", IdentNamed ":|")
+
 instance WithIdentExamples VarId where
-    getIdentExample = withSameLocation $ return (VarId "id", IdentNamed ["id"])
+    getIdentExample =
+        withSameLocation $ return (VarId "id", IdentSimple $ IdentNamed "id")
 
 instance WithIdentExamples ConId where
     getIdentExample =
-        withSameLocation $ return (ConId "Con", IdentNamed ["Con"])
+        withSameLocation $ return (ConId "Con", IdentSimple $ IdentNamed "Con")
 
 instance WithIdentExamples VarSym where
-    getIdentExample = withSameLocation $ return (VarSym "+", IdentNamed ["+"])
+    getIdentExample =
+        withSameLocation $ return (VarSym "+", IdentSimple $ IdentNamed "+")
 
 instance WithIdentExamples ConSym where
-    getIdentExample = withSameLocation $ return (ConSym ":|", IdentNamed [":|"])
+    getIdentExample =
+        withSameLocation $ return (ConSym ":|", IdentSimple $ IdentNamed ":|")
 
-instance (WithIdentExamples a) => WithIdentExamples (Qualified a) where
+instance (WithSimpleIdentExamples a, WithSimpleIdentExamples b) =>
+         WithSimpleIdentExamples (FuncLabel a b) where
+    getSimpleIdentExample =
+        selectFromRandom
+            [ do (example, res) <- getSimpleIdentExample
+                 return (FuncLabelId example, res)
+            , do (example, res) <- getSimpleIdentExample
+                 return (FuncLabelSym example, res)
+            ]
+
+instance (WithSimpleIdentExamples a, WithSimpleIdentExamples b) =>
+         WithSimpleIdentExamples (OpLabel a b) where
+    getSimpleIdentExample =
+        selectFromRandom
+            [ do (example, res) <- getSimpleIdentExample
+                 return (OpLabelId example, res)
+            , do (example, res) <- getSimpleIdentExample
+                 return (OpLabelSym example, res)
+            ]
+
+instance (WithSimpleIdentExamples a) => WithIdentExamples (Qualified a) where
     getIdentExample = do
-        ex <- getIdentExample
-        let (WithLocation example l1, WithLocation (IdentNamed name) l2) = ex
+        ex <- withSameLocation getSimpleIdentExample
+        let (WithLocation example l1, WithLocation name l2) = ex
             newExample = Qualified [ConId "Module", ConId "Nested"] example
-            newRes = IdentNamed $ ["Module", "Nested"] ++ name
+            newRes = IdentQualified ["Module", "Nested"] name
         return (WithLocation newExample l1, WithLocation newRes l2)
 
 instance WithIdentExamples GConSym where
     getIdentExample =
         selectFromRandom
-            [ withSameLocation $ return (GConSymColon, IdentNamed cOLON_NAME)
+            [ withSameLocation $ return (GConSymColon, cOLON)
             , do (WithLocation example loc, res) <- getIdentExample
                  return (WithLocation (GConSymOp example) loc, res)
             ]
@@ -92,10 +137,9 @@ instance WithIdentExamples GConSym where
 instance WithIdentExamples GCon where
     getIdentExample =
         selectFromRandom
-            [ withSameLocation $ return (GConList, IdentNamed lIST_NAME)
-            , withSameLocation $ return (GConUnit, IdentNamed uNIT_NAME)
-            , withSameLocation $
-              return (GConTuple 5, IdentParametrised tUPLE_NAME 5)
+            [ withSameLocation $ return (GConList, lIST)
+            , withSameLocation $ return (GConUnit, uNIT)
+            , withSameLocation $ return (GConTuple 5, tUPLE 5)
             , do (example, res) <- getIdentExample
                  return (example $> GConNamed example, res)
             ]
@@ -103,12 +147,10 @@ instance WithIdentExamples GCon where
 instance WithIdentExamples GTyCon where
     getIdentExample =
         selectFromRandom
-            [ withSameLocation $ return (GTyConList, IdentNamed lIST_NAME)
-            , withSameLocation $ return (GTyConUnit, IdentNamed uNIT_NAME)
-            , withSameLocation $
-              return (GTyConTuple 5, IdentParametrised tUPLE_NAME 5)
-            , withSameLocation $
-              return (GTyConFunction, IdentNamed fUNCTION_NAME)
+            [ withSameLocation $ return (GTyConList, lIST)
+            , withSameLocation $ return (GTyConUnit, uNIT)
+            , withSameLocation $ return (GTyConTuple 5, tUPLE 5)
+            , withSameLocation $ return (GTyConFunction, fUNCTION)
             , do (example, res) <- getIdentExample
                  return (example $> GTyConNamed example, res)
             ]
@@ -122,15 +164,25 @@ checkIdentDesugaring ::
        (WithIdentExamples a, DesugarToIdent a) => IdentExample a -> Expectation
 checkIdentDesugaring = checkDesugaring desugarToIdent
 
+checkSimpleIdentDesugaring ::
+       (WithSimpleIdentExamples a, DesugarToSimpleIdent a)
+    => SimpleIdentExample a
+    -> Expectation
+checkSimpleIdentDesugaring = checkDesugaring desugarToSimpleIdent
+
 testSuite :: IO ()
 testSuite =
     hspec $
     describe "desugarToIdent" $ do
         it "should desugar simple names" $ do
-            checkIdentDesugaring (getIdentExample :: IdentExample VarId)
-            checkIdentDesugaring (getIdentExample :: IdentExample ConId)
-            checkIdentDesugaring (getIdentExample :: IdentExample VarSym)
-            checkIdentDesugaring (getIdentExample :: IdentExample ConSym)
+            checkSimpleIdentDesugaring
+                (getSimpleIdentExample :: SimpleIdentExample VarId)
+            checkSimpleIdentDesugaring
+                (getSimpleIdentExample :: SimpleIdentExample ConId)
+            checkSimpleIdentDesugaring
+                (getSimpleIdentExample :: SimpleIdentExample VarSym)
+            checkSimpleIdentDesugaring
+                (getSimpleIdentExample :: SimpleIdentExample ConSym)
         it "should desugar qualified IDs" $
             checkIdentDesugaring
                 (getIdentExample :: IdentExample (Qualified VarId))

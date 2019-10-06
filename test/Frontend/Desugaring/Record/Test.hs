@@ -1,12 +1,12 @@
 {- |
-Module      :  Frontend.Desugaring.Final.RecordDesugaringTest
+Module      :  Frontend.Desugaring.Record.Test
 Description :  Tests for record desugaring
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Test suite for the processor of desugaring of records
 -}
-module Frontend.Desugaring.Final.RecordDesugaringTest
+module Frontend.Desugaring.Record.Test
     ( testSuite
     ) where
 
@@ -14,13 +14,12 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 import Test.Hspec
 
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Desugaring.Final.RecordDesugaring
-import Frontend.Desugaring.Final.ResolvedAst
-import qualified Frontend.Desugaring.Initial.Ast as I
-import Frontend.Syntax.EntityName
-
--- import qualified Frontend.Desugaring.Initial.Ast as I
+import qualified Frontend.Desugaring.Fixity.Ast as I
+import Frontend.Desugaring.Record.Ast
+import Frontend.Desugaring.Record.Base
+import Frontend.Desugaring.Record.Expression
 import Frontend.Syntax.Position (withDummyLocation)
 
 testSuite :: IO ()
@@ -29,13 +28,14 @@ testSuite =
         let emptyDataType =
                 F.DataType
                     []
-                    (withDummyLocation $ IdentNamed ["Void"])
+                    (withDummyLocation . IdentUserDefined . IdentSimple $
+                     IdentNamed "Void")
                     []
                     []
                     []
                     False
         describe "findDataTypeByField" $ do
-            let name = IdentNamed ["abc"]
+            let name = IdentUserDefined . IdentSimple $ IdentNamed "abc"
                 name' = withDummyLocation name
             it "finds a data type by the field name" $
                 runRecordDesugaringProcessor
@@ -50,7 +50,7 @@ testSuite =
                     HM.empty `shouldBe`
                 Left (RecordDesugaringErrorUnknownField name')
         describe "findDataTypeByConstructor" $ do
-            let name = IdentNamed ["Abc"]
+            let name = IdentUserDefined . IdentSimple $ IdentNamed "Abc"
                 name' = withDummyLocation name
             it "finds a data type by the constructor name" $
                 runRecordDesugaringProcessor
@@ -65,7 +65,7 @@ testSuite =
                     HM.empty `shouldBe`
                 Left (RecordDesugaringErrorUnknownConstructor name')
         describe "lookupConstructor" $ do
-            let unitName = IdentNamed ["Unit"]
+            let unitName = IdentUserDefined . IdentSimple $ IdentNamed "Unit"
                 unitName' = withDummyLocation unitName
                 unitConstructor = F.Constructor unitName' [] HM.empty
                 unitDataType =
@@ -84,11 +84,11 @@ testSuite =
                 runRecordDesugaringExcept
                     (lookupConstructor unitName' emptyDataType) `shouldBe`
                 Left (RecordDesugaringErrorUnknownConstructor unitName')
-        let field1 = IdentNamed ["field1"]
+        let field1 = IdentUserDefined . IdentSimple $ IdentNamed "field1"
             field1' = withDummyLocation field1
-            field2 = IdentNamed ["field2"]
+            field2 = IdentUserDefined . IdentSimple $ IdentNamed "field2"
             field2' = withDummyLocation field2
-            field3 = IdentNamed ["field3"]
+            field3 = IdentUserDefined . IdentSimple $ IdentNamed "field3"
             field3' = withDummyLocation field3
         describe "checkForDuplicateFields" $ do
             it "succeeds when all fields are different" $
@@ -100,9 +100,11 @@ testSuite =
                     (checkForDuplicateFields [(field1', 'a'), (field1', 'a')]) `shouldBe`
                 Left (RecordDesugaringErrorDuplicateField field1' field1')
         let type' =
-                withDummyLocation . TypeConstr . withDummyLocation . IdentNamed $
-                ["Int"]
-            constrName = IdentNamed ["Tuple"]
+                withDummyLocation .
+                TypeConstr .
+                withDummyLocation . IdentUserDefined . IdentSimple . IdentNamed $
+                "Int"
+            constrName = IdentUserDefined . IdentSimple $ IdentNamed "Tuple"
             constrName' = withDummyLocation constrName
             constructor =
                 F.Constructor
@@ -151,13 +153,17 @@ testSuite =
                     []
         describe "makeUpdateAlternative" $ do
             let exp' =
-                    withDummyLocation . ExpVar . withDummyLocation . IdentNamed $
-                    ["x"]
+                    withDummyLocation .
+                    ExpVar .
+                    withDummyLocation .
+                    IdentUserDefined . IdentSimple . IdentNamed $
+                    "x"
                 makePattern' =
                     withDummyLocation .
                     (`PatternVar` Nothing) .
                     withDummyLocation .
-                    IdentGenerated F.IdentEnvironmentRecordDesugaring
+                    IdentGenerated .
+                    GeneratedIdent GeneratedIdentEnvironmentRecordDesugaring
                 expectedPattern =
                     withDummyLocation $
                     PatternConstr constrName' [makePattern' 0, makePattern' 1]
@@ -166,7 +172,10 @@ testSuite =
                     ExpApplication
                         (withDummyLocation $ ExpConstr constrName')
                         ((withDummyLocation . ExpVar . withDummyLocation $
-                          IdentGenerated F.IdentEnvironmentRecordDesugaring 0) NE.:|
+                          IdentGenerated
+                              (GeneratedIdent
+                                   GeneratedIdentEnvironmentRecordDesugaring
+                                   0)) NE.:|
                          [exp'])
             it "makes alternative for record update" $
                 runRecordDesugaringExcept
@@ -176,10 +185,16 @@ testSuite =
         describe "desugarPattern" $ do
             let pVar =
                     withDummyLocation $
-                    I.PatternVar (withDummyLocation $ IdentNamed ["a"]) Nothing
+                    I.PatternVar
+                        (withDummyLocation . IdentUserDefined . IdentSimple $
+                         IdentNamed "a")
+                        Nothing
                 pVarRes =
                     withDummyLocation $
-                    PatternVar (withDummyLocation $ IdentNamed ["a"]) Nothing
+                    PatternVar
+                        (withDummyLocation . IdentUserDefined . IdentSimple $
+                         IdentNamed "a")
+                        Nothing
                 pBinding = withDummyLocation $ I.PatternBinding field2' pVar
                 pRecord =
                     withDummyLocation $ I.PatternRecord constrName' [pBinding]
@@ -198,10 +213,14 @@ testSuite =
         describe "desugarExp" $ do
             let var =
                     withDummyLocation $
-                    I.ExpVar (withDummyLocation $ IdentNamed ["a"])
+                    I.ExpVar
+                        (withDummyLocation . IdentUserDefined . IdentSimple $
+                         IdentNamed "a")
                 varRes =
                     withDummyLocation $
-                    ExpVar (withDummyLocation $ IdentNamed ["a"])
+                    ExpVar
+                        (withDummyLocation . IdentUserDefined . IdentSimple $
+                         IdentNamed "a")
                 binding = withDummyLocation $ I.Binding field2' var
               -- Desugaring of exps is trivial, except for records
             it "desugars construction of records" $ do
@@ -213,8 +232,8 @@ testSuite =
                         ExpApplication
                             (withDummyLocation . ExpConstr $ constrName')
                             ((withDummyLocation .
-                              ExpVar . withDummyLocation . IdentNamed $
-                              uNDEFINED_NAME) NE.:|
+                              ExpVar . withDummyLocation . IdentUserDefined $
+                              uNDEFINED) NE.:|
                              [varRes])
                 runRecordDesugaringProcessor
                     (desugarExp exp')
@@ -224,10 +243,14 @@ testSuite =
             it "desugars updates of records" $ do
                 let object =
                         withDummyLocation $
-                        I.ExpVar (withDummyLocation $ IdentNamed ["x"])
+                        I.ExpVar
+                            (withDummyLocation . IdentUserDefined . IdentSimple $
+                             IdentNamed "x")
                     objectRes =
                         withDummyLocation $
-                        ExpVar (withDummyLocation $ IdentNamed ["x"])
+                        ExpVar
+                            (withDummyLocation . IdentUserDefined . IdentSimple $
+                             IdentNamed "x")
                     exp' =
                         withDummyLocation $
                         I.ExpRecordUpdate object (binding NE.:| [])
@@ -235,7 +258,8 @@ testSuite =
                         withDummyLocation .
                         (`PatternVar` Nothing) .
                         withDummyLocation .
-                        IdentGenerated F.IdentEnvironmentRecordDesugaring
+                        IdentGenerated .
+                        GeneratedIdent GeneratedIdentEnvironmentRecordDesugaring
                     expectedPattern =
                         withDummyLocation $
                         PatternConstr
@@ -247,15 +271,16 @@ testSuite =
                             (withDummyLocation $ ExpConstr constrName')
                             ((withDummyLocation . ExpVar . withDummyLocation $
                               IdentGenerated
-                                  F.IdentEnvironmentRecordDesugaring
-                                  0) NE.:|
+                                  (GeneratedIdent
+                                       GeneratedIdentEnvironmentRecordDesugaring
+                                       0)) NE.:|
                              [varRes])
                     expRes =
                         withDummyLocation $
                         ExpCase
                             objectRes
-                            (withDummyLocation (
-                              AltSimple expectedPattern expectedExp) NE.:|
+                            (withDummyLocation
+                                 (AltSimple expectedPattern expectedExp) NE.:|
                              [])
                 runRecordDesugaringProcessor
                     (desugarExp exp')

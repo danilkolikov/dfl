@@ -16,13 +16,14 @@ import Data.Bifunctor (bimap)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
+import Core.Ident
 import Frontend.Desugaring.Final.Ast (Ident(..))
 import Util.DependencyResolver
 
 testSuite :: IO ()
 testSuite =
     hspec $ do
-        let node = IdentNamed . return
+        let node = IdentUserDefined . IdentSimple . IdentNamed
             makeNodeSet = HS.fromList . map node
             makeComponents = map makeNodeSet
             makeGraph = HM.fromList . map (bimap node makeNodeSet)
@@ -68,7 +69,7 @@ testSuite =
                         , ("g", ["h"])
                         , ("h", ["h", "e"])
                         ]
-                sorted = map node ["a", "c", "b", "e", "g", "h", "f", "d"]
+                sorted = map node ["e", "g", "h", "a", "c", "b", "d", "f"]
             it "sorts graphs topologically" $
                 runDependencyResolver topologicalSort graph `shouldBe`
                 Right sorted

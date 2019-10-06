@@ -15,6 +15,7 @@ module Frontend.Desugaring.Initial.ToModule
     , desugarToImpExp
     , desugarExports
     , desugarImpSpec
+    , defaultExport
     ) where
 
 import Data.Functor (($>))
@@ -64,6 +65,7 @@ bodyToDecls wrap (Body impDecls topDecls) =
 bodyToHeader :: ([WithLocation D.ImpDecl] -> a) -> Header -> a
 bodyToHeader wrap (Header impDecls) = wrap (map desugarImpDecl impDecls)
 
+-- | Default exports
 defaultExport :: (D.ImpExpList (WithLocation D.Export))
 defaultExport =
     D.ImpExpSome
