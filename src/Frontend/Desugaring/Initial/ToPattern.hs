@@ -14,27 +14,35 @@ module Frontend.Desugaring.Initial.ToPattern
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE (NonEmpty(..), toList)
 
+import Core.PredefinedIdents
 import Frontend.Desugaring.Initial.Ast
 import Frontend.Desugaring.Initial.ToConst (desugarToConst)
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast (APat(..), FPat(..), LPat(..), Pat(..))
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Class for types which can be desugared to Pattern
 class DesugarToPattern a where
     desugarToPattern :: WithLocation a -> WithLocation Pattern -- ^ Desugar object to a pattern
 
-instance DesugarToPattern Pat where
-    desugarToPattern pat =
+-- | Class for types which can be desugared to InfixPattern
+class DesugarToInfixPattern a where
+    desugarToInfixPattern :: WithLocation a -> WithLocation InfixPattern
+
+instance DesugarToInfixPattern Pat where
+    desugarToInfixPattern pat =
+        pat $>
         case getValue pat of
             PatInfix l op r ->
-                pat $>
-                PatternConstr
+                InfixPatternApplication
+                    (desugarToInfixPattern l)
                     (desugarToIdent op)
-                    [desugarToPattern l, desugarToPattern r]
-            PatSimple p -> desugarToPattern p
+                    (desugarToInfixPattern r)
+            PatSimple p -> InfixPatternSimple $ desugarToPattern p
+
+instance DesugarToPattern Pat where
+    desugarToPattern pat = pat $> PatternInfix (desugarToInfixPattern pat)
 
 instance DesugarToPattern LPat where
     desugarToPattern lPat =
@@ -74,16 +82,14 @@ instance DesugarToPattern APat where
             APatWildcard -> PatternWildcard
             APatParens p -> getValue $ desugarToPattern p
             APatTuple f s rest ->
-                let ident =
-                        makeIdent' $
-                        IdentParametrised tUPLE_NAME (length rest + 2)
+                let ident = makeIdent $ tUPLE (length rest + 2)
                  in PatternConstr ident (map desugarToPattern (f : s : rest))
             APatList (f NE.:| rest) ->
-                let constr = makeIdent cOLON_NAME
+                let constr = makeIdent cOLON
                     firstDesugared = desugarToPattern f
                     patsDesugared =
                         case rest of
-                            [] -> makePattern lIST_NAME
+                            [] -> makePattern lIST
                             second:pats ->
                                 let list = aPat $> APatList (second NE.:| pats)
                                  in desugarToPattern list

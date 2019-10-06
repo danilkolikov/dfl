@@ -21,13 +21,13 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 
-import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
+import Core.Ident
 import qualified Frontend.Inference.Kind.Ast as K
 import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Signature
-import Frontend.Inference.Util.HashMap
 import Frontend.Inference.WithVariables
 import Frontend.Syntax.Position
+import Util.HashMap
 
 -- | Processes expressions and extracts expressions, nested in let blocks, into the global scope
 processExpressions ::
@@ -100,7 +100,8 @@ generateNewIdent =
     lift . lift $ do
         counter <- get
         let ident =
-                withDummyLocation $ IdentGenerated IdentEnvironmentLet counter
+                withDummyLocation . IdentGenerated $
+                GeneratedIdent GeneratedIdentEnvironmentLet counter
         modify (+ 1)
         return ident
 
@@ -115,7 +116,7 @@ processExpression' K.Expression { K.getExpressionName = name
     let newName =
             if null scope
                 then name'
-                else IdentScoped $ scope ++ [name']
+                else IdentGenerated . GeneratedIdentScoped $ scope ++ [name']
         newExpression =
             L.Expression
                 { L.getExpressionName = name $> newName
@@ -208,8 +209,12 @@ createSignature paramsCount signature
                     , getTypeSignatureTypeParams = typeParams
                     } <- signature =
         let identsPositions = [0 .. paramsCount - 1]
-            makeKindIdent = IdentGenerated IdentEnvironmentKindVariable
-            makeTypeIdent = IdentGenerated IdentEnvironmentTypeVariable
+            makeKindIdent =
+                IdentGenerated .
+                GeneratedIdent GeneratedIdentEnvironmentKindVariable
+            makeTypeIdent =
+                IdentGenerated .
+                GeneratedIdent GeneratedIdentEnvironmentTypeVariable
             newKindParams =
                 map (\i -> (makeKindIdent i, SortSquare)) identsPositions
             newTypeParams =

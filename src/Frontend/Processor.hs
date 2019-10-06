@@ -17,8 +17,11 @@ module Frontend.Processor
 import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM
 
+import Frontend.Desugaring.Checking.Base (ImportedGroups(..))
 import Frontend.Desugaring.Processor
+import Frontend.Inference.BuiltIns
 import Frontend.Inference.Processor
+import Frontend.Syntax.Position (withDummyLocation)
 import Frontend.Syntax.Processor
 import Util.Debug
 
@@ -31,24 +34,19 @@ data FrontendProcessorError
 
 -- | An output of processing sources files
 data FrontendProcessorOutput = FrontendProcessorOutput
-    { getFrontendProcessorOutputInfix :: InfixOperators -- ^ A map of infix operators
-    , getFrontendProcessorOutputDesugaring :: DesugaringState -- ^ A desugaring state
-    , getFrontendProcessorOutputInference :: InferenceProcessorOutput -- ^ Output of inference
+    { getFrontendProcessorOutputInference :: InferenceProcessorOutput -- ^ Output of inference
     } deriving (Eq, Show)
 
 -- | An empty output
 emptyFrontendProcessorOutput :: FrontendProcessorOutput
 emptyFrontendProcessorOutput =
     FrontendProcessorOutput
-        { getFrontendProcessorOutputInfix = HM.empty
-        , getFrontendProcessorOutputDesugaring = emptyDesugaringState
-        , getFrontendProcessorOutputInference = defaultInferenceProcessorOutput
-        }
+        {getFrontendProcessorOutputInference = defaultInferenceProcessorOutput}
 
 -- | A debug output of processing source files
 data FrontendProcessorDebugOutput = FrontendProcessorDebugOutput
     { getFrontendProcessorDebugOutputSyntax :: Maybe SyntaxProcessorDebugOutput
-    , getFrontendProcessorDebugOutputDesugaring :: Maybe DesugaringState
+    , getFrontendProcessorDebugOutputDesugaring :: Maybe DesugaringDebugOutput
     , getFrontendProcessorDebugOutputInference :: Maybe InferenceProcessorDebugOutput
     }
 
@@ -67,14 +65,10 @@ processSourceFile ::
     -> ( Either FrontendProcessorError FrontendProcessorOutput
        , FrontendProcessorDebugOutput)
 processSourceFile initialState fileName stream
-    | FrontendProcessorOutput { getFrontendProcessorOutputInfix = initialInfixOperators
-                              , getFrontendProcessorOutputDesugaring = initialDesugaringState
-                              , getFrontendProcessorOutputInference = initialInferenceState
-                              } <- initialState =
+    | FrontendProcessorOutput {getFrontendProcessorOutputInference = initialInferenceState} <-
+         initialState =
         runWithDebugOutput $ do
-            SyntaxProcessorOutput { getSyntaxProcessorOutputInfix = infixOperators
-                                  , getSyntaxProcessorOutputAst = ast
-                                  } <-
+            ast <-
                 wrapErrorAndDebugOutput
                     FrontendProcessorErrorSyntax
                     (\debug ->
@@ -82,17 +76,16 @@ processSourceFile initialState fileName stream
                              { getFrontendProcessorDebugOutputSyntax =
                                    Just debug
                              }) $
-                processModuleSyntax initialInfixOperators fileName stream
-            DesugaringOutput { getDesugaringOutputAst = desugaredAst
-                             , getDesugaringOutputState = desugaringState
-                             } <-
-                wrapEither FrontendProcessorErrorDesugaring $
-                desugarParsedModule ast initialDesugaringState
-            writeDebugOutput
-                mempty
-                    { getFrontendProcessorDebugOutputDesugaring =
-                          Just desugaringState
-                    }
+                processModuleSyntax fileName stream
+            desugaredAst <-
+                wrapErrorAndDebugOutput
+                    FrontendProcessorErrorDesugaring
+                    (\debug ->
+                         mempty
+                             { getFrontendProcessorDebugOutputDesugaring =
+                                   Just debug
+                             }) $
+                desugarParsedModule builtInImportedGroups HM.empty ast
             inferenceOutput <-
                 wrapErrorAndDebugOutput
                     FrontendProcessorErrorInference
@@ -104,7 +97,14 @@ processSourceFile initialState fileName stream
                 processModule initialInferenceState desugaredAst
             return
                 FrontendProcessorOutput
-                    { getFrontendProcessorOutputInfix = infixOperators
-                    , getFrontendProcessorOutputDesugaring = desugaringState
-                    , getFrontendProcessorOutputInference = inferenceOutput
-                    }
+                    {getFrontendProcessorOutputInference = inferenceOutput}
+
+-- | An empty group of imported definitions
+builtInImportedGroups :: ImportedGroups
+builtInImportedGroups =
+    let buildMap = HM.mapWithKey (\k _ -> [withDummyLocation k])
+     in ImportedGroups
+            { getImportedGroupsTypes = buildMap defaultKindSignatures
+            , getImportedGroupsExpressions =
+                  buildMap $ defaultConstructors `HM.union` defaultExpressions
+            }

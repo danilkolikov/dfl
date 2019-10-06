@@ -15,8 +15,12 @@ import Data.List (intercalate)
 import Compiler.Module.Base
 import Compiler.Prettify.TokenStream (prettifyToken)
 import Compiler.Prettify.Utils
+import Frontend.Desugaring.Checking.Base
 import Frontend.Desugaring.Final.Ast (Ident)
+import Frontend.Desugaring.Fixity.Base
+import Frontend.Desugaring.Grouping.Base
 import Frontend.Desugaring.Processor
+import Frontend.Desugaring.Record.Base
 import Frontend.HeaderProcessor
 import Frontend.Inference.Equalities
 import Frontend.Inference.InferenceProcessor (VariableBinding)
@@ -45,7 +49,6 @@ instance Prettifiable SyntaxProcessorError where
         case err of
             SyntaxProcessorErrorParser parserError -> prettify parserError
             SyntaxProcessorErrorChecker checkerError -> prettify checkerError
-            SyntaxProcessorErrorFixity fixityError -> prettify fixityError
 
 instance Prettifiable HeaderProcessorError where
     prettify err =
@@ -103,27 +106,19 @@ instance Prettifiable AstCheckerError where
 
 instance Prettifiable FixityResolutionError where
     prettify err =
-        let prettifyOperator (InfixOperator op _ _) = prettifyEntityName op
-         in "Fixity resolution error: " ++
-            case err of
-                FixityResolutionErrorRedefinedOperator op _ loc ->
-                    "Redefinition of operator " ++
-                    prettifyOperator op ++ " at location " ++ prettify loc
-                FixityResolutionErrorMissingOperand op loc ->
-                    "Missing operand of operator " ++
-                    prettifyOperator op ++ " at location " ++ prettify loc
-                FixityResolutionErrorMissingOperator loc ->
-                    "Missing operator at location " ++ prettify loc
-                FixityResolutionErrorUnexpectedOperator op loc ->
-                    "Unexpected operator " ++
-                    prettifyOperator op ++ " at location " ++ prettify loc
-                FixityResolutionErrorFixityConflict op1 op2 loc ->
-                    "Fixity conflict between operators " ++
-                    prettifyOperator op1 ++
-                    " and " ++
-                    prettifyOperator op2 ++ " at location " ++ prettify loc
-                FixityResolutionErrorCannotResolve loc ->
-                    "Can't resolve expression at location " ++ prettify loc
+        "Fixity resolution error: " ++
+        case err of
+            FixityResolutionErrorMissingOperand loc ->
+                "Missing operand at location" ++ prettify loc
+            FixityResolutionErrorMissingOperator loc ->
+                "Missing operator at location " ++ prettify loc
+            FixityResolutionErrorUnexpectedOperator op ->
+                "Unexpected operator " ++ prettifyName op
+            FixityResolutionErrorFixityConflict op2 ->
+                "Fixity conflict between operator " ++
+                prettifyName op2 ++ " and the previous one"
+            FixityResolutionErrorCannotResolve loc ->
+                "Can't resolve expression at location " ++ prettify loc
 
 prettifyName :: WithLocation Ident -> String
 prettifyName (WithLocation ident loc) =
@@ -133,12 +128,10 @@ instance Prettifiable DesugaringError where
     prettify err =
         "Desugaring error: " ++
         case err of
-            DesugaringErrorNameConflict name1 name2 ->
-                "Conflicting names: " ++
-                prettifyName name1 ++ " and " ++ prettifyName name2
             DesugaringErrorRecord recordError -> prettify recordError
-            DesugaringErrorExpression expressionError ->
-                prettify expressionError
+            DesugaringErrorGrouping groupingError -> prettify groupingError
+            DesugaringErrorChecking checkingError -> prettify checkingError
+            DesugaringErrorFixity fixityError -> prettify fixityError
 
 instance Prettifiable RecordDesugaringError where
     prettify recordError =
@@ -155,27 +148,46 @@ instance Prettifiable RecordDesugaringError where
                 "There are no constructors including fields " ++
                 intercalate ", " (map prettifyName fields)
 
-instance Prettifiable ExpressionDesugaringError where
+instance Prettifiable GroupingProcessorError where
     prettify expressionError =
-        "Expression desugaring error: " ++
+        "Grouping error: " ++
         case expressionError of
-            ExpressionDesugaringErrorDuplicatedTypeDeclaration name ->
+            GroupingProcessorErrorDuplicatedTypeDeclaration name ->
                 "Multiple type declarations for the expression " ++
                 prettifyName name
-            ExpressionDesugaringErrorDuplicatedFixityDeclaration name ->
+            GroupingProcessorErrorDuplicatedFixityDeclaration name ->
                 "Multiple fixity declarations for the expression " ++
                 prettifyName name
-            ExpressionDesugaringErrorMissingExpressionDefinition name ->
+            GroupingProcessorErrorMissingExpressionDefinition name ->
                 "Mising definition for the expression " ++ prettifyName name
-            ExpressionDesugaringErrorMissingMethodType name ->
+            GroupingProcessorErrorMissingMethodType name ->
                 "Missing type declaration for the expression " ++
                 prettifyName name
-            ExpressionDesugaringErrorDifferentNumberOfArguments name ->
+            GroupingProcessorErrorDifferentNumberOfArguments name ->
                 "Declarations of " ++
                 prettifyName name ++ " have different numbers of arguments"
-            ExpressionDesugaringErrorIdentifierIsAlreadyDefined name1 name2 ->
+            GroupingProcessorErrorNameConflict name1 name2 ->
                 "Expressions share the same name: " ++
                 prettifyName name1 ++ " and " ++ prettifyName name2
+
+instance Prettifiable CheckingError where
+    prettify err =
+        "Ambiguity checking error: " ++
+        case err of
+            CheckingErrorUndefinedName name ->
+                "Undefined name: " ++ prettify name
+            CheckingErrorAmbiguousName name sources ->
+                "Name " ++
+                prettify name ++
+                " is ambiguous. It's defined at: " ++
+                intercalate ", " (map prettify sources)
+
+instance Prettifiable AmbiguitySource where
+    prettify source =
+        case source of
+            AmbiguitySourceThisFile name ->
+                "this file (" ++ prettify name ++ ")"
+            AmbiguitySourceImport name -> "module " ++ prettify name
 
 instance Prettifiable InferenceProcessorError where
     prettify err =

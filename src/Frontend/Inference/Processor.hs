@@ -132,7 +132,7 @@ type InferenceProcessor
 -- | Processes a module and infers type, kind and sort information
 processModule ::
        InferenceProcessorOutput
-    -> F.Module
+    -> F.Module F.Exp
     -> ( Either InferenceProcessorError InferenceProcessorOutput
        , InferenceProcessorDebugOutput)
 processModule initialState module' =
@@ -140,7 +140,7 @@ processModule initialState module' =
 
 processModule' ::
        InferenceProcessorOutput
-    -> F.Module
+    -> F.Module F.Exp
     -> InferenceProcessor InferenceProcessorOutput
 processModule' initialState module'
     | InferenceProcessorOutput { getInferenceProcessorOutputTypeConstructors = initialTypeConstructors

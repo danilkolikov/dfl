@@ -11,12 +11,12 @@ module Frontend.Inference.Kind where
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
+import Core.Ident
+import Core.PredefinedIdents
 import Data.Maybe (fromMaybe)
-import Frontend.Desugaring.Final.Ast (Ident(..))
 import Frontend.Inference.AlgebraicExp
-import Frontend.Inference.WithVariables
 import Frontend.Inference.Substitution
-import Frontend.Syntax.EntityName
+import Frontend.Inference.WithVariables
 
 -- | Kind of types
 data Kind
@@ -49,20 +49,20 @@ instance WithVariables Kind where
 instance IsAlgebraicExp Kind where
     toAlgebraicExp kind =
         case kind of
-            KindStar -> AlgebraicExpFunc (IdentNamed sTAR_NAME) []
+            KindStar -> AlgebraicExpFunc (IdentUserDefined sTAR) []
             KindVar name -> AlgebraicExpVar name
             KindFunction from to ->
                 AlgebraicExpFunc
-                    (IdentNamed fUNCTION_NAME)
+                    (IdentUserDefined fUNCTION)
                     [toAlgebraicExp from, toAlgebraicExp to]
     fromAlgebraicExp aExp =
         case aExp of
             AlgebraicExpVar name -> return $ KindVar name
             AlgebraicExpFunc ident args ->
                 case ident of
-                    IdentNamed name
-                        | name == sTAR_NAME -> return KindStar
-                        | name == fUNCTION_NAME
+                    IdentUserDefined name
+                        | name == sTAR -> return KindStar
+                        | name == fUNCTION
                         , [from, to] <- args -> do
                             fromKind <- fromAlgebraicExp from
                             toKind <- fromAlgebraicExp to

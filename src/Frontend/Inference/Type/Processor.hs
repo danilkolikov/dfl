@@ -25,7 +25,7 @@ import Frontend.Inference.Substitution
 import Frontend.Inference.Type.Equalities
 import Frontend.Inference.Type.WithDependencies
 import Util.Debug
-import Frontend.Inference.Util.HashMap
+import Util.HashMap
 import Frontend.Inference.Variables
 
 -- | Debug output of type inference

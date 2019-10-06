@@ -77,7 +77,7 @@ data Module a
     deriving (Show, Eq)
 
 -- | A list of imports of a module
-data Header =
+newtype Header =
     Header [WithLocation ImpDecl] -- ^ Imports
     deriving (Show, Eq)
 

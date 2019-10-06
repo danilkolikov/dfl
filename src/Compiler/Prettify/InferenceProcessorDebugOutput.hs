@@ -13,7 +13,7 @@ module Compiler.Prettify.InferenceProcessorDebugOutput where
 import Data.Maybe (catMaybes)
 
 import Compiler.Prettify.AstWithKinds ()
-import Compiler.Prettify.DesugaredAst ()
+import Compiler.Prettify.Desugaring.Final ()
 import Compiler.Prettify.Expression ()
 import Compiler.Prettify.InferenceDebugOutput
 import Compiler.Prettify.LetExpression ()

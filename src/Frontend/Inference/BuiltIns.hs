@@ -11,13 +11,13 @@ module Frontend.Inference.BuiltIns where
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Desugaring.Final.Ast (Ident(..))
+import Core.Ident
+import Core.PredefinedIdents
 import Frontend.Inference.Signature
-import Frontend.Syntax.EntityName
 
 -- | Makes a pair of ident and object
-makePair :: EntityName -> a -> (Ident, a)
-makePair name x = (IdentNamed name, x)
+makePair :: UserDefinedIdent -> a -> (Ident, a)
+makePair name x = (IdentUserDefined name, x)
 
 -- | The minimal size of a tuple
 mIN_TUPLE_SIZE :: Int
@@ -27,32 +27,36 @@ mIN_TUPLE_SIZE = 2
 mAX_TUPLE_SIZE :: Int
 mAX_TUPLE_SIZE = 10
 
+makeNamedIdent :: String -> Ident
+makeNamedIdent = IdentUserDefined . IdentSimple . IdentNamed
+
 -- | Default signatures of data types
 defaultKindSignatures :: Signatures TypeConstructorSignature
 defaultKindSignatures =
     HM.fromList $
-    [ makeTerminal uNIT_NAME
-    , makePair lIST_NAME $
+    [ makeTerminal uNIT
+    , makePair lIST $
       TypeConstructorSignature
           SortSquare
           []
           KindStar
-          [(IdentNamed ["a"], KindStar)]
-    , makeTerminal iNT_NAME
-    , makeTerminal fLOAT_NAME
-    , makeTerminal cHAR_NAME
-    , makeTerminal sTRING_NAME
-    , makeTerminal bOOL_NAME
+          [(makeNamedIdent "a", KindStar)]
+    , makeTerminal iNT
+    , makeTerminal fLOAT
+    , makeTerminal cHAR
+    , makeTerminal sTRING
+    , makeTerminal bOOL
     ] ++
     [makeTuple i | i <- [mIN_TUPLE_SIZE .. mAX_TUPLE_SIZE]]
   where
-    makeTerminal :: EntityName -> (Ident, TypeConstructorSignature)
+    makeTerminal :: UserDefinedIdent -> (Ident, TypeConstructorSignature)
     makeTerminal name =
         makePair name $ TypeConstructorSignature SortSquare [] KindStar []
     makeTuple :: Int -> (Ident, TypeConstructorSignature)
     makeTuple n =
-        let params = [(IdentNamed ["a" ++ show i], KindStar) | i <- [1 .. n]]
-         in ( IdentParametrised tUPLE_NAME n
+        let params =
+                [(makeNamedIdent ("a" ++ show i), KindStar) | i <- [1 .. n]]
+         in ( IdentUserDefined $ tUPLE n
             , TypeConstructorSignature SortSquare [] KindStar params)
 
 -- | Default signatures for type synonyms
@@ -63,42 +67,42 @@ defaultTypeSynonyms = HM.empty
 defaultConstructors :: Signatures TypeSignature
 defaultConstructors =
     HM.fromList $
-    [ makePair uNIT_NAME $
+    [ makePair uNIT $
       TypeSignature
           SortSquare
           []
           KindStar
           []
-          (TypeConstr (IdentNamed uNIT_NAME))
+          (TypeConstr (IdentUserDefined uNIT))
           []
     ] ++
-    (let var = IdentNamed ["a"]
+    (let var = makeNamedIdent "a"
          listType =
              TypeApplication
-                 (TypeConstr (IdentNamed lIST_NAME))
+                 (TypeConstr (IdentUserDefined lIST))
                  (TypeVar var NE.:| [])
          makeConstr name type' =
              makePair name $
              TypeSignature SortSquare [] KindStar [(var, KindStar)] type' []
-      in [ makeConstr lIST_NAME listType
+      in [ makeConstr lIST listType
          , makeConstr
-               cOLON_NAME
+               cOLON
                (TypeFunction (TypeVar var) (TypeFunction listType listType))
          ]) ++
-    (let boolType = TypeConstr (IdentNamed bOOL_NAME)
+    (let boolType = TypeConstr (IdentUserDefined bOOL)
          makeConstr name =
              makePair name $ TypeSignature SortSquare [] KindStar [] boolType []
-      in [makeConstr tRUE_NAME, makeConstr fALSE_NAME]) ++
-    (let makeIdent = IdentParametrised tUPLE_NAME
+      in [makeConstr tRUE, makeConstr fALSE]) ++
+    (let makeIdent = IdentUserDefined . tUPLE
          tupleType n =
              case tupleVars n of
                  [] -> error "Tuple of 0 params is unsupported"
                  (f:rest) ->
                      TypeApplication (TypeConstr (makeIdent n)) (f NE.:| rest)
-         tupleParams n = map (\i -> IdentNamed ["a" ++ show i]) [1 .. n]
+         tupleParams n = map (\i -> makeNamedIdent ("a" ++ show i)) [1 .. n]
          tupleVars = map TypeVar . tupleParams
          makeKindParams = map (\x -> (x, KindStar)) . tupleParams
-         makeType n = foldr (TypeFunction) (tupleType n) (tupleVars n)
+         makeType n = foldr TypeFunction (tupleType n) (tupleVars n)
          makeConstr n =
              ( makeIdent n
              , TypeSignature
@@ -114,24 +118,26 @@ defaultConstructors =
 defaultExpressions :: Signatures TypeSignature
 defaultExpressions =
     HM.fromList $
-    (let var = IdentNamed ["a"]
+    (let var = makeNamedIdent "a"
          makeExp name type' =
              makePair name $
              TypeSignature SortSquare [] KindStar [(var, KindStar)] type' []
-      in [ makeExp uNDEFINED_NAME (TypeVar var)
+      in [ makeExp uNDEFINED (TypeVar var)
          , makeExp
-               fAIL_NAME
-               (TypeFunction (TypeConstr (IdentNamed sTRING_NAME)) (TypeVar var))
+               fAIL
+               (TypeFunction
+                    (TypeConstr (IdentUserDefined sTRING))
+                    (TypeVar var))
          ]) ++
-    (let aVar = IdentNamed ["a"]
+    (let aVar = makeNamedIdent "a"
          aKind = KindStar
-         bVar = IdentNamed ["b"]
+         bVar = makeNamedIdent "b"
          bKind = KindStar
-         mVar = IdentNamed ["m"]
+         mVar = makeNamedIdent "m"
          mKind = KindFunction KindStar KindStar
          mA = TypeApplication (TypeVar mVar) (TypeVar aVar NE.:| [])
          mB = TypeApplication (TypeVar mVar) (TypeVar bVar NE.:| [])
-         constraints = [ConstraintVariable (IdentNamed mONAD_NAME) mVar]
+         constraints = [ConstraintVariable (IdentUserDefined mONAD) mVar]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -141,16 +147,16 @@ defaultExpressions =
                  [(mVar, mKind), (aVar, aKind), (bVar, bKind)]
                  type'
                  constraints
-      in [ makeExp iGNORING_BIND_NAME (TypeFunction mA (TypeFunction mB mB))
+      in [ makeExp iGNORING_BIND (TypeFunction mA (TypeFunction mB mB))
          , makeExp
-               bIND_NAME
+               bIND
                (TypeFunction
                     mA
                     (TypeFunction (TypeFunction (TypeVar aVar) mB) mB))
          ]) ++
-    (let var = IdentNamed ["a"]
+    (let var = makeNamedIdent "a"
          aVar = TypeVar var
-         constraints = [ConstraintVariable (IdentNamed eQ_NAME) var]
+         constraints = [ConstraintVariable (IdentUserDefined eQ) var]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -161,14 +167,14 @@ defaultExpressions =
                  type'
                  constraints
       in [ makeExp
-               eQUAL_NAME
+               eQUAL
                (TypeFunction
                     aVar
-                    (TypeFunction aVar (TypeConstr (IdentNamed bOOL_NAME))))
+                    (TypeFunction aVar (TypeConstr (IdentUserDefined bOOL))))
          ]) ++
-    (let var = IdentNamed ["a"]
+    (let var = makeNamedIdent "a"
          aVar = TypeVar var
-         constraints = [ConstraintVariable (IdentNamed nUM_NAME) var]
+         constraints = [ConstraintVariable (IdentUserDefined nUM) var]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -178,12 +184,14 @@ defaultExpressions =
                  [(var, KindStar)]
                  type'
                  constraints
-      in [makeExp eQUAL_NAME (TypeFunction aVar aVar)]) ++
-    (let var = IdentNamed ["a"]
+      in [makeExp eQUAL (TypeFunction aVar aVar)]) ++
+    (let var = makeNamedIdent "a"
          aVar = TypeVar var
          list =
-             TypeApplication (TypeConstr $ IdentNamed lIST_NAME) (aVar NE.:| [])
-         constraints = [ConstraintVariable (IdentNamed eNUM_NAME) var]
+             TypeApplication
+                 (TypeConstr $ IdentUserDefined lIST)
+                 (aVar NE.:| [])
+         constraints = [ConstraintVariable (IdentUserDefined eNUM) var]
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -193,25 +201,25 @@ defaultExpressions =
                  [(var, KindStar)]
                  type'
                  constraints
-      in [ makeExp eNUM_FROM_NAME (TypeFunction aVar list)
+      in [ makeExp eNUM_FROM (TypeFunction aVar list)
+         , makeExp eNUM_FROM_TO (TypeFunction aVar (TypeFunction aVar list))
+         , makeExp eNUM_FROM_THEN (TypeFunction aVar (TypeFunction aVar list))
          , makeExp
-               eNUM_FROM_TO_NAME
-               (TypeFunction aVar (TypeFunction aVar list))
-         , makeExp
-               eNUM_FROM_THEN_NAME
-               (TypeFunction aVar (TypeFunction aVar list))
-         , makeExp
-               eNUM_FROM_THEN_TO_NAME
+               eNUM_FROM_THEN_TO
                (TypeFunction aVar (TypeFunction aVar (TypeFunction aVar list)))
          ]) ++
-    (let aIdent = IdentNamed ["a"]
+    (let aIdent = makeNamedIdent "a"
          aVar = TypeVar aIdent
-         bIdent = IdentNamed ["b"]
+         bIdent = makeNamedIdent "b"
          bVar = TypeVar bIdent
          listA =
-             TypeApplication (TypeConstr $ IdentNamed lIST_NAME) (aVar NE.:| [])
+             TypeApplication
+                 (TypeConstr $ IdentUserDefined lIST)
+                 (aVar NE.:| [])
          listB =
-             TypeApplication (TypeConstr $ IdentNamed lIST_NAME) (bVar NE.:| [])
+             TypeApplication
+                 (TypeConstr $ IdentUserDefined lIST)
+                 (bVar NE.:| [])
          makeExp name type' =
              makePair name $
              TypeSignature
@@ -221,6 +229,6 @@ defaultExpressions =
                  [(aIdent, KindStar), (bIdent, KindStar)]
                  type'
                  []
-      in [ makeExp cONCAT_MAP_NAME $
+      in [ makeExp cONCAT_MAP $
            TypeFunction (TypeFunction aVar listB) (TypeFunction listA listB)
          ])

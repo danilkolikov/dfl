@@ -38,22 +38,42 @@ library:
   - Compiler.Module.Import
   - Compiler.Module.Processor
   - Compiler.Processor
-  - Frontend.Desugaring.Final.AssignmentDesugaring
+  - Core.Ident
+  - Core.PredefinedIdents
+  - Frontend.Desugaring.Ast
+  - Frontend.Desugaring.Checking.Base
+  - Frontend.Desugaring.Checking.Class
+  - Frontend.Desugaring.Checking.DataType
+  - Frontend.Desugaring.Checking.Export
+  - Frontend.Desugaring.Checking.Expression
+  - Frontend.Desugaring.Checking.Instance
+  - Frontend.Desugaring.Checking.Pattern
+  - Frontend.Desugaring.Checking.Processor
+  - Frontend.Desugaring.Checking.TypeSynonym
+  - Frontend.Desugaring.Checking.Util
   - Frontend.Desugaring.Final.Ast
-  - Frontend.Desugaring.Final.ClassDesugaring
-  - Frontend.Desugaring.Final.DataTypeDesugaring
-  - Frontend.Desugaring.Final.ExpressionDesugaring
-  - Frontend.Desugaring.Final.ExpressionDesugaringAssignment
-  - Frontend.Desugaring.Final.ExpressionDesugaringBase
-  - Frontend.Desugaring.Final.ExpressionDesugaringCase
-  - Frontend.Desugaring.Final.ExpressionDesugaringStmt
-  - Frontend.Desugaring.Final.InstanceDesugaring
-  - Frontend.Desugaring.Final.ModuleDesugaring
+  - Frontend.Desugaring.Final.Base
+  - Frontend.Desugaring.Final.Case
+  - Frontend.Desugaring.Final.Expression
   - Frontend.Desugaring.Final.Processor
-  - Frontend.Desugaring.Final.RecordDesugaring
-  - Frontend.Desugaring.Final.ResolvedAst
-  - Frontend.Desugaring.Final.TypeSynonymDesugaring
-  - Frontend.Desugaring.Final.Utils
+  - Frontend.Desugaring.Final.Statement
+  - Frontend.Desugaring.Final.Util
+  - Frontend.Desugaring.Fixity.Ast
+  - Frontend.Desugaring.Fixity.Base
+  - Frontend.Desugaring.Fixity.Expression
+  - Frontend.Desugaring.Fixity.Pattern
+  - Frontend.Desugaring.Fixity.Processor
+  - Frontend.Desugaring.Fixity.Resolution
+  - Frontend.Desugaring.Grouping.Assignment
+  - Frontend.Desugaring.Grouping.Ast
+  - Frontend.Desugaring.Grouping.Base
+  - Frontend.Desugaring.Grouping.Class
+  - Frontend.Desugaring.Grouping.DataType
+  - Frontend.Desugaring.Grouping.Expression
+  - Frontend.Desugaring.Grouping.Instance
+  - Frontend.Desugaring.Grouping.PatternAssignment
+  - Frontend.Desugaring.Grouping.Processor
+  - Frontend.Desugaring.Grouping.TypeSynonym
   - Frontend.Desugaring.Initial.Ast
   - Frontend.Desugaring.Initial.ToClassAssignment
   - Frontend.Desugaring.Initial.ToConst
@@ -72,6 +92,12 @@ library:
   - Frontend.Desugaring.Initial.ToType
   - Frontend.Desugaring.Initial.Utils
   - Frontend.Desugaring.Processor
+  - Frontend.Desugaring.Record.Ast
+  - Frontend.Desugaring.Record.Base
+  - Frontend.Desugaring.Record.Expression
+  - Frontend.Desugaring.Record.Field
+  - Frontend.Desugaring.Record.Processor
+  - Frontend.Desugaring.Record.Util
   - Frontend.HeaderProcessor
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class
@@ -110,17 +136,14 @@ library:
   - Frontend.Inference.TypeSynonym.Expander
   - Frontend.Inference.TypeSynonym.Processor
   - Frontend.Inference.Unification
-  - Frontend.Inference.Util.HashMap
+  - Util.HashMap
   - Frontend.Inference.Variables
   - Frontend.Inference.WithVariables
   - Frontend.Processor
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
-  - Frontend.Syntax.EntityName
-  - Frontend.Syntax.FixityResolution
   - Frontend.Syntax.Layout
   - Frontend.Syntax.Lexer
-  - Frontend.Syntax.NamedEntity
   - Frontend.Syntax.Parser
   - Frontend.Syntax.ParserError
   - Frontend.Syntax.Position

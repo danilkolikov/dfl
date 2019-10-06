@@ -30,7 +30,7 @@ import Frontend.Inference.Variables
 -- | Infers kinds of data types, type synonyms and classes of a single module
 inferKindsOfModule ::
        Signatures TypeConstructorSignature
-    -> F.Module
+    -> F.Module F.Exp 
     -> ( Either InferenceError (Signatures TypeConstructorSignature)
        , InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
 inferKindsOfModule initialState F.Module { F.getModuleDataTypes = dataTypes

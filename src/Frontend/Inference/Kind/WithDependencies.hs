@@ -55,7 +55,7 @@ instance WithDependencies DataType where
                 map (getConstructorDependencies . snd) constructors
          in HS.unions dependencies
 
-instance WithDependencies Class where
+instance WithDependencies (Class a) where
     getName = getValue . getClassName
     getDependencies Class { getClassContext = constraints
                           , getClassMethods = methods

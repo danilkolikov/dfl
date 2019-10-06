@@ -13,11 +13,11 @@ module Frontend.Desugaring.Initial.ToType
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Class of types which can be desugared to Type
@@ -51,14 +51,12 @@ instance DesugarToType AType where
             ATypeConstructor name -> D.TypeConstr . desugarToIdent $ name
             ATypeVar name -> D.TypeVar . desugarToIdent $ name
             ATypeTuple f s rest ->
-                let ident =
-                        makeTypeConstr' $
-                        D.IdentParametrised tUPLE_NAME (length rest + 2)
+                let ident = makeTypeConstr $ tUPLE (length rest + 2)
                     args = f NE.:| (s : rest)
                     desugaredArgs = fmap desugarToType args
                  in D.TypeApplication ident desugaredArgs
             ATypeList t ->
-                let ident = makeTypeConstr lIST_NAME
+                let ident = makeTypeConstr lIST
                     args = t NE.:| []
                     desugaredArgs = fmap desugarToType args
                  in D.TypeApplication ident desugaredArgs

@@ -12,11 +12,11 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.Maybe (fromMaybe)
 
-import Frontend.Desugaring.Final.Ast (Ident(..))
+import Core.Ident
+import Core.PredefinedIdents
 import Frontend.Inference.AlgebraicExp
 import Frontend.Inference.WithVariables
 import Frontend.Inference.Substitution
-import Frontend.Syntax.EntityName
 
 -- | Sort of kinds
 data Sort
@@ -49,20 +49,20 @@ instance WithVariables Sort where
 instance IsAlgebraicExp Sort where
     toAlgebraicExp kind =
         case kind of
-            SortSquare -> AlgebraicExpFunc (IdentNamed lIST_NAME) []
+            SortSquare -> AlgebraicExpFunc (IdentUserDefined lIST) []
             SortVar name -> AlgebraicExpVar name
             SortFunction from to ->
                 AlgebraicExpFunc
-                    (IdentNamed fUNCTION_NAME)
+                    (IdentUserDefined fUNCTION)
                     [toAlgebraicExp from, toAlgebraicExp to]
     fromAlgebraicExp aExp =
         case aExp of
             AlgebraicExpVar name -> return $ SortVar name
             AlgebraicExpFunc ident args ->
                 case ident of
-                    IdentNamed name
-                        | name == lIST_NAME -> return SortSquare
-                        | name == fUNCTION_NAME
+                    IdentUserDefined name
+                        | name == lIST -> return SortSquare
+                        | name == fUNCTION
                         , [from, to] <- args -> do
                             fromSort <- fromAlgebraicExp from
                             toSort <- fromAlgebraicExp to

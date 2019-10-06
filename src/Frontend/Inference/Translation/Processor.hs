@@ -20,6 +20,8 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe, mapMaybe)
 
+import Core.Ident
+import Core.PredefinedIdents
 import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Constraint
 import Frontend.Inference.Expression
@@ -27,9 +29,7 @@ import qualified Frontend.Inference.Instance as I
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Util.Debug
-import Frontend.Inference.Util.HashMap
-import Frontend.Inference.Variables
-import Frontend.Syntax.EntityName (fUNCTION_NAME)
+import Util.HashMap
 
 -- | Errors which can be encountered during translation of expressions
 data TranslationProcessorError
@@ -128,7 +128,10 @@ translateExpression classes instances typeSignatures expName (exp', signature)
         let constraintIdents =
                 zip
                     context
-                    [IdentGenerated IdentEnvironmentTranslation i | i <- [0 ..]]
+                    [ IdentGenerated $
+                    GeneratedIdent GeneratedIdentEnvironmentTranslation i
+                    | i <- [0 ..]
+                    ]
             environment =
                 TranslationProcessorEnvironment
                     { getTranslationProcessorEnvironmentClasses = classes
@@ -245,7 +248,7 @@ checkVariableConstraint cls var args = do
 checkTypeConstraint :: Ident -> Ident -> [Type] -> SingleExpressionProcessor Exp
 checkTypeConstraint cls type' args = do
     instances <- asks getTranslationProcessorEnvironmentInstances
-    let instanceName = IdentInstance cls type'
+    let instanceName = IdentGenerated $ GeneratedIdentInstance cls type'
     case HM.lookup instanceName instances of
         Just inst -> checkInstance instanceName inst args
         Nothing ->
@@ -293,5 +296,5 @@ getConstrainingClass var args (constraint, ident) =
 
 makeFunctionType :: Type -> Type -> Type
 makeFunctionType from to =
-    let functionConstructor = TypeVar $ IdentNamed fUNCTION_NAME
+    let functionConstructor = TypeVar $ IdentUserDefined fUNCTION
      in TypeApplication functionConstructor (from NE.:| [to])

@@ -9,7 +9,7 @@ Modified version of AST with let expressions removed
 module Frontend.Inference.Let.Ast
     ( Const(..)
     , Ident(..)
-    , IdentEnvironment(..)
+    , GeneratedIdentEnvironment(..)
     , Expression(..)
     , Expressions
     , Exp(..)
@@ -18,11 +18,8 @@ module Frontend.Inference.Let.Ast
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Desugaring.Final.Ast
-    ( Const(..)
-    , Ident(..)
-    , IdentEnvironment(..)
-    )
+import Core.Ident
+import Frontend.Desugaring.Ast (Const(..))
 import Frontend.Inference.Signature
 import Frontend.Syntax.Position
 

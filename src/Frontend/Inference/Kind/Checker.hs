@@ -25,9 +25,9 @@ import qualified Frontend.Inference.Kind.Ast as A
 import Frontend.Inference.Kind.Base
 import Frontend.Inference.Signature
 import Frontend.Inference.Type
-import Util.Debug
-import Frontend.Inference.Util.HashMap
 import Frontend.Syntax.Position
+import Util.Debug
+import Util.HashMap
 
 -- | A type of debug output of a single check
 type KindsCheckSingleDebugOutput
@@ -39,7 +39,7 @@ type CheckProcessor
 -- | Checks kinds of type expressions in the module and returns modified AST
 checkModule ::
        Signatures TypeConstructorSignature
-    -> F.Module
+    -> F.Module F.Exp
     -> (Either InferenceError A.AstWithKinds, [KindsCheckSingleDebugOutput])
 checkModule signatures module' =
     runWithDebugOutput $ runReaderT (checkModule' module') signatures
@@ -85,7 +85,7 @@ checkExp exp' =
         F.ExpLet exps inner ->
             liftM2 A.ExpLet (mapHashMapM checkExpression exps) (checkExp inner)
 
-checkExpression :: F.Expression -> CheckProcessor A.Expression
+checkExpression :: F.Expression F.Exp -> CheckProcessor A.Expression
 checkExpression F.Expression { F.getExpressionName = name
                              , F.getExpressionBody = body
                              , F.getExpressionType = type'
@@ -99,10 +99,10 @@ checkExpression F.Expression { F.getExpressionName = name
             , A.getExpressionType = checkedType
             }
 
-checkMethod :: F.Method -> CheckProcessor A.Method
+checkMethod :: F.Method F.Exp -> CheckProcessor A.Method
 checkMethod F.Method { F.getMethodName = name
                      , F.getMethodType = type'
-                     , F.getMethodDefault = body'
+                     , F.getMethodBody = body'
                      } = do
     checkedType <- inferKindOfTypeSignature type'
     checkedBody <- traverse checkExp body'
@@ -110,10 +110,10 @@ checkMethod F.Method { F.getMethodName = name
         A.Method
             { A.getMethodName = name
             , A.getMethodType = checkedType
-            , A.getMethodDefault = checkedBody
+            , A.getMethodBody = checkedBody
             }
 
-checkClass :: F.Class -> CheckProcessor A.Class
+checkClass :: F.Class F.Exp -> CheckProcessor A.Class
 checkClass F.Class { F.getClassContext = context
                    , F.getClassName = name
                    , F.getClassParam = param
@@ -128,14 +128,14 @@ checkClass F.Class { F.getClassContext = context
             , A.getClassMethods = checkedMethods
             }
 
-checkInstance :: F.Instance -> CheckProcessor A.Instance
+checkInstance :: F.Instance F.Exp -> CheckProcessor A.Instance
 checkInstance F.Instance { F.getInstanceContext = context
                          , F.getInstanceClass = className
                          , F.getInstanceType = typeName
                          , F.getInstanceTypeArgs = args
                          , F.getInstanceMethods = methods
                          } = do
-    checkedMethods <- mapHashMapM checkExpression methods
+    checkedMethods <- mapHashMapM checkExp methods
     return
         A.Instance
             { A.getInstanceContext = context
@@ -173,7 +173,7 @@ checkDataType F.DataType { F.getDataTypeContext = context
         , A.isNewType = isNewType
         }
 
-checkModule' :: F.Module -> CheckProcessor A.AstWithKinds
+checkModule' :: F.Module F.Exp -> CheckProcessor A.AstWithKinds
 checkModule' F.Module { F.getModuleClasses = classes
                       , F.getModuleInstances = instances
                       , F.getModuleExpressions = expressions

@@ -20,12 +20,12 @@ module Frontend.Desugaring.Initial.ToModule
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE (NonEmpty(..))
 
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.ToTopDecl (desugarToTopDecl)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Desugar object to a Module
@@ -38,7 +38,7 @@ desugarToModule md =
                 (getValue body)
         ModuleImplicit body ->
             bodyToDecls
-                (D.Module (makeIdent dEFAULT_MODULE_NAME) defaultExport)
+                (D.Module (makeIdent dEFAULT_MODULE) defaultExport)
                 (getValue body)
 
 -- | Desugars an object to a header
@@ -51,7 +51,7 @@ desugarToHeader md =
                 (getValue body)
         ModuleImplicit body ->
             bodyToHeader
-                (D.Header (makeIdent dEFAULT_MODULE_NAME) defaultExport)
+                (D.Header (makeIdent dEFAULT_MODULE) defaultExport)
                 (getValue body)
 
 -- Helper functions
@@ -67,7 +67,7 @@ bodyToHeader wrap (Header impDecls) = wrap (map desugarImpDecl impDecls)
 defaultExport :: (D.ImpExpList (WithLocation D.Export))
 defaultExport =
     D.ImpExpSome
-        (withDummyLocation (D.ExportFunction (makeIdent mAIN_NAME)) NE.:| [])
+        (withDummyLocation (D.ExportFunction (makeIdent mAIN)) NE.:| [])
 
 -- | Desugar Export
 desugarExport :: WithLocation Export -> WithLocation D.Export
@@ -125,7 +125,7 @@ desugarImport import' =
 
 -- | Desugar ImpExp list
 desugarToImpExp ::
-       WithLocation ImpExpList -> D.ImpExpList (WithLocation D.Ident)
+       WithLocation ImpExpList -> D.ImpExpList (WithLocation UserDefinedIdent)
 desugarToImpExp list
     | ImpExpNothing <- getValue list = D.ImpExpNothing
     | ImpExpSome names <- getValue list =

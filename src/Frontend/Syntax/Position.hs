@@ -59,7 +59,10 @@ withDummyLocation = (`WithLocation` dummyLocation)
 data WithLocation a = WithLocation
     { getValue :: a -- ^ Object
     , getLocation :: SourceLocation -- ^ Corresponding location
-    } deriving (Show, Eq, Ord)
+    } deriving (Eq, Ord)
+
+instance (Show a) => Show (WithLocation a) where
+    show = show . getValue
 
 instance Functor WithLocation where
     fmap f (WithLocation x loc) = WithLocation (f x) loc

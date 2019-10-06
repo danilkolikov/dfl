@@ -20,6 +20,7 @@ import Data.List (intercalate)
 import Compiler.Base
 import Compiler.Environment
 import Compiler.Module.Base
+import Core.Ident
 import Frontend.Desugaring.Initial.Ast
 import Frontend.HeaderProcessor
 import Frontend.Syntax.Position
@@ -77,14 +78,23 @@ getModuleDependencies fn@(FileName fileName) = do
         mapM_ getModuleDependencies requiredSourceFiles
 
 checkModuleName :: FileName -> Header -> Bool
-checkModuleName fileName (Header name _ _) = fileName == getSourceFile (getValue name)
+checkModuleName fileName (Header name _ _) =
+    fileName == getSourceFile (getValue name)
 
-getHeaderDependencies :: Header -> [Ident]
+getHeaderDependencies :: Header -> [UserDefinedIdent]
 getHeaderDependencies (Header _ _ imports) =
     map (getImportDependencies . getValue) imports
   where
     getImportDependencies (ImpDecl _ moduleName _ _ _) = getValue moduleName
 
-getSourceFile :: Ident -> FileName
-getSourceFile (IdentNamed name) = FileName $ intercalate "/" name ++ ".dfl"
-getSourceFile _ = error "Unexpected ident"
+getSourceFile :: UserDefinedIdent -> FileName
+getSourceFile ident =
+    let (path, inner) =
+            case ident of
+                IdentQualified path' inner' -> (path', inner')
+                IdentSimple inner' -> ([], inner')
+        innerName =
+            case inner of
+                IdentNamed name -> name
+                IdentParametrised {} -> error "Unexpected name of a module"
+     in FileName $ intercalate "/" (path ++ [innerName]) ++ ".dfl"

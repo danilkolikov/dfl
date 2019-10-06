@@ -12,13 +12,13 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
+import Core.Ident
+import Core.PredefinedIdents
 import Data.Maybe (fromMaybe)
-import Frontend.Desugaring.Final.Ast (Ident(..))
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.AlgebraicExp
 import Frontend.Inference.Substitution
 import Frontend.Inference.WithVariables
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
 
 -- | Type of an expression
@@ -65,14 +65,14 @@ instance IsAlgebraicExp Type where
             TypeConstr name -> AlgebraicExpFunc name []
             TypeFunction from to ->
                 AlgebraicExpFunc
-                    (IdentNamed aPPLICATION_NAME)
-                    [ AlgebraicExpFunc (IdentNamed fUNCTION_NAME) []
+                    (IdentUserDefined aPPLICATION)
+                    [ AlgebraicExpFunc (IdentUserDefined fUNCTION) []
                     , toAlgebraicExp from
                     , toAlgebraicExp to
                     ]
             TypeApplication func args ->
                 AlgebraicExpFunc
-                    (IdentNamed aPPLICATION_NAME)
+                    (IdentUserDefined aPPLICATION)
                     (toAlgebraicExp func : map toAlgebraicExp (NE.toList args))
     fromAlgebraicExp aExp =
         case aExp of
@@ -80,11 +80,11 @@ instance IsAlgebraicExp Type where
             AlgebraicExpFunc ident args
                 | [] <- args -> return $ TypeConstr ident
                 | func:rest <- args
-                , IdentNamed name <- ident
-                , name == aPPLICATION_NAME -> do
+                , IdentUserDefined name <- ident
+                , name == aPPLICATION -> do
                     funcType <- fromAlgebraicExp func
                     restType <- mapM fromAlgebraicExp rest
-                    if funcType == TypeConstr (IdentNamed fUNCTION_NAME) &&
+                    if funcType == TypeConstr (IdentUserDefined fUNCTION) &&
                        length restType == 2
                         then return $
                              TypeFunction (head restType) (last restType)
@@ -104,4 +104,6 @@ removePositionsOfType type' =
         F.TypeFunction from to ->
             TypeFunction (removePositionsOfType from) (removePositionsOfType to)
         F.TypeApplication func args ->
-            TypeApplication (removePositionsOfType func) (fmap removePositionsOfType args)
+            TypeApplication
+                (removePositionsOfType func)
+                (fmap removePositionsOfType args)

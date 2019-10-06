@@ -10,7 +10,7 @@ Functions for pretty printing of Output
 
 module Compiler.Prettify.FrontendProcessorOutput where
 
-import Compiler.Prettify.DesugaringOutput ()
+import Compiler.Prettify.Desugaring.Processor ()
 import Compiler.Prettify.InferenceProcessorDebugOutput ()
 import Compiler.Prettify.InferenceProcessorOutput ()
 import Compiler.Prettify.SyntaxProcessorDebugOutput ()
@@ -18,15 +18,8 @@ import Compiler.Prettify.Utils
 import Frontend.Processor
 
 instance Prettifiable FrontendProcessorOutput where
-    prettify FrontendProcessorOutput { getFrontendProcessorOutputInfix = operators
-                                     , getFrontendProcessorOutputDesugaring = desugaring
-                                     , getFrontendProcessorOutputInference = inference
-                                     } =
-        unlines'
-            [ prettifyWithHeader "Infix operators:" operators
-            , prettifyWithHeader "Desugaring output:" desugaring
-            , prettifyWithHeader "Inference output:" inference
-            ]
+    prettify FrontendProcessorOutput {getFrontendProcessorOutputInference = inference} =
+        unlines' [prettifyWithHeader "Inference output:" inference]
 
 instance Prettifiable FrontendProcessorDebugOutput where
     prettify FrontendProcessorDebugOutput { getFrontendProcessorDebugOutputSyntax = syntax

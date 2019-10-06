@@ -14,14 +14,13 @@ import qualified Data.List.NonEmpty as NE
 import Data.Maybe (catMaybes)
 import Data.Tuple (swap)
 
-import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
+import Core.Ident
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Class (Class(..))
 import Frontend.Inference.Constraint
 import Frontend.Inference.Instance (Instance(..))
 import Frontend.Inference.Kind.Processor (KindInferenceEnvironmentItem(..))
 import Frontend.Inference.Signature
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
 import Frontend.Syntax.Token
 
@@ -82,33 +81,51 @@ instance Prettifiable SourcePosition where
     prettify (SourcePosition line column) =
         concat ["(", show line, ", ", show column, ")"]
 
-prettifyEntityName :: EntityName -> String
-prettifyEntityName = intercalate "."
-
 instance Prettifiable Ident where
     prettify ident =
         case ident of
-            IdentNamed name -> prettifyEntityName name
+            IdentUserDefined inner -> prettify inner
+            IdentGenerated inner -> prettify inner
+
+instance Prettifiable UserDefinedIdent where
+    prettify ident =
+        case ident of
+            IdentQualified path inner ->
+                intercalate "." $ path ++ [prettify inner]
+            IdentSimple inner -> prettify inner
+
+instance Prettifiable SimpleIdent where
+    prettify ident =
+        case ident of
+            IdentNamed name -> name
             IdentParametrised name param ->
-                "(" ++ prettifyEntityName name ++ ", " ++ show param ++ ")"
-            IdentGenerated env param ->
+                "(" ++ name ++ ", " ++ show param ++ ")"
+
+instance Prettifiable GeneratedIdent where
+    prettify ident =
+        case ident of
+            GeneratedIdent env param ->
                 "(" ++ prettify env ++ ": " ++ show param ++ ")"
-            IdentScoped idents -> intercalate "->" (map prettify idents)
-            IdentInstance className instanceName ->
+            GeneratedIdentGroup idents ->
+                "(" ++ intercalate "," (map prettify idents) ++ ")"
+            GeneratedIdentScoped idents ->
+                intercalate "->" (map prettify idents)
+            GeneratedIdentInstance className instanceName ->
                 "(" ++
                 prettify className ++ ": " ++ prettify instanceName ++ ")"
 
-instance Prettifiable IdentEnvironment where
+instance Prettifiable GeneratedIdentEnvironment where
     prettify env =
         case env of
-            IdentEnvironmentRecordDesugaring -> "record"
-            IdentEnvironmentExpressionDesugaring -> "exp"
-            IdentEnvironmentTypeVariable -> "type"
-            IdentEnvironmentKindVariable -> "kind"
-            IdentEnvironmentSortVariable -> "sort"
-            IdentEnvironmentInstances -> "instance"
-            IdentEnvironmentLet -> "let"
-            IdentEnvironmentTranslation -> "translation"
+            GeneratedIdentEnvironmentGrouping -> "grouping"
+            GeneratedIdentEnvironmentRecordDesugaring -> "record"
+            GeneratedIdentEnvironmentExpressionDesugaring -> "exp"
+            GeneratedIdentEnvironmentTypeVariable -> "type"
+            GeneratedIdentEnvironmentKindVariable -> "kind"
+            GeneratedIdentEnvironmentSortVariable -> "sort"
+            GeneratedIdentEnvironmentInstances -> "instance"
+            GeneratedIdentEnvironmentLet -> "let"
+            GeneratedIdentEnvironmentTranslation -> "translation"
 
 prettifyForAll :: [(Ident, a)] -> String
 prettifyForAll [] = ""

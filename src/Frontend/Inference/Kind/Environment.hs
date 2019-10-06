@@ -16,7 +16,7 @@ import Frontend.Desugaring.Final.Ast
 data KindInferenceEnvironmentItem
     = KindInferenceEnvironmentItemTypeSynonym TypeSynonym
     | KindInferenceEnvironmentItemDataType DataType
-    | KindInferenceEnvironmentItemClass Class
+    | KindInferenceEnvironmentItemClass (Class Exp)
     deriving (Eq, Show)
 
 -- | Environment of kind inference
@@ -24,7 +24,7 @@ type KindInferenceEnvironment = HM.HashMap Ident KindInferenceEnvironmentItem
 
 -- | Prepares a kind inferens environment
 prepareEnvironment ::
-       TypeSynonyms -> DataTypes -> Classes -> KindInferenceEnvironment
+       TypeSynonyms -> DataTypes -> Classes Exp -> KindInferenceEnvironment
 prepareEnvironment typeSynonyms dataTypes classes =
     HM.unions
         [ HM.map KindInferenceEnvironmentItemTypeSynonym typeSynonyms
