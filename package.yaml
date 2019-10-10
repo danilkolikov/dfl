@@ -98,6 +98,8 @@ library:
   - Frontend.Desugaring.Record.Field
   - Frontend.Desugaring.Record.Processor
   - Frontend.Desugaring.Record.Util
+  - Frontend.Export.Ast
+  - Frontend.Export.Collecting
   - Frontend.HeaderProcessor
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class
