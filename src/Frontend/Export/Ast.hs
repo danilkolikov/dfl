@@ -15,7 +15,7 @@ module Frontend.Export.Ast
 import Data.HashMap.Lazy (HashMap)
 
 import Core.Ident
-import Frontend.Desugaring.Final.Ast (FixitySignature(..))
+import Frontend.Desugaring.Final.Ast (Fixity(..))
 import Frontend.Inference.Constraint
 import Frontend.Inference.Instance
 import Frontend.Inference.Signature
@@ -72,3 +72,9 @@ data Expression = Expression
 
 -- | A map of expressions
 type Expressions = HashMap Ident Expression
+
+-- | A fixity of an expression
+data FixitySignature = FixitySignature
+    { getFixitySignatureFixity :: Fixity -- ^ Fixity
+    , getFixitySignaturePrecedence :: Int -- ^ Precedence
+    } deriving (Eq, Show)

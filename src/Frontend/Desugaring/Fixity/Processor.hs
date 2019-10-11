@@ -29,17 +29,27 @@ resolveModuleFixity importedOperators module' =
 
 resolveModule :: Module G.Exp -> FixityResolver (Module Exp)
 resolveModule module'
-    | Module {getModuleClasses = classes, getModuleExpressions = expressions} <-
-         module' =
-        let topLevelOperators = collectTopLevelOperators classes expressions
+    | Module { getModuleDataTypes = dataTypes
+             , getModuleClasses = classes
+             , getModuleExpressions = expressions
+             } <- module' =
+        let topLevelOperators =
+                collectTopLevelOperators dataTypes classes expressions
          in defineOperators topLevelOperators $
             mapExpressionM resolveExp module'
 
-collectTopLevelOperators :: Classes G.Exp -> Expressions G.Exp -> InfixOperators
-collectTopLevelOperators classes expressions =
-    let collectMethodSignatures = HM.mapMaybe getMethodFixity
+collectTopLevelOperators ::
+       DataTypes -> Classes G.Exp -> Expressions G.Exp -> InfixOperators
+collectTopLevelOperators dataTypes classes expressions =
+    let collectConstructorSignatures =
+            HM.mapMaybe getConstructorFixity . HM.fromList
+        dataTypeOperators =
+            mconcat .
+            map (collectConstructorSignatures . getDataTypeConstructors) $
+            HM.elems dataTypes
+        collectMethodSignatures = HM.mapMaybe getMethodFixity
         classOperators =
             mconcat . map (collectMethodSignatures . getClassMethods) $
             HM.elems classes
         expressionsOperators = collectSignatures expressions
-     in classOperators <> expressionsOperators
+     in dataTypeOperators <> classOperators <> expressionsOperators

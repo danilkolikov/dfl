@@ -29,6 +29,7 @@ data GroupingProcessorError
     | GroupingProcessorErrorMissingExpressionDefinition (WithLocation Ident) -- ^ Definition of an expression is missing
     | GroupingProcessorErrorMissingMethodType (WithLocation Ident) -- ^ Definition of a method is missing a tupe signature
     | GroupingProcessorErrorDifferentNumberOfArguments (WithLocation Ident) -- ^ Declarations of a function have differnt number of arguments
+    | GroupingProcessorErrorUnexpectedFixitySignature (WithLocation Ident) -- ^ Fixity signature without an actual declaration
     deriving (Show, Eq)
 
 -- | Type for a context of defined names

@@ -47,8 +47,12 @@ printList :: (PrettyPrintable a) => [a] -> PrettyPrinter
 printList = multiplePrinters . map prettyPrint
 
 instance PrettyPrintable FixitySignature where
-    prettyPrint (FixitySignature fixity prec) =
-        joinPrinters [singleLine (show fixity), singleLine (show prec)]
+    prettyPrint (FixitySignature name fixity prec) =
+        joinPrinters
+            [ singleLine (prettify name)
+            , singleLine (show fixity)
+            , singleLine (show prec)
+            ]
 
 instance (PrettyPrintable a) => PrettyPrintable (Expression a) where
     prettyPrint (Expression name body Nothing Nothing) =
@@ -139,8 +143,15 @@ instance (PrettyPrintable a) => PrettyPrintable (Class a) where
             ]
 
 instance PrettyPrintable Constructor where
-    prettyPrint (Constructor name args fields) =
-        joinPrinters [prettyPrint name, notSep args, singleLine $ show fields]
+    prettyPrint (Constructor name args fixity fields) =
+        joinPrinters
+            [ prettyPrint name
+            , notSep args
+            , case fixity of
+                  Just t -> prettyPrint t
+                  Nothing -> joinPrinters []
+            , singleLine $ show fields
+            ]
 
 instance PrettyPrintable DataType where
     prettyPrint (DataType context name params deriving' constructors isNewType') =

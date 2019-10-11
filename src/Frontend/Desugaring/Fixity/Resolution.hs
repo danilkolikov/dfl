@@ -65,7 +65,8 @@ resolveFlatInfix ::
 resolveFlatInfix =
     let dummySignature =
             FixitySignature
-                { getFixitySignatureFixity = Infix
+                { getFixitySignatureName = undefined
+                , getFixitySignatureFixity = Infix
                 , getFixitySignaturePrecedence = -1
                 }
      in startResolution dummySignature dummyLocation
@@ -77,7 +78,7 @@ startResolution ::
     -> SourceLocation
     -> [FlatInfix a]
     -> FixityResolver (WithLocation a, [FlatInfix a])
-startResolution infixOp@(FixitySignature _ prec) loc list
+startResolution infixOp@(FixitySignature _ _ prec) loc list
     | [] <- list = raiseError $ FixityResolutionErrorMissingOperand loc
     | FlatInfixOp m@(WithLocation op' loc'):rest <- list =
         if isMinus op'
@@ -100,14 +101,14 @@ continueResolution ::
     -> WithLocation a
     -> [FlatInfix a]
     -> FixityResolver (WithLocation a, [FlatInfix a])
-continueResolution infixOp1@(FixitySignature fix1 prec1) e1 list
+continueResolution infixOp1@(FixitySignature _ fix1 prec1) e1 list
     | [] <- list = return (e1, [])
     | FlatInfixExp e2:_ <- list =
         raiseError $ FixityResolutionErrorMissingOperator (getLocation e2)
     | FlatInfixOp op2:rest <- list = do
         infixOp2 <- lookupOperator op2
         case infixOp2 of
-            (FixitySignature fix2 prec2)
+            (FixitySignature _ fix2 prec2)
                 | prec1 == prec2 && (fix1 /= fix2 || fix1 == Infix) ->
                     raiseError $ FixityResolutionErrorFixityConflict op2
                 | prec1 > prec2 || (prec1 == prec2 && fix1 == InfixL) ->

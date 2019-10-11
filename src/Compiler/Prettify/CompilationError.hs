@@ -169,6 +169,9 @@ instance Prettifiable GroupingProcessorError where
             GroupingProcessorErrorNameConflict name1 name2 ->
                 "Expressions share the same name: " ++
                 prettifyName name1 ++ " and " ++ prettifyName name2
+            GroupingProcessorErrorUnexpectedFixitySignature name ->
+                "Fixity signature of " ++
+                prettifyName name ++ " has no corresponding definition."
 
 instance Prettifiable CheckingError where
     prettify err =

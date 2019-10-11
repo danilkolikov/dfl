@@ -78,11 +78,12 @@ collectClasses desugaredClasses typeConstructors classes methods =
     collectMethod desugaredMethods name =
         let F.Method {F.getMethodFixity = fixity} =
                 lookupOrFail name desugaredMethods
+            resultFixity = collectFixity <$> fixity
             signature = lookupOrFail name methods
             expression =
                 Expression
                     { getExpressionType = signature
-                    , getExpressionFixity = fixity
+                    , getExpressionFixity = resultFixity
                     }
          in (name, expression)
 
@@ -105,14 +106,15 @@ collectDataTypes desugaredDataType typeConstructors constructors =
                 , isNewType = newType
                 }
     collectConstructor (name, desugaredConstructor)
-        | F.Constructor {F.getConstructorFields = fields} <-
-             desugaredConstructor =
+        | F.Constructor { F.getConstructorFixity = fixity
+                        , F.getConstructorFields = fields
+                        } <- desugaredConstructor =
             let signature = lookupOrFail name constructors
-                fixity = Nothing -- TODO: Propagate fixity of infix constructors
+                resultFixity = collectFixity <$> fixity
                 expression =
                     Expression
                         { getExpressionType = signature
-                        , getExpressionFixity = fixity
+                        , getExpressionFixity = resultFixity
                         }
                 constructor =
                     Constructor
@@ -128,11 +130,20 @@ collectExpressions desugaredExpressions expressions =
   where
     collectExpression name F.Expression {F.getExpressionFixity = fixity} =
         let signature = lookupOrFail name expressions
+            resultFixity = collectFixity <$> fixity
          in Expression
                 { getExpressionType = snd signature
-                , getExpressionFixity = fixity
+                , getExpressionFixity = resultFixity
                 }
 
 -- | Finds a value or halts the program
 lookupOrFail :: Ident -> HM.HashMap Ident a -> a
 lookupOrFail name = fromJust . HM.lookup name
+
+-- | Collects fixity
+collectFixity :: F.FixitySignature -> FixitySignature
+collectFixity F.FixitySignature { F.getFixitySignatureFixity = fixity
+                                , F.getFixitySignaturePrecedence = prec
+                                } =
+    FixitySignature
+        {getFixitySignatureFixity = fixity, getFixitySignaturePrecedence = prec}

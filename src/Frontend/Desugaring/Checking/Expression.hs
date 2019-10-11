@@ -33,12 +33,13 @@ checkExpression Expression { getExpressionName = name
                            } = do
     checkedName <- checkExpressionName name
     checkedType <- traverse checkTypeSignature type'
+    checkedFixity <- traverse checkFixitySignature fixity
     checkedBody <- checkExp body
     let res =
             Expression
                 { getExpressionName = checkedName
                 , getExpressionType = checkedType
-                , getExpressionFixity = fixity
+                , getExpressionFixity = checkedFixity
                 , getExpressionBody = checkedBody
                 }
     return (getValue checkedName, res)
@@ -56,12 +57,13 @@ checkMethod Method { getMethodName = name
                    } = do
     checkedName <- checkExpressionName name
     checkedType <- checkTypeSignature type'
+    checkedFixity <- traverse checkFixitySignature fixity
     checkedBody <- traverse checkExp body
     let res =
             Method
                 { getMethodName = checkedName
                 , getMethodType = checkedType
-                , getMethodFixity = fixity
+                , getMethodFixity = checkedFixity
                 , getMethodBody = checkedBody
                 }
     return (getValue checkedName, res)

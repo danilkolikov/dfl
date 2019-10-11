@@ -62,3 +62,13 @@ groupClassAssignments classAssignments =
                     I.AssignmentFixity name' fixity prec
         assignments = map makeAssignment classAssignments
      in groupMethods assignments
+
+-- | Adds missing fixity signatures to methods of a class
+addFixityToClassMethods :: HM.HashMap Ident FixitySignature -> Class Exp -> Class Exp
+addFixityToClassMethods fixities cls@Class {getClassMethods = methods} =
+    cls {getClassMethods = HM.mapWithKey addFixity methods}
+  where
+    addFixity name method =
+        case HM.lookup name fixities of
+            Nothing -> method
+            Just fixity -> method {getMethodFixity = Just fixity}

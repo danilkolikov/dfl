@@ -9,6 +9,7 @@ Grouping of data types
 module Frontend.Desugaring.Grouping.DataType
     ( groupDataTypes
     , groupDataType
+    , addFixityToDataTypeConstructors
     ) where
 
 import qualified Data.HashMap.Lazy as HM
@@ -35,7 +36,7 @@ groupDataType (I.TopDeclData context simpleType constrs deriving') =
                     let wrappedName = wrapIdent name'
                         wrappedTypes = map wrapType types
                      in ( getValue wrappedName
-                        , Constructor wrappedName wrappedTypes HM.empty)
+                        , Constructor wrappedName wrappedTypes Nothing HM.empty)
                 (I.ConstrRecord name' fields') ->
                     let fieldPairs =
                             map
@@ -49,7 +50,7 @@ groupDataType (I.TopDeclData context simpleType constrs deriving') =
                         wrappedName = wrapIdent name'
                         wrappedTypes = map wrapType types
                      in ( getValue wrappedName
-                        , Constructor wrappedName wrappedTypes fieldsMap)
+                        , Constructor wrappedName wrappedTypes Nothing fieldsMap)
         constructors = map getConstructor constrs
         getFields c =
             case getValue c of
@@ -90,7 +91,11 @@ groupDataType (I.TopDeclNewType context simpleType constr deriving') =
                       let wrappedName = wrapIdent name'
                           wrappedType = wrapType type'
                        in ( getValue wrappedName
-                          , Constructor wrappedName [wrappedType] HM.empty)
+                          , Constructor
+                                wrappedName
+                                [wrappedType]
+                                Nothing
+                                HM.empty)
                   I.NewConstrRecord name' getter type' ->
                       let wrappedName = wrapIdent name'
                           wrappedGetter = wrapIdent getter
@@ -99,6 +104,7 @@ groupDataType (I.TopDeclNewType context simpleType constr deriving') =
                           , Constructor
                                 wrappedName
                                 [wrappedType]
+                                Nothing
                                 (HM.singleton (getValue wrappedGetter) 0))
             ]
         fields =
@@ -124,6 +130,17 @@ groupDataType (I.TopDeclNewType context simpleType constr deriving') =
                 True
      in defineDataType dataTypeName dataType constructorNames fields
 groupDataType _ = return Nothing
+
+-- | Adds missing fixity signatures to constructors of a data type
+addFixityToDataTypeConstructors ::
+       HM.HashMap Ident FixitySignature -> DataType -> DataType
+addFixityToDataTypeConstructors fixities dataType@DataType {getDataTypeConstructors = constructors} =
+    dataType {getDataTypeConstructors = map addFixity constructors}
+  where
+    addFixity (name, constr) =
+        case HM.lookup name fixities of
+            Nothing -> (name, constr)
+            Just fixity -> (name, constr {getConstructorFixity = Just fixity})
 
 defineDataType ::
        WithLocation Ident

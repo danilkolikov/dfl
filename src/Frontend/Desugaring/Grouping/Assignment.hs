@@ -26,23 +26,25 @@ import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
 -- | Desugar a list of top level declarations to expressions
 groupTopLevelAssignments ::
-       [WithLocation I.TopDecl] -> GroupingProcessor (Expressions Exp)
+       [WithLocation I.TopDecl]
+    -> GroupingProcessor (Expressions Exp, HM.HashMap Ident FixitySignature)
 groupTopLevelAssignments topDecls = do
     let selectAssignment t =
             case getValue t of
                 I.TopDeclAssignment a -> Just a
                 _ -> Nothing
         assignments = mapMaybe selectAssignment topDecls
-    grouped <- groupAssignments assignments
+    (grouped, fixities) <- baseGroupAssignments assignments
     let functions = map (getExpressionName . snd) $ HM.toList grouped
     mapM_ defineExpressionName functions
-    return grouped
+    return (grouped, fixities)
 
--- | Desugar a list of prepared assignments into Expressions
-groupAssignments ::
-       [WithLocation I.Assignment] -> GroupingProcessor (Expressions Exp)
-groupAssignments assignments = do
-    (methods, expressions) <- groupAssignmentsWithMethods assignments
+-- | Desugar a list of prepared assignments into Expressions and fixity signatures
+baseGroupAssignments ::
+       [WithLocation I.Assignment]
+    -> GroupingProcessor (Expressions Exp, HM.HashMap Ident FixitySignature)
+baseGroupAssignments assignments = do
+    (methods, expressions, fixities) <- groupAssignmentsWithMethods assignments
     let methodsWithoutImplementation =
             filter
                 (\Method {getMethodBody = def} -> isNothing def)
@@ -51,26 +53,46 @@ groupAssignments assignments = do
         raiseGroupingError $
         GroupingProcessorErrorMissingExpressionDefinition
             (getMethodName . head $ methodsWithoutImplementation)
+    return (expressions, fixities)
+
+-- | Ensures that a provided map of fixity signatures is empty
+ensureEmptyFixities :: HM.HashMap Ident FixitySignature -> GroupingProcessor ()
+ensureEmptyFixities fixities =
+    unless (null fixities) .
+    raiseGroupingError .
+    GroupingProcessorErrorUnexpectedFixitySignature .
+    getFixitySignatureName . head $
+    HM.elems fixities
+
+-- | Desugar a list of prepared assignments into Expressions
+groupAssignments ::
+       [WithLocation I.Assignment] -> GroupingProcessor (Expressions Exp)
+groupAssignments assignments = do
+    (expressions, fixities) <- baseGroupAssignments assignments
+    ensureEmptyFixities fixities
     return expressions
 
 -- | Desugar a list of prepared assignments into Methods
 groupMethods :: [WithLocation I.Assignment] -> GroupingProcessor (Methods Exp)
 groupMethods assignments = do
-    (methods, expressions) <- groupAssignmentsWithMethods assignments
+    (methods, expressions, fixities) <- groupAssignmentsWithMethods assignments
     let expressionsWithoutSignature =
             filter
                 (\Expression {getExpressionType = sig} -> isNothing sig)
                 (map snd $ HM.toList expressions)
-    unless (null expressionsWithoutSignature) $
-        raiseGroupingError $
-        GroupingProcessorErrorMissingMethodType
-            (getExpressionName . head $ expressionsWithoutSignature)
+    unless (null expressionsWithoutSignature) .
+        raiseGroupingError .
+        GroupingProcessorErrorMissingMethodType . getExpressionName . head $
+        expressionsWithoutSignature
+    ensureEmptyFixities fixities
     return methods
 
 -- | Desugar a list of prepared assignments into Methods and Expressions
 groupAssignmentsWithMethods ::
        [WithLocation I.Assignment]
-    -> GroupingProcessor (Methods Exp, Expressions Exp)
+    -> GroupingProcessor ( Methods Exp
+                         , Expressions Exp
+                         , HM.HashMap Ident FixitySignature)
 groupAssignmentsWithMethods assignments = do
     GroupedAssignments { getGroupedAssignmentsGroups = grouped
                        , getGroupedAssignmentsPatterns = patterns
@@ -80,9 +102,8 @@ groupAssignmentsWithMethods assignments = do
     groups <- mapM processGroup (HM.elems grouped)
     let patternExprs = concatMap groupSinglePattern patterns
     ensureNoIntersection groups patternExprs
-    let (methodsMap, expressionsMap) =
-            splitToMethodsAndExpressions types fixities $ groups ++ patternExprs
-    return (methodsMap, expressionsMap)
+    return . splitToMethodsAndExpressions types fixities $
+        groups ++ patternExprs
 
 -- | Group assignments from the provided list of Assignment-s
 groupAssignments' ::
@@ -141,7 +162,7 @@ groupAssignments' = foldM processSingle mempty
             I.AssignmentFixity name fixity prec -> do
                 let wrappedName = wrapIdent name
                     name' = getValue wrappedName
-                    fixitySignature = FixitySignature fixity prec
+                    fixitySignature = FixitySignature wrappedName fixity prec
                 unless (all (\(n, _) -> getValue n /= name') fixities) $
                     raiseGroupingError $
                     GroupingProcessorErrorDuplicatedFixityDeclaration
@@ -158,7 +179,7 @@ splitToMethodsAndExpressions ::
        [(WithLocation Ident, TypeSignature)]
     -> [(WithLocation Ident, FixitySignature)]
     -> [(WithLocation Ident, WithLocation Exp)]
-    -> (Methods Exp, Expressions Exp)
+    -> (Methods Exp, Expressions Exp, HM.HashMap Ident FixitySignature)
 splitToMethodsAndExpressions types fixities exprs =
     let typesMap = HM.fromList $ map (first getValue) types
         fixitiesMap = HM.fromList $ map (first getValue) fixities
@@ -182,7 +203,13 @@ splitToMethodsAndExpressions types fixities exprs =
         typeNames = HM.keysSet typesMap `HS.difference` expNames
         methods =
             filter (\(name, _) -> getValue name `HS.member` typeNames) types
-     in mconcat $ map processExp exprs ++ map processType methods
+        (resultMethods, resultExps) =
+            mconcat $ map processExp exprs ++ map processType methods
+        remainingFixity =
+            HM.fromList (map (first getValue) fixities) `HM.difference`
+            resultMethods `HM.difference`
+            resultExps
+     in (resultMethods, resultExps, remainingFixity)
 
 -- | Desugars a single group of assignments
 processGroup ::

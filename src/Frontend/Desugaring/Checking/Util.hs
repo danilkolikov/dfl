@@ -40,6 +40,12 @@ checkTypeSignature TypeSignature { getTypeSignatureContext = context
             , getTypeSignatureType = checkedType
             }
 
+-- | Checks the name of a fixity signature
+checkFixitySignature :: FixitySignature -> CheckingProcessor FixitySignature
+checkFixitySignature sig@FixitySignature {getFixitySignatureName = name} = do
+    checkedName <- checkExpressionName name
+    return sig {getFixitySignatureName = checkedName}
+
 -- | Checks idents in a constraint
 checkConstraint ::
        WithLocation Constraint -> CheckingProcessor (WithLocation Constraint)

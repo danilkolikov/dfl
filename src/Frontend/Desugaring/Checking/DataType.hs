@@ -44,10 +44,12 @@ checkConstructor ::
        (Ident, Constructor) -> CheckingProcessor (Ident, Constructor)
 checkConstructor (_, Constructor { getConstructorName = name
                                  , getConstructorArgs = args
+                                 , getConstructorFixity = fixity
                                  , getConstructorFields = fields
                                  }) = do
     checkedName <- checkExpressionName name
     checkedArgs <- mapM checkType args
+    checkedFixity <- traverse checkFixitySignature fixity
     let checkField (fieldName, pos) = do
             checkedFieldName <-
                 checkExpressionName (withDummyLocation fieldName)
@@ -58,5 +60,6 @@ checkConstructor (_, Constructor { getConstructorName = name
         , Constructor
               { getConstructorName = checkedName
               , getConstructorArgs = checkedArgs
+              , getConstructorFixity = checkedFixity
               , getConstructorFields = checkedFields
               })

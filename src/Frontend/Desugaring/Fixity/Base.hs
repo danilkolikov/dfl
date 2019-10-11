@@ -16,26 +16,36 @@ import Data.Maybe (fromMaybe)
 
 import Core.PredefinedIdents
 import Frontend.Desugaring.Fixity.Ast
-import Frontend.Syntax.Position (SourceLocation(..), WithLocation(..))
+import Frontend.Syntax.Position
+    ( SourceLocation(..)
+    , WithLocation(..)
+    , withDummyLocation
+    )
 
 -- | Predefined operator for the unary minus
 minusFixitySignature :: FixitySignature
 minusFixitySignature =
     FixitySignature
-        {getFixitySignatureFixity = InfixL, getFixitySignaturePrecedence = 6}
+        { getFixitySignatureName = withDummyLocation $ IdentUserDefined mINUS
+        , getFixitySignatureFixity = InfixL
+        , getFixitySignaturePrecedence = 6
+        }
 
 -- | A default fixity signature
-defaultFixitySignature :: FixitySignature
-defaultFixitySignature =
+defaultFixitySignature :: WithLocation Ident -> FixitySignature
+defaultFixitySignature name =
     FixitySignature
-        {getFixitySignatureFixity = InfixL, getFixitySignaturePrecedence = 9}
+        { getFixitySignatureName = name
+        , getFixitySignatureFixity = InfixL
+        , getFixitySignaturePrecedence = 9
+        }
 
 -- | By default, we assume that implicitly defined operators have left fixity,
 --   and their precedence is 9
-getUndefinedFixitySignature :: Ident -> FixitySignature
+getUndefinedFixitySignature :: WithLocation Ident -> FixitySignature
 getUndefinedFixitySignature name
-    | isMinus name = minusFixitySignature -- Fixity is defined for "-"
-    | otherwise = defaultFixitySignature
+    | isMinus (getValue name) = minusFixitySignature -- Fixity is defined for "-"
+    | otherwise = defaultFixitySignature name
 
 -- | Checks that an identifier is a minus
 isMinus :: Ident -> Bool
@@ -58,9 +68,11 @@ type InfixOperators = HM.HashMap Ident FixitySignature
 -- | Function looks up a specified operator in a stack.
 --   It starts from the top layer, and if this operator is undefined,
 --   a 'defaultFixitySignature' is returned.
-infixOperatorsLookup :: Ident -> InfixOperators -> FixitySignature
+infixOperatorsLookup :: WithLocation Ident -> InfixOperators -> FixitySignature
 infixOperatorsLookup opName ops =
-    fromMaybe (getUndefinedFixitySignature opName) (HM.lookup opName ops)
+    fromMaybe
+        (getUndefinedFixitySignature opName)
+        (HM.lookup (getValue opName) ops)
 
 -- | Resolver of fixity
 type FixityResolver = ReaderT InfixOperators (Except FixityResolutionError)
@@ -72,7 +84,7 @@ runFixityResolver r st = runExcept (runReaderT r st)
 
 -- | Looks up an operator
 lookupOperator :: WithLocation Ident -> FixityResolver FixitySignature
-lookupOperator name = infixOperatorsLookup (getValue name) <$> ask
+lookupOperator name = infixOperatorsLookup name <$> ask
 
 -- | Defines operators
 defineOperators :: InfixOperators -> FixityResolver a -> FixityResolver a

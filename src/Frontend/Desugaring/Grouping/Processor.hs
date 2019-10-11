@@ -13,11 +13,22 @@ module Frontend.Desugaring.Grouping.Processor
     , GroupingDebugOutput(..)
     ) where
 
-import Frontend.Desugaring.Grouping.Assignment (groupTopLevelAssignments)
+import qualified Data.HashMap.Lazy as HM
+
+import Frontend.Desugaring.Grouping.Assignment
+    ( ensureEmptyFixities
+    , groupTopLevelAssignments
+    )
 import Frontend.Desugaring.Grouping.Ast
 import Frontend.Desugaring.Grouping.Base
-import Frontend.Desugaring.Grouping.Class (groupClasses)
-import Frontend.Desugaring.Grouping.DataType (groupDataTypes)
+import Frontend.Desugaring.Grouping.Class
+    ( addFixityToClassMethods
+    , groupClasses
+    )
+import Frontend.Desugaring.Grouping.DataType
+    ( addFixityToDataTypeConstructors
+    , groupDataTypes
+    )
 import Frontend.Desugaring.Grouping.Instance (groupInstances)
 import Frontend.Desugaring.Grouping.TypeSynonym (groupTypeSynonyms)
 import Frontend.Desugaring.Grouping.Util
@@ -48,16 +59,37 @@ groupModule (I.Module name exports _ decls) = do
     instances <- groupInstances decls
     writeGroupingDebugOutput
         mempty {getGroupingDebugOutputInstances = Just instances}
-    exprs <- groupTopLevelAssignments decls
+    (exprs, fixities) <- groupTopLevelAssignments decls
     writeGroupingDebugOutput
         mempty {getGroupingDebugOutputFunctions = Just exprs}
+    -- Set fixity signatures to data types and class methods
+    let classesWithFixity = HM.map (addFixityToClassMethods fixities) classes
+        dataTypesWithFixity =
+            HM.map (addFixityToDataTypeConstructors fixities) dataTypes
+        remainingFixities =
+            getRemainingFixities classesWithFixity dataTypesWithFixity fixities
+    -- Raise an error if not all signatures were used
+    ensureEmptyFixities remainingFixities
     return
         Module
             { getModuleName = wrapIdent name
             , getModuleExports = fmap wrapExport exports
             , getModuleTypeSynonyms = typeSynonyms
-            , getModuleDataTypes = dataTypes
-            , getModuleClasses = classes
+            , getModuleDataTypes = dataTypesWithFixity
+            , getModuleClasses = classesWithFixity
             , getModuleInstances = instances
             , getModuleExpressions = exprs
             }
+
+-- | Selects unused fixity signatures
+getRemainingFixities ::
+       Classes Exp
+    -> DataTypes
+    -> HM.HashMap Ident FixitySignature
+    -> HM.HashMap Ident FixitySignature
+getRemainingFixities classes dataTypes fixities =
+    let methods = HM.unions . map getClassMethods $ HM.elems classes
+        constructors =
+            HM.unions . map (HM.fromList . getDataTypeConstructors) $
+            HM.elems dataTypes
+     in fixities `HM.difference` methods `HM.difference` constructors

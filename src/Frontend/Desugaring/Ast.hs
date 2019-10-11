@@ -69,6 +69,7 @@ type DataTypes = HashMap Ident DataType
 data Constructor = Constructor
     { getConstructorName :: WithLocation Ident -- ^ Name of a constructor
     , getConstructorArgs :: [WithLocation Type] -- ^ Arguments of a constructor
+    , getConstructorFixity :: Maybe FixitySignature -- ^ Optional fixity of a constructor
     , getConstructorFields :: HashMap Ident Int -- ^ Map of fields of a constructor.
     } deriving (Eq, Show)
 
@@ -123,7 +124,8 @@ data TypeSignature = TypeSignature
 
 -- | Fixity signature of an expression
 data FixitySignature = FixitySignature
-    { getFixitySignatureFixity :: Fixity -- ^ Fixity
+    { getFixitySignatureName :: WithLocation Ident -- ^ Name of an operator
+    , getFixitySignatureFixity :: Fixity -- ^ Fixity
     , getFixitySignaturePrecedence :: Int -- ^ Precedence
     } deriving (Eq, Show)
 
