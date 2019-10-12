@@ -34,7 +34,6 @@ library:
   - Compiler.Monad
   - Compiler.Module.Base
   - Compiler.Module.Dependencies
-  - Compiler.Module.Export
   - Compiler.Module.Import
   - Compiler.Module.Processor
   - Compiler.Processor

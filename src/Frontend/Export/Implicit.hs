@@ -7,8 +7,9 @@ License     :  MIT
 Functions for processing implicit exports of a module
 -}
 module Frontend.Export.Implicit
-    ( selectImplicitExports
-    , ImplicitExport(..)
+    ( ImplicitExport(..)
+    , emptyImplicitExport
+    , selectImplicitExports
     ) where
 
 import qualified Data.HashMap.Lazy as HM
@@ -24,6 +25,10 @@ import Util.HashMap
 newtype ImplicitExport = ImplicitExport
     { getImplicitExportTypeConstructors :: Signatures TypeConstructorSignature
     } deriving (Eq, Show)
+
+-- | Empty implicit exports
+emptyImplicitExport :: ImplicitExport
+emptyImplicitExport = ImplicitExport mempty
 
 -- | Selects implicit exports of a module
 selectImplicitExports ::

@@ -46,7 +46,7 @@ instance Prettifiable FileName where
     prettify = show . getFileName
 
 -- | A state of the module processor
-type ModuleProcessorState = HM.HashMap String FrontendProcessorOutput
+type ModuleProcessorState = HM.HashMap String ModuleExports
 
 -- | An empty state
 emptyModuleProcessorState :: ModuleProcessorState
@@ -55,7 +55,7 @@ emptyModuleProcessorState = HM.empty
 -- | Save a module to a state
 saveModule ::
        String
-    -> FrontendProcessorOutput
+    -> ModuleExports
     -> ModuleProcessorState
     -> ModuleProcessorState
 saveModule = HM.insert

@@ -9,6 +9,8 @@ Processor of DFL frontend
 module Frontend.Processor
     ( FrontendProcessorError(..)
     , FrontendProcessorOutput(..)
+    , ModuleExports(..)
+    , ImplicitExport(..)
     , emptyFrontendProcessorOutput
     , FrontendProcessorDebugOutput(..)
     , processSourceFile
@@ -19,6 +21,7 @@ import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Checking.Base (ImportedGroups(..))
 import Frontend.Desugaring.Processor
+import Frontend.Export.Processor
 import Frontend.Inference.BuiltIns
 import Frontend.Inference.Processor
 import Frontend.Syntax.Position (withDummyLocation)
@@ -35,13 +38,16 @@ data FrontendProcessorError
 -- | An output of processing sources files
 data FrontendProcessorOutput = FrontendProcessorOutput
     { getFrontendProcessorOutputInference :: InferenceProcessorOutput -- ^ Output of inference
+    , getFrontendProcessorOutputExports :: ModuleExports -- ^ Exports of a module
     } deriving (Eq, Show)
 
 -- | An empty output
 emptyFrontendProcessorOutput :: FrontendProcessorOutput
 emptyFrontendProcessorOutput =
     FrontendProcessorOutput
-        {getFrontendProcessorOutputInference = defaultInferenceProcessorOutput}
+        { getFrontendProcessorOutputInference = defaultInferenceProcessorOutput
+        , getFrontendProcessorOutputExports = emptyModuleExports
+        }
 
 -- | A debug output of processing source files
 data FrontendProcessorDebugOutput = FrontendProcessorDebugOutput
@@ -95,9 +101,12 @@ processSourceFile initialState fileName stream
                                    Just debug
                              }) $
                 processModule initialInferenceState desugaredAst
+            let exports = processModuleExports desugaredAst inferenceOutput
             return
                 FrontendProcessorOutput
-                    {getFrontendProcessorOutputInference = inferenceOutput}
+                    { getFrontendProcessorOutputInference = inferenceOutput
+                    , getFrontendProcessorOutputExports = exports
+                    }
 
 -- | An empty group of imported definitions
 builtInImportedGroups :: ImportedGroups

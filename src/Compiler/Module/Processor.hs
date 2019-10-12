@@ -15,8 +15,8 @@ import qualified Data.HashSet as HS
 import Compiler.Base
 import Compiler.Module.Base
 import Compiler.Module.Dependencies
-import Compiler.Module.Export
 import Compiler.Module.Import
+import Compiler.Prettify.ModuleExports ()
 import Frontend.HeaderProcessor
 import Frontend.Processor
 import Util.DependencyResolver
@@ -47,11 +47,13 @@ compileModule initialState group = do
         processModuleHeader fileName fileContent
     -- Select imported declarations and compile
     let importedState = selectImports initialState header
-    output <-
+    FrontendProcessorOutput { getFrontendProcessorOutputInference = inference
+                            , getFrontendProcessorOutputExports = exports
+                            } <-
         traceStepWithDebugOutput (fileName ++ ".frontend") $
         processSourceFile importedState fileName tokens
     -- Select exported declarations and save
-    let exportedState = selectExports output header
-    writeToFile (fileName ++ ".out") exportedState
+    writeToFile (fileName ++ ".inf") inference
+    writeToFile (fileName ++ ".out") exports
     -- Combine state
-    return $ saveModule fileName exportedState initialState
+    return $ saveModule fileName exports initialState

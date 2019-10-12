@@ -8,6 +8,7 @@ Functions for processing module exports
 -}
 module Frontend.Export.Processor
     ( ModuleExports(..)
+    , emptyModuleExports
     , ImplicitExport(..)
     , module Frontend.Export.Ast
     , processModuleExports
@@ -25,6 +26,10 @@ data ModuleExports = ModuleExports
     { getModuleExportsExplicit :: Module
     , getModuleExportsImplicit :: ImplicitExport
     } deriving (Eq, Show)
+
+-- | Empty exports
+emptyModuleExports :: ModuleExports
+emptyModuleExports = ModuleExports mempty emptyImplicitExport
 
 -- | Processes exports of a module
 processModuleExports ::
