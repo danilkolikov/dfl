@@ -17,6 +17,7 @@ import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Export.Ast
 import qualified Frontend.Inference.Class as C
 import qualified Frontend.Inference.Expression as E
+import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Processor
 import Frontend.Inference.Signature
 
@@ -30,6 +31,7 @@ collectExports module' output
     , InferenceProcessorOutput { getInferenceProcessorOutputTypeConstructors = typeConstructors
                                , getInferenceProcessorOutputTypeSynonyms = typeSynonyms
                                , getInferenceProcessorOutputClasses = classes
+                               , getInferenceProcessorOutputDataTypes = dataTypes
                                , getInferenceProcessorOutputInstances = instances
                                , getInferenceProcessorOutputConstructors = constructors
                                , getInferenceProcessorOutputMethods = methods
@@ -39,10 +41,17 @@ collectExports module' output
                 collectClasses desugaredClasses typeConstructors classes methods
             collectedDataTypes =
                 collectDataTypes desugaredDataType typeConstructors constructors
+            collectedGeneratedDataTypes =
+                collectGeneratedDataTypes
+                    collectedClasses
+                    dataTypes
+                    typeConstructors
+                    constructors
             collectedExpressions =
                 collectExpressions desugaredExpressions expressions
          in Module
-                { getModuleDataTypes = collectedDataTypes
+                { getModuleDataTypes =
+                      collectedDataTypes <> collectedGeneratedDataTypes
                 , getModuleTypeSynonyms = typeSynonyms
                 , getModuleClasses = collectedClasses
                 , getModuleInstances = instances
@@ -122,6 +131,40 @@ collectDataTypes desugaredDataType typeConstructors constructors =
                         , getConstructorFields = fields
                         }
              in (name, constructor)
+
+collectGeneratedDataTypes ::
+       Classes
+    -> HM.HashMap Ident K.DataType
+    -> Signatures TypeConstructorSignature
+    -> Signatures TypeSignature
+    -> DataTypes
+collectGeneratedDataTypes classes dataTypes signatures constructors =
+    HM.map processClass classes
+  where
+    processClass Class {getClassDataTypeName = dataTypeName} =
+        let signature = lookupOrFail dataTypeName signatures
+            K.DataType { K.getDataTypeConstructors = dataTypeConstructors
+                       , K.isNewType = newType
+                       } = lookupOrFail dataTypeName dataTypes
+            collectedConstructors = map collectConstructor dataTypeConstructors
+         in DataType
+                { getDataTypeSignature = signature
+                , getDataTypeConstructors = collectedConstructors
+                , isNewType = newType
+                }
+    collectConstructor (name, K.Constructor {K.getConstructorFields = fields}) =
+        let signature = lookupOrFail name constructors
+            expression =
+                Expression
+                    { getExpressionType = signature
+                    , getExpressionFixity = Nothing -- Fixity is not defined for generated constructors
+                    }
+            constructor =
+                Constructor
+                    { getConstructorExpression = expression
+                    , getConstructorFields = fields
+                    }
+         in (name, constructor)
 
 collectExpressions ::
        F.Expressions F.Exp -> Signatures E.ExpWithSignature -> Expressions

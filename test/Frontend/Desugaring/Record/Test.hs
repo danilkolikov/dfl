@@ -67,7 +67,7 @@ testSuite =
         describe "lookupConstructor" $ do
             let unitName = IdentUserDefined . IdentSimple $ IdentNamed "Unit"
                 unitName' = withDummyLocation unitName
-                unitConstructor = F.Constructor unitName' [] HM.empty
+                unitConstructor = F.Constructor unitName' [] Nothing HM.empty
                 unitDataType =
                     F.DataType
                         []
@@ -110,6 +110,7 @@ testSuite =
                 F.Constructor
                     constrName'
                     [type', type']
+                    Nothing
                     (HM.fromList [(field1, 0), (field2, 1)])
             dataType =
                 F.DataType

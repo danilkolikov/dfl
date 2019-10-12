@@ -106,6 +106,7 @@ data InferenceProcessorOutput = InferenceProcessorOutput
     { getInferenceProcessorOutputTypeConstructors :: Signatures TypeConstructorSignature
     , getInferenceProcessorOutputTypeSynonyms :: Signatures TypeSignature
     , getInferenceProcessorOutputClasses :: HM.HashMap Ident C.Class
+    , getInferenceProcessorOutputDataTypes :: HM.HashMap Ident K.DataType
     , getInferenceProcessorOutputInstances :: HM.HashMap Ident I.Instance
     , getInferenceProcessorOutputConstructors :: HM.HashMap Ident TypeSignature
     , getInferenceProcessorOutputMethods :: HM.HashMap Ident TypeSignature
@@ -119,6 +120,7 @@ defaultInferenceProcessorOutput =
         { getInferenceProcessorOutputTypeConstructors = defaultKindSignatures
         , getInferenceProcessorOutputTypeSynonyms = defaultTypeSynonyms
         , getInferenceProcessorOutputClasses = HM.empty
+        , getInferenceProcessorOutputDataTypes = HM.empty
         , getInferenceProcessorOutputInstances = HM.empty
         , getInferenceProcessorOutputConstructors = defaultConstructors
         , getInferenceProcessorOutputMethods = HM.empty
@@ -268,6 +270,7 @@ processModule' initialState module'
                       newTypeConstructors
                 , getInferenceProcessorOutputTypeSynonyms = newTypeSynonyms
                 , getInferenceProcessorOutputClasses = newClasses
+                , getInferenceProcessorOutputDataTypes = dataTypesWithClasses
                 , getInferenceProcessorOutputInstances = instanceMap
                 , getInferenceProcessorOutputConstructors = constructors
                 , getInferenceProcessorOutputMethods = classMethods
