@@ -100,6 +100,9 @@ library:
   - Frontend.Desugaring.Record.Util
   - Frontend.Export.Ast
   - Frontend.Export.Collecting
+  - Frontend.Export.Explicit
+  - Frontend.Export.Implicit
+  - Frontend.Export.Processor
   - Frontend.HeaderProcessor
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class

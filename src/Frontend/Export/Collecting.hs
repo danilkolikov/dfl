@@ -11,7 +11,6 @@ module Frontend.Export.Collecting
     ) where
 
 import qualified Data.HashMap.Lazy as HM
-import Data.Maybe (fromJust)
 
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Export.Ast
@@ -20,6 +19,7 @@ import qualified Frontend.Inference.Expression as E
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Processor
 import Frontend.Inference.Signature
+import Util.HashMap
 
 -- | Collects exports of a module
 collectExports :: F.Module F.Exp -> InferenceProcessorOutput -> Module
@@ -81,7 +81,8 @@ collectClasses desugaredClasses typeConstructors classes methods =
                 , getClassSignature = classSignature
                 , getClassDataTypeName = dataTypeName
                 , getClassGetters = getters
-                , getClassMethods = collectedMethods
+                , getClassComponents = methodNames
+                , getClassMethods = HM.fromList collectedMethods
                 , getClassDefaultInstanceName = defaultInstanceName
                 }
     collectMethod desugaredMethods name =
@@ -111,7 +112,7 @@ collectDataTypes desugaredDataType typeConstructors constructors =
             collectedConstructors = map collectConstructor desugaredConstructors
          in DataType
                 { getDataTypeSignature = signature
-                , getDataTypeConstructors = collectedConstructors
+                , getDataTypeConstructors = HM.fromList collectedConstructors
                 , isNewType = newType
                 }
     collectConstructor (name, desugaredConstructor)
@@ -149,7 +150,7 @@ collectGeneratedDataTypes classes dataTypes signatures constructors =
             collectedConstructors = map collectConstructor dataTypeConstructors
          in DataType
                 { getDataTypeSignature = signature
-                , getDataTypeConstructors = collectedConstructors
+                , getDataTypeConstructors = HM.fromList collectedConstructors
                 , isNewType = newType
                 }
     collectConstructor (name, K.Constructor {K.getConstructorFields = fields}) =
@@ -178,10 +179,6 @@ collectExpressions desugaredExpressions expressions =
                 { getExpressionType = snd signature
                 , getExpressionFixity = resultFixity
                 }
-
--- | Finds a value or halts the program
-lookupOrFail :: Ident -> HM.HashMap Ident a -> a
-lookupOrFail name = fromJust . HM.lookup name
 
 -- | Collects fixity
 collectFixity :: F.FixitySignature -> FixitySignature
