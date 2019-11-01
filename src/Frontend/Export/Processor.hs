@@ -7,29 +7,16 @@ License     :  MIT
 Functions for processing module exports
 -}
 module Frontend.Export.Processor
-    ( ModuleExports(..)
-    , emptyModuleExports
-    , ImplicitExport(..)
-    , module Frontend.Export.Ast
+    ( module Frontend.Export.Base
     , processModuleExports
     ) where
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Export.Ast
+import Frontend.Export.Base
 import Frontend.Export.Collecting
 import Frontend.Export.Explicit
 import Frontend.Export.Implicit
 import Frontend.Inference.Processor
-
--- | All exports of a module
-data ModuleExports = ModuleExports
-    { getModuleExportsExplicit :: Module
-    , getModuleExportsImplicit :: ImplicitExport
-    } deriving (Eq, Show)
-
--- | Empty exports
-emptyModuleExports :: ModuleExports
-emptyModuleExports = ModuleExports mempty emptyImplicitExport
 
 -- | Processes exports of a module
 processModuleExports ::

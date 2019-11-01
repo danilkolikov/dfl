@@ -12,8 +12,7 @@ module Compiler.Prettify.ModuleExports where
 
 import Compiler.Prettify.Expression ()
 import Compiler.Prettify.Utils
-import Frontend.Export.Ast
-import Frontend.Export.Processor
+import Frontend.Export.Base
 
 instance Prettifiable ModuleExports where
     prettify ModuleExports { getModuleExportsExplicit = explicit

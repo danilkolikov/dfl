@@ -39,6 +39,7 @@ library:
   - Compiler.Processor
   - Core.Ident
   - Core.PredefinedIdents
+  - Frontend.Ast
   - Frontend.Desugaring.Ast
   - Frontend.Desugaring.Checking.Base
   - Frontend.Desugaring.Checking.Class
@@ -97,12 +98,13 @@ library:
   - Frontend.Desugaring.Record.Field
   - Frontend.Desugaring.Record.Processor
   - Frontend.Desugaring.Record.Util
-  - Frontend.Export.Ast
+  - Frontend.Export.Base
   - Frontend.Export.Collecting
   - Frontend.Export.Explicit
   - Frontend.Export.Implicit
   - Frontend.Export.Processor
   - Frontend.HeaderProcessor
+  - Frontend.Import.Base
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class
   - Frontend.Inference.Class.Base

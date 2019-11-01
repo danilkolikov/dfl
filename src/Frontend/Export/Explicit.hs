@@ -17,7 +17,7 @@ import Data.List.NonEmpty (toList)
 import Data.Maybe (fromMaybe)
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Export.Ast
+import Frontend.Export.Base
 import Frontend.Inference.Signature
 import Frontend.Syntax.Position
 import Util.HashMap

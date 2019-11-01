@@ -13,7 +13,7 @@ module Frontend.Export.Collecting
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Export.Ast
+import Frontend.Export.Base
 import qualified Frontend.Inference.Class as C
 import qualified Frontend.Inference.Expression as E
 import qualified Frontend.Inference.Kind.Ast as K

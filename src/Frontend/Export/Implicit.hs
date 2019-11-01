@@ -16,19 +16,10 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.List.NonEmpty (NonEmpty, toList)
 
-import Frontend.Export.Ast
+import Frontend.Export.Base
 import Frontend.Inference.Constraint
 import Frontend.Inference.Signature
 import Util.HashMap
-
--- | Implicit exports of a module
-newtype ImplicitExport = ImplicitExport
-    { getImplicitExportTypeConstructors :: Signatures TypeConstructorSignature
-    } deriving (Eq, Show)
-
--- | Empty implicit exports
-emptyImplicitExport :: ImplicitExport
-emptyImplicitExport = ImplicitExport mempty
 
 -- | Selects implicit exports of a module
 selectImplicitExports ::
