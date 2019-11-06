@@ -1,28 +1,29 @@
 {- |
-Module      :  Frontend.Export.Collecting
+Explicit      :  Frontend.Module.Export.Collecting
 Description :  Functions for collecting exported expressions
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Functions for collecting exported expressions
 -}
-module Frontend.Export.Collecting
+module Frontend.Module.Export.Collecting
     ( collectExports
     ) where
 
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Export.Base
 import qualified Frontend.Inference.Class as C
 import qualified Frontend.Inference.Expression as E
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Processor
 import Frontend.Inference.Signature
+import Frontend.Module.Base
 import Util.HashMap
 
 -- | Collects exports of a module
-collectExports :: F.Module F.Exp -> InferenceProcessorOutput -> Module
+collectExports ::
+       F.Module F.Exp -> InferenceProcessorOutput -> (Explicit, Instances)
 collectExports module' output
     | F.Module { F.getModuleDataTypes = desugaredDataType
                , F.getModuleClasses = desugaredClasses
@@ -49,14 +50,15 @@ collectExports module' output
                     constructors
             collectedExpressions =
                 collectExpressions desugaredExpressions expressions
-         in Module
-                { getModuleDataTypes =
-                      collectedDataTypes <> collectedGeneratedDataTypes
-                , getModuleTypeSynonyms = typeSynonyms
-                , getModuleClasses = collectedClasses
-                , getModuleInstances = instances
-                , getModuleExpressions = collectedExpressions
-                }
+            result =
+                Explicit
+                    { getExplicitDataTypes =
+                          collectedDataTypes <> collectedGeneratedDataTypes
+                    , getExplicitTypeSynonyms = typeSynonyms
+                    , getExplicitClasses = collectedClasses
+                    , getExplicitExpressions = collectedExpressions
+                    }
+         in (result, instances)
 
 collectClasses ::
        F.Classes F.Exp

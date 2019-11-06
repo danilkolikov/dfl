@@ -10,7 +10,8 @@ module Frontend.Processor
     ( FrontendProcessorError(..)
     , FrontendProcessorOutput(..)
     , ModuleExports(..)
-    , ImplicitExport(..)
+    , Explicit(..)
+    , Implicit(..)
     , emptyFrontendProcessorOutput
     , FrontendProcessorDebugOutput(..)
     , processSourceFile
@@ -21,9 +22,9 @@ import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Checking.Base (ImportedGroups(..))
 import Frontend.Desugaring.Processor
-import Frontend.Export.Processor
 import Frontend.Inference.BuiltIns
 import Frontend.Inference.Processor
+import Frontend.Module.Export.Processor
 import Frontend.Syntax.Position (withDummyLocation)
 import Frontend.Syntax.Processor
 import Util.Debug

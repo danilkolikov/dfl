@@ -12,34 +12,34 @@ module Compiler.Prettify.ModuleExports where
 
 import Compiler.Prettify.Expression ()
 import Compiler.Prettify.Utils
-import Frontend.Export.Base
+import Frontend.Module.Base
 
 instance Prettifiable ModuleExports where
     prettify ModuleExports { getModuleExportsExplicit = explicit
                            , getModuleExportsImplicit = implicit
+                           , getModuleExportsInstances = instances
                            } =
         unlines'
             [ prettifyWithHeader "Explicit exports:" $ Indented explicit
             , prettifyWithHeader "Implicit exports:" $ Indented implicit
+            , prettifyWithHeader "Instances:" $ Indented instances
             ]
 
-instance Prettifiable ImplicitExport where
-    prettify ImplicitExport {getImplicitExportTypeConstructors = constructors} =
+instance Prettifiable Implicit where
+    prettify Implicit {getImplicitTypeConstructors = constructors} =
         prettifyWithHeader "Type Constructor Signatures:" $
         Indented constructors
 
-instance Prettifiable Module where
-    prettify Module { getModuleDataTypes = dataTypes
-                    , getModuleTypeSynonyms = typeSynonyms
-                    , getModuleClasses = classes
-                    , getModuleInstances = instances
-                    , getModuleExpressions = expressions
-                    } =
+instance Prettifiable Explicit where
+    prettify Explicit { getExplicitDataTypes = dataTypes
+                      , getExplicitTypeSynonyms = typeSynonyms
+                      , getExplicitClasses = classes
+                      , getExplicitExpressions = expressions
+                      } =
         unlines'
             [ prettifyWithHeader "Data types:" $ Indented dataTypes
             , prettifyWithHeader "Type Synonyms:" $ Indented typeSynonyms
             , prettifyWithHeader "Classes:" $ Indented classes
-            , prettifyWithHeader "Instances:" $ Indented instances
             , prettifyWithHeader "Expressions:" $ Indented expressions
             ]
 

@@ -1,14 +1,14 @@
 {- |
-Module      :  Frontend.Export.Implicit
+Module      :  Frontend.Module.Export.Implicit
 Description :  Processor for implicit exports
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Functions for processing implicit exports of a module
 -}
-module Frontend.Export.Implicit
-    ( ImplicitExport(..)
-    , emptyImplicitExport
+module Frontend.Module.Export.Implicit
+    ( Implicit(..)
+    , emptyImplicit
     , selectImplicitExports
     ) where
 
@@ -16,36 +16,34 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import Data.List.NonEmpty (NonEmpty, toList)
 
-import Frontend.Export.Base
 import Frontend.Inference.Constraint
 import Frontend.Inference.Signature
+import Frontend.Module.Base
 import Util.HashMap
 
 -- | Selects implicit exports of a module
 selectImplicitExports ::
-       Module -> Signatures TypeConstructorSignature -> ImplicitExport
-selectImplicitExports explicit signatures =
-    let requiredTypes = getRequiredTypes explicit
-     in ImplicitExport
-            { getImplicitExportTypeConstructors =
+       Explicit -> Instances -> Signatures TypeConstructorSignature -> Implicit
+selectImplicitExports explicit instances signatures =
+    let requiredTypes = getRequiredTypes explicit <> getRequiredTypes instances
+     in Implicit
+            { getImplicitTypeConstructors =
                   intersectKeys requiredTypes signatures
             }
 
 class RequiresTypes a where
     getRequiredTypes :: a -> HS.HashSet Ident
 
-instance RequiresTypes Module where
-    getRequiredTypes Module { getModuleDataTypes = dataTypes
-                            , getModuleTypeSynonyms = typeSynonyms
-                            , getModuleClasses = classes
-                            , getModuleInstances = instances
-                            , getModuleExpressions = expressions
-                            } =
+instance RequiresTypes Explicit where
+    getRequiredTypes Explicit { getExplicitDataTypes = dataTypes
+                              , getExplicitTypeSynonyms = typeSynonyms
+                              , getExplicitClasses = classes
+                              , getExplicitExpressions = expressions
+                              } =
         mconcat
             [ getRequiredTypes dataTypes
             , getRequiredTypes typeSynonyms
             , getRequiredTypes classes
-            , getRequiredTypes instances
             , getRequiredTypes expressions
             ]
 

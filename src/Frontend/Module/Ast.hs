@@ -1,13 +1,13 @@
 {- |
-Module      :  Frontend.Ast
+Module      :  Frontend.Module.Ast
 Description :  Declarations for imports and exports
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
 Declarations, used for imports and exports
 -}
-module Frontend.Ast
-    ( module Frontend.Ast
+module Frontend.Module.Ast
+    ( module Frontend.Module.Ast
     , module Core.Ident
     , module Frontend.Desugaring.Final.Ast
     , module Frontend.Inference.Instance

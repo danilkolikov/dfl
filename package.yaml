@@ -39,7 +39,6 @@ library:
   - Compiler.Processor
   - Core.Ident
   - Core.PredefinedIdents
-  - Frontend.Ast
   - Frontend.Desugaring.Ast
   - Frontend.Desugaring.Checking.Base
   - Frontend.Desugaring.Checking.Class
@@ -98,13 +97,7 @@ library:
   - Frontend.Desugaring.Record.Field
   - Frontend.Desugaring.Record.Processor
   - Frontend.Desugaring.Record.Util
-  - Frontend.Export.Base
-  - Frontend.Export.Collecting
-  - Frontend.Export.Explicit
-  - Frontend.Export.Implicit
-  - Frontend.Export.Processor
   - Frontend.HeaderProcessor
-  - Frontend.Import.Base
   - Frontend.Inference.AlgebraicExp
   - Frontend.Inference.Class
   - Frontend.Inference.Class.Base
@@ -142,9 +135,14 @@ library:
   - Frontend.Inference.TypeSynonym.Expander
   - Frontend.Inference.TypeSynonym.Processor
   - Frontend.Inference.Unification
-  - Util.HashMap
   - Frontend.Inference.Variables
   - Frontend.Inference.WithVariables
+  - Frontend.Module.Ast
+  - Frontend.Module.Base
+  - Frontend.Module.Export.Collecting
+  - Frontend.Module.Export.Explicit
+  - Frontend.Module.Export.Implicit
+  - Frontend.Module.Export.Processor
   - Frontend.Processor
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker
@@ -158,6 +156,7 @@ library:
   - Frontend.Syntax.Token
   - Util.Debug
   - Util.DependencyResolver
+  - Util.HashMap
 
 tests:
   dfl-test:
