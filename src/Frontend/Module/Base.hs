@@ -90,3 +90,6 @@ instance Monoid ModuleImports where
 
 -- | A mapping from name to a corresponding qualified name
 type NameMapping = HashMap Ident (HashSet Ident)
+
+-- | A map of defined modules
+type DefinedModules = HashMap UserDefinedIdent ModuleExports

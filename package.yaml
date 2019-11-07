@@ -34,7 +34,6 @@ library:
   - Compiler.Monad
   - Compiler.Module.Base
   - Compiler.Module.Dependencies
-  - Compiler.Module.Import
   - Compiler.Module.Processor
   - Compiler.Processor
   - Core.Ident
@@ -143,6 +142,7 @@ library:
   - Frontend.Module.Export.Explicit
   - Frontend.Module.Export.Implicit
   - Frontend.Module.Export.Processor
+  - Frontend.Module.Import.Processor
   - Frontend.Processor
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker

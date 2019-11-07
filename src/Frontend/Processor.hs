@@ -24,6 +24,7 @@ import Frontend.Desugaring.Checking.Base (ImportedGroups(..))
 import Frontend.Desugaring.Processor
 import Frontend.Inference.BuiltIns
 import Frontend.Inference.Processor
+import Frontend.Module.Base
 import Frontend.Module.Export.Processor
 import Frontend.Syntax.Position (withDummyLocation)
 import Frontend.Syntax.Processor
@@ -66,48 +67,45 @@ instance Monoid FrontendProcessorDebugOutput where
 
 -- | Processes a source file
 processSourceFile ::
-       FrontendProcessorOutput
+       ModuleImports
     -> String
     -> TokenStream
     -> ( Either FrontendProcessorError FrontendProcessorOutput
        , FrontendProcessorDebugOutput)
-processSourceFile initialState fileName stream
-    | FrontendProcessorOutput {getFrontendProcessorOutputInference = initialInferenceState} <-
-         initialState =
-        runWithDebugOutput $ do
-            ast <-
-                wrapErrorAndDebugOutput
-                    FrontendProcessorErrorSyntax
-                    (\debug ->
-                         mempty
-                             { getFrontendProcessorDebugOutputSyntax =
-                                   Just debug
-                             }) $
-                processModuleSyntax fileName stream
-            desugaredAst <-
-                wrapErrorAndDebugOutput
-                    FrontendProcessorErrorDesugaring
-                    (\debug ->
-                         mempty
-                             { getFrontendProcessorDebugOutputDesugaring =
-                                   Just debug
-                             }) $
-                desugarParsedModule builtInImportedGroups HM.empty ast
-            inferenceOutput <-
-                wrapErrorAndDebugOutput
-                    FrontendProcessorErrorInference
-                    (\debug ->
-                         mempty
-                             { getFrontendProcessorDebugOutputInference =
-                                   Just debug
-                             }) $
-                processModule initialInferenceState desugaredAst
-            let exports = processModuleExports desugaredAst inferenceOutput
-            return
-                FrontendProcessorOutput
-                    { getFrontendProcessorOutputInference = inferenceOutput
-                    , getFrontendProcessorOutputExports = exports
-                    }
+processSourceFile imports fileName stream =
+    runWithDebugOutput $ do
+        let (desugaringState, inferenceState) = buildStates imports
+        ast <-
+            wrapErrorAndDebugOutput
+                FrontendProcessorErrorSyntax
+                (\debug ->
+                     mempty {getFrontendProcessorDebugOutputSyntax = Just debug}) $
+            processModuleSyntax fileName stream
+        desugaredAst <-
+            wrapErrorAndDebugOutput
+                FrontendProcessorErrorDesugaring
+                (\debug ->
+                     mempty
+                         { getFrontendProcessorDebugOutputDesugaring =
+                               Just debug
+                         }) $
+            desugarParsedModule desugaringState HM.empty ast
+        inferenceOutput <-
+            wrapErrorAndDebugOutput
+                FrontendProcessorErrorInference
+                (\debug ->
+                     mempty
+                         {getFrontendProcessorDebugOutputInference = Just debug}) $
+            processModule inferenceState desugaredAst
+        let exports = processModuleExports desugaredAst inferenceOutput
+        return
+            FrontendProcessorOutput
+                { getFrontendProcessorOutputInference = inferenceOutput
+                , getFrontendProcessorOutputExports = exports
+                }
+
+buildStates :: ModuleImports -> (ImportedGroups, InferenceProcessorOutput)
+buildStates _ = (builtInImportedGroups, defaultInferenceProcessorOutput)
 
 -- | An empty group of imported definitions
 builtInImportedGroups :: ImportedGroups

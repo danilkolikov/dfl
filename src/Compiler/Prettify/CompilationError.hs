@@ -27,6 +27,7 @@ import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
 import Frontend.Inference.TypeSynonym.Expand (TypeSynonymExpandingError(..))
 import Frontend.Inference.Unification
+import Frontend.Module.Import.Processor
 import Frontend.Processor
 import Frontend.Syntax.Lexer
 import Frontend.Syntax.Position
@@ -380,3 +381,10 @@ instance Prettifiable DependencyBuilderError where
             DependencyBuilderErrorMismatchingModuleName name ->
                 "Name of the module, declared in " ++
                 name ++ " doesn't match the file name"
+
+instance Prettifiable ImportProcessorError where
+    prettify err =
+        "Imports processor error: " ++
+        case err of
+            ImportProcessorErrorUnknownModule name ->
+                "Unknown module: " ++ prettify name

@@ -8,14 +8,17 @@ Base definitions for the module processor
 -}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Compiler.Module.Base where
+module Compiler.Module.Base
+    ( module Compiler.Module.Base
+    , DefinedModules
+    ) where
 
 import Control.Applicative ((<|>))
 import qualified Data.HashMap.Lazy as HM
 import Data.Hashable (Hashable)
+import Frontend.Module.Base
 
 import Compiler.Prettify.Utils
-import Frontend.Processor
 import Util.DependencyResolver
 
 -- | A type of errors which can be encountered during
@@ -45,17 +48,11 @@ newtype FileName = FileName
 instance Prettifiable FileName where
     prettify = show . getFileName
 
--- | A state of the module processor
-type ModuleProcessorState = HM.HashMap String ModuleExports
-
--- | An empty state
-emptyModuleProcessorState :: ModuleProcessorState
-emptyModuleProcessorState = HM.empty
+-- | An empty set of modules
+emptyDefinedModules :: DefinedModules
+emptyDefinedModules = HM.empty
 
 -- | Save a module to a state
-saveModule ::
-       String
-    -> ModuleExports
-    -> ModuleProcessorState
-    -> ModuleProcessorState
-saveModule = HM.insert
+defineModule ::
+       UserDefinedIdent -> ModuleExports -> DefinedModules -> DefinedModules
+defineModule = HM.insert

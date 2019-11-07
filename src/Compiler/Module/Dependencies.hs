@@ -8,6 +8,7 @@ Builder of module's dependency tree
 -}
 module Compiler.Module.Dependencies
     ( resolveDependencies
+    , getModuleName
     ) where
 
 import Control.Monad (unless)
@@ -77,9 +78,13 @@ getModuleDependencies fn@(FileName fileName) = do
         modify $ HM.insert fn fileDependencies
         mapM_ getModuleDependencies requiredSourceFiles
 
+-- | Gets name of a module
+getModuleName :: Header -> UserDefinedIdent
+getModuleName (Header name _ _) = getValue name
+
 checkModuleName :: FileName -> Header -> Bool
-checkModuleName fileName (Header name _ _) =
-    fileName == getSourceFile (getValue name)
+checkModuleName fileName header =
+    fileName == getSourceFile (getModuleName header)
 
 getHeaderDependencies :: Header -> [UserDefinedIdent]
 getHeaderDependencies (Header _ _ imports) =

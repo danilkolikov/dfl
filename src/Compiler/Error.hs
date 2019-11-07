@@ -12,6 +12,7 @@ import Compiler.Module.Base
 import Compiler.Prettify.CompilationError ()
 import Compiler.Prettify.Utils
 import Frontend.HeaderProcessor
+import Frontend.Module.Import.Processor
 import Frontend.Processor
 import Util.DependencyResolver
 
@@ -24,6 +25,9 @@ instance IsCompilationError FrontendProcessorError
 
 instance IsCompilationError HeaderProcessorError
 
-instance (Prettifiable a) => IsCompilationError (DependencyResolverError a)
+instance (Prettifiable a) =>
+         IsCompilationError (DependencyResolverError a)
 
 instance IsCompilationError DependencyBuilderError
+
+instance IsCompilationError ImportProcessorError

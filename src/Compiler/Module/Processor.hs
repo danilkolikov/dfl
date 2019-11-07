@@ -15,9 +15,9 @@ import qualified Data.HashSet as HS
 import Compiler.Base
 import Compiler.Module.Base
 import Compiler.Module.Dependencies
-import Compiler.Module.Import
 import Compiler.Prettify.ModuleExports ()
 import Frontend.HeaderProcessor
+import Frontend.Module.Import.Processor
 import Frontend.Processor
 import Util.DependencyResolver
 
@@ -27,15 +27,12 @@ compileMultipleModules = do
     dependencies <- resolveDependencies
     (_, compilation) <-
         handleResult $
-        traverseGraph compileModule emptyModuleProcessorState dependencies
+        traverseGraph compileModule emptyDefinedModules dependencies
     _ <- compilation
     return ()
 
 compileModule ::
-       (Compiler m)
-    => ModuleProcessorState
-    -> HS.HashSet FileName
-    -> m ModuleProcessorState
+       (Compiler m) => DefinedModules -> HS.HashSet FileName -> m DefinedModules
 compileModule initialState group = do
     let fileName = getFileName . head $ HS.toList group -- Each group consists of only 1 module
     fileContent <- readFileContent fileName
@@ -46,14 +43,15 @@ compileModule initialState group = do
         traceStepWithDebugOutput (fileName ++ ".header") $
         processModuleHeader fileName fileContent
     -- Select imported declarations and compile
-    let importedState = selectImports initialState header
+    moduleImports <- handleResult $ processImports initialState header
     FrontendProcessorOutput { getFrontendProcessorOutputInference = inference
                             , getFrontendProcessorOutputExports = exports
                             } <-
         traceStepWithDebugOutput (fileName ++ ".frontend") $
-        processSourceFile importedState fileName tokens
+        processSourceFile moduleImports fileName tokens
     -- Select exported declarations and save
     writeToFile (fileName ++ ".inf") inference
     writeToFile (fileName ++ ".out") exports
     -- Combine state
-    return $ saveModule fileName exports initialState
+    let moduleName = getModuleName header
+    return $ defineModule moduleName exports initialState
