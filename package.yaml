@@ -141,8 +141,8 @@ library:
   - Frontend.Module.Explicit
   - Frontend.Module.Export.Collecting
   - Frontend.Module.Export.Explicit
-  - Frontend.Module.Export.Implicit
   - Frontend.Module.Export.Processor
+  - Frontend.Module.Implicit
   - Frontend.Module.Import.Processor
   - Frontend.Module.Import.Selecting
   - Frontend.Processor

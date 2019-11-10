@@ -20,6 +20,7 @@ import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Module.Base
+import Frontend.Module.Implicit
 import Frontend.Module.Import.Selecting
 import Frontend.Syntax.Position
 
@@ -57,7 +58,8 @@ processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) 
     explicitImport <-
         lift . except . first ImportProcessorErrorExplicit $
         selectExplicitImports explicitExport isHiding imports
-    let implicitImport = selectImplicitImports implicitExport explicitImport
+    let implicitImport =
+            selectImplicitImports implicitExport instances explicitImport
         nameMapping =
             buildNameMapping isQualified moduleName altName explicitImport
     return
@@ -68,8 +70,10 @@ processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) 
             , getModuleImportsNameMapping = nameMapping
             }
 
-selectImplicitImports :: Implicit -> Explicit -> Implicit
-selectImplicitImports i _ = i
+selectImplicitImports :: Implicit -> Instances -> Explicit -> Implicit
+selectImplicitImports implicit instances explicit
+    | Implicit {getImplicitTypeConstructors = typeConstructors} <- implicit =
+        selectImplicit explicit instances typeConstructors
 
 buildNameMapping ::
        Bool

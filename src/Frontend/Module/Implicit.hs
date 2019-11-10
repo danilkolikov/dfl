@@ -1,15 +1,14 @@
 {- |
-Module      :  Frontend.Module.Export.Implicit
-Description :  Processor for implicit exports
+Module      :  Frontend.Module.Implicit
+Description :  Processor for implicit imports/exports
 Copyright   :  (c) Danil Kolikov, 2019
 License     :  MIT
 
-Functions for processing implicit exports of a module
+Functions for processing implicit imports/exports of a module
 -}
-module Frontend.Module.Export.Implicit
+module Frontend.Module.Implicit
     ( Implicit(..)
-    , emptyImplicit
-    , selectImplicitExports
+    , selectImplicit
     ) where
 
 import qualified Data.HashMap.Lazy as HM
@@ -22,9 +21,9 @@ import Frontend.Module.Base
 import Util.HashMap
 
 -- | Selects implicit exports of a module
-selectImplicitExports ::
+selectImplicit ::
        Explicit -> Instances -> Signatures TypeConstructorSignature -> Implicit
-selectImplicitExports explicit instances signatures =
+selectImplicit explicit instances signatures =
     let requiredTypes = getRequiredTypes explicit <> getRequiredTypes instances
      in Implicit
             { getImplicitTypeConstructors =

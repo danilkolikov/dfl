@@ -17,7 +17,7 @@ import Frontend.Inference.Processor
 import Frontend.Module.Base
 import Frontend.Module.Export.Collecting
 import Frontend.Module.Export.Explicit
-import Frontend.Module.Export.Implicit
+import Frontend.Module.Implicit
 
 -- | Processes exports of a module
 processModuleExports ::
@@ -28,7 +28,7 @@ processModuleExports module'@F.Module {F.getModuleExports = exports} output = do
     let (allDefinitions, instances) = collectExports module' output
     explicitExports <- selectExplicitExports exports allDefinitions
     let implicitExports =
-            selectImplicitExports allDefinitions instances $
+            selectImplicit allDefinitions instances $
             getInferenceProcessorOutputTypeConstructors output
     return
         ModuleExports
