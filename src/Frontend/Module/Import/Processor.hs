@@ -13,17 +13,20 @@ module Frontend.Module.Import.Processor
     ) where
 
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (Except, runExcept, throwE)
+import Control.Monad.Trans.Except (Except, except, runExcept, throwE)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Data.Bifunctor (first)
 import qualified Data.HashMap.Lazy as HM
 
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Module.Base
+import Frontend.Module.Import.Selecting
 import Frontend.Syntax.Position
 
 -- | Errors which can be encountered during import prococessing
-newtype ImportProcessorError =
-    ImportProcessorErrorUnknownModule (WithLocation UserDefinedIdent)
+data ImportProcessorError
+    = ImportProcessorErrorUnknownModule (WithLocation UserDefinedIdent)
+    | ImportProcessorErrorExplicit ExplicitProcessorError
     deriving (Eq, Show)
 
 -- | A type of the import processor
@@ -51,8 +54,10 @@ processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) 
             Nothing ->
                 lift . throwE $ ImportProcessorErrorUnknownModule moduleName
             Just e -> return e
-    let explicitImport = selectExplicitImports explicitExport isHiding imports
-        implicitImport = selectImplicitImports implicitExport explicitImport
+    explicitImport <-
+        lift . except . first ImportProcessorErrorExplicit $
+        selectExplicitImports explicitExport isHiding imports
+    let implicitImport = selectImplicitImports implicitExport explicitImport
         nameMapping =
             buildNameMapping isQualified moduleName altName explicitImport
     return
@@ -62,10 +67,6 @@ processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) 
             , getModuleImportsInstances = instances
             , getModuleImportsNameMapping = nameMapping
             }
-
-selectExplicitImports ::
-       Explicit -> Bool -> I.ImpExpList (WithLocation I.Import) -> Explicit
-selectExplicitImports e _ _ = e
 
 selectImplicitImports :: Implicit -> Explicit -> Implicit
 selectImplicitImports i _ = i

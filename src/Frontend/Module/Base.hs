@@ -14,6 +14,7 @@ module Frontend.Module.Base
     , module Core.Ident
     , module Frontend.Desugaring.Final.Ast
     , module Frontend.Inference.Instance
+    , TypeSignature
     ) where
 
 import Data.HashMap.Lazy (HashMap)
@@ -29,7 +30,7 @@ import Util.HashMap
 -- | Explicit imports or exports of a module
 data Explicit = Explicit
     { getExplicitDataTypes :: DataTypes
-    , getExplicitTypeSynonyms :: Signatures TypeSignature
+    , getExplicitTypeSynonyms :: TypeSynonyms
     , getExplicitClasses :: Classes
     , getExplicitExpressions :: Expressions
     } deriving (Eq, Show)
@@ -43,6 +44,9 @@ instance Monoid Explicit where
 
 -- | A map of data types
 type DataTypes = HashMap Ident DataType
+
+-- | A map of type synonyms
+type TypeSynonyms = Signatures TypeSignature
 
 -- | A map of classes
 type Classes = HashMap Ident Class

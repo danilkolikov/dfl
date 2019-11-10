@@ -9,6 +9,7 @@ Processor of DFL frontend
 module Frontend.Processor
     ( FrontendProcessorError(..)
     , FrontendProcessorOutput(..)
+    , ExplicitProcessorError(..)
     , ModuleExports(..)
     , Explicit(..)
     , Implicit(..)
@@ -35,6 +36,7 @@ data FrontendProcessorError
     = FrontendProcessorErrorSyntax SyntaxProcessorError
     | FrontendProcessorErrorDesugaring DesugaringError
     | FrontendProcessorErrorInference InferenceProcessorError
+    | FrontendProcessorErrorExport ExplicitProcessorError
     deriving (Eq, Show)
 
 -- | An output of processing sources files
@@ -97,7 +99,9 @@ processSourceFile imports fileName stream =
                      mempty
                          {getFrontendProcessorDebugOutputInference = Just debug}) $
             processModule inferenceState desugaredAst
-        let exports = processModuleExports desugaredAst inferenceOutput
+        exports <-
+            wrapEither FrontendProcessorErrorExport $
+            processModuleExports desugaredAst inferenceOutput
         return
             FrontendProcessorOutput
                 { getFrontendProcessorOutputInference = inferenceOutput

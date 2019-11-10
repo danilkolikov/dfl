@@ -43,6 +43,7 @@ instance Prettifiable FrontendProcessorError where
             FrontendProcessorErrorDesugaring desugaringError ->
                 prettify desugaringError
             FrontendProcessorErrorInference infErr -> prettify infErr
+            FrontendProcessorErrorExport expErr -> prettify expErr
 
 instance Prettifiable SyntaxProcessorError where
     prettify err =
@@ -388,3 +389,11 @@ instance Prettifiable ImportProcessorError where
         case err of
             ImportProcessorErrorUnknownModule name ->
                 "Unknown module: " ++ prettify name
+            ImportProcessorErrorExplicit explicitErr -> prettify explicitErr
+
+instance Prettifiable ExplicitProcessorError where
+    prettify err =
+        "Explicit imports/exports error: " ++
+        case err of
+            ExplicitProcessorErrorUnknownName name ->
+                "Unknown identifier: " ++ prettifyName name
