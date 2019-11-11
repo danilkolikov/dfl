@@ -21,6 +21,7 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Module.Base
 import Frontend.Module.Implicit
+import Frontend.Module.Import.NameMapping
 import Frontend.Module.Import.Selecting
 import Frontend.Syntax.Position
 
@@ -61,7 +62,7 @@ processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) 
     let implicitImport =
             selectImplicitImports implicitExport instances explicitImport
         nameMapping =
-            buildNameMapping isQualified moduleName altName explicitImport
+            createNameMapping isQualified moduleName altName explicitImport
     return
         ModuleImports
             { getModuleImportsExplicit = explicitImport
@@ -74,11 +75,3 @@ selectImplicitImports :: Implicit -> Instances -> Explicit -> Implicit
 selectImplicitImports implicit instances explicit
     | Implicit {getImplicitTypeConstructors = typeConstructors} <- implicit =
         selectImplicit explicit instances typeConstructors
-
-buildNameMapping ::
-       Bool
-    -> WithLocation UserDefinedIdent
-    -> Maybe (WithLocation UserDefinedIdent)
-    -> Explicit
-    -> NameMapping
-buildNameMapping _ _ _ _ = HM.empty

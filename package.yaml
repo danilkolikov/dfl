@@ -143,6 +143,7 @@ library:
   - Frontend.Module.Export.Explicit
   - Frontend.Module.Export.Processor
   - Frontend.Module.Implicit
+  - Frontend.Module.Import.NameMapping
   - Frontend.Module.Import.Processor
   - Frontend.Module.Import.Selecting
   - Frontend.Processor
