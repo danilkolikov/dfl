@@ -9,7 +9,9 @@ Processors of kind and type inference
 module Frontend.Inference.Processor
     ( processModule
     , InferenceProcessorOutput(..)
+    , TranslatedExpressions
     , defaultInferenceProcessorOutput
+    , emptyInferenceProcessorOutput
     , InferenceProcessorError(..)
     , InferenceError(..)
     , SignatureCheckError(..)
@@ -110,8 +112,11 @@ data InferenceProcessorOutput = InferenceProcessorOutput
     , getInferenceProcessorOutputInstances :: HM.HashMap Ident I.Instance
     , getInferenceProcessorOutputConstructors :: HM.HashMap Ident TypeSignature
     , getInferenceProcessorOutputMethods :: HM.HashMap Ident TypeSignature
-    , getInferenceProcessorOutputExpressions :: HM.HashMap Ident T.ExpWithSignature
+    , getInferenceProcessorOutputExpressions :: TranslatedExpressions
     } deriving (Eq, Show)
+
+-- | Expressions with checked types and translated classes
+type TranslatedExpressions = HM.HashMap Ident T.ExpWithSignature
 
 -- | A default output of the processor
 defaultInferenceProcessorOutput :: InferenceProcessorOutput
@@ -126,6 +131,20 @@ defaultInferenceProcessorOutput =
         , getInferenceProcessorOutputMethods = HM.empty
         , getInferenceProcessorOutputExpressions =
               HM.map (\sig -> (undefined, sig)) defaultExpressions
+        }
+
+-- | An empty output of the processor
+emptyInferenceProcessorOutput :: InferenceProcessorOutput
+emptyInferenceProcessorOutput =
+    InferenceProcessorOutput
+        { getInferenceProcessorOutputTypeConstructors = HM.empty
+        , getInferenceProcessorOutputTypeSynonyms = HM.empty
+        , getInferenceProcessorOutputClasses = HM.empty
+        , getInferenceProcessorOutputDataTypes = HM.empty
+        , getInferenceProcessorOutputInstances = HM.empty
+        , getInferenceProcessorOutputConstructors = HM.empty
+        , getInferenceProcessorOutputMethods = HM.empty
+        , getInferenceProcessorOutputExpressions = HM.empty
         }
 
 type InferenceProcessor

@@ -27,6 +27,7 @@ import Frontend.Inference.InferenceProcessor (VariableBinding)
 import Frontend.Inference.Processor
 import Frontend.Inference.TypeSynonym.Expand (TypeSynonymExpandingError(..))
 import Frontend.Inference.Unification
+import Frontend.Module.Explicit
 import Frontend.Module.Import.Processor
 import Frontend.Processor
 import Frontend.Syntax.Lexer
@@ -43,7 +44,6 @@ instance Prettifiable FrontendProcessorError where
             FrontendProcessorErrorDesugaring desugaringError ->
                 prettify desugaringError
             FrontendProcessorErrorInference infErr -> prettify infErr
-            FrontendProcessorErrorExport expErr -> prettify expErr
 
 instance Prettifiable SyntaxProcessorError where
     prettify err =

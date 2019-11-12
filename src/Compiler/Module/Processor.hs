@@ -17,6 +17,7 @@ import Compiler.Module.Base
 import Compiler.Module.Dependencies
 import Compiler.Prettify.ModuleExports ()
 import Frontend.HeaderProcessor
+import Frontend.Module.Export.Processor
 import Frontend.Module.Import.Processor
 import Frontend.Processor
 import Util.DependencyResolver
@@ -44,14 +45,16 @@ compileModule initialState group = do
         processModuleHeader fileName fileContent
     -- Select imported declarations and compile
     moduleImports <- handleResult $ processImports initialState header
-    FrontendProcessorOutput { getFrontendProcessorOutputInference = inference
-                            , getFrontendProcessorOutputExports = exports
+    FrontendProcessorOutput { getFrontendProcessorOutputExpressions = expressions
+                            , getFrontendProcessorOutputDesugaredExpressions = desugared
+                            , getFrontendProcessorOutputState = state
                             } <-
         traceStepWithDebugOutput (fileName ++ ".frontend") $
         processSourceFile moduleImports fileName tokens
+    moduleExports <- handleResult $ processExports desugared state
     -- Select exported declarations and save
-    writeToFile (fileName ++ ".inf") inference
-    writeToFile (fileName ++ ".out") exports
+    writeToFile (fileName ++ ".exp") expressions
+    writeToFile (fileName ++ ".out") moduleExports
     -- Combine state
     let moduleName = getModuleName header
-    return $ defineModule moduleName exports initialState
+    return $ defineModule moduleName moduleExports initialState

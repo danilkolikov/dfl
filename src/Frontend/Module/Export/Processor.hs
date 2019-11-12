@@ -8,10 +8,11 @@ Functions for processing module exports
 -}
 module Frontend.Module.Export.Processor
     ( module Frontend.Module.Base
-    , processModuleExports
+    , processExports
     , ExplicitProcessorError(..)
     ) where
 
+import Frontend.Base
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Inference.Processor
 import Frontend.Module.Base
@@ -20,16 +21,17 @@ import Frontend.Module.Export.Explicit
 import Frontend.Module.Implicit
 
 -- | Processes exports of a module
-processModuleExports ::
+processExports ::
        F.Module F.Exp
-    -> InferenceProcessorOutput
+    -> FrontendState
     -> Either ExplicitProcessorError ModuleExports
-processModuleExports module'@F.Module {F.getModuleExports = exports} output = do
-    let (allDefinitions, instances) = collectExports module' output
+processExports module'@F.Module {F.getModuleExports = exports} output = do
+    let inferenceOutput = getFrontendStateInference output
+        (allDefinitions, instances) = collectExports module' inferenceOutput
     explicitExports <- selectExplicitExports exports allDefinitions
     let implicitExports =
             selectImplicit allDefinitions instances $
-            getInferenceProcessorOutputTypeConstructors output
+            getInferenceProcessorOutputTypeConstructors inferenceOutput
     return
         ModuleExports
             { getModuleExportsExplicit = explicitExports

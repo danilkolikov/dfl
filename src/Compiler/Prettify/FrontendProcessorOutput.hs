@@ -18,8 +18,8 @@ import Compiler.Prettify.Utils
 import Frontend.Processor
 
 instance Prettifiable FrontendProcessorOutput where
-    prettify FrontendProcessorOutput {getFrontendProcessorOutputInference = inference} =
-        unlines' [prettifyWithHeader "Inference output:" inference]
+    prettify FrontendProcessorOutput {getFrontendProcessorOutputExpressions = expressions} =
+        unlines' [prettifyWithHeader "Translated expressions:" expressions]
 
 instance Prettifiable FrontendProcessorDebugOutput where
     prettify FrontendProcessorDebugOutput { getFrontendProcessorDebugOutputSyntax = syntax

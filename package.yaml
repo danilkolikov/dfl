@@ -38,6 +38,7 @@ library:
   - Compiler.Processor
   - Core.Ident
   - Core.PredefinedIdents
+  - Frontend.Base
   - Frontend.Desugaring.Ast
   - Frontend.Desugaring.Checking.Base
   - Frontend.Desugaring.Checking.Class
@@ -146,6 +147,7 @@ library:
   - Frontend.Module.Import.NameMapping
   - Frontend.Module.Import.Processor
   - Frontend.Module.Import.Selecting
+  - Frontend.Module.Import.Unpacking
   - Frontend.Processor
   - Frontend.Syntax.Ast
   - Frontend.Syntax.AstChecker

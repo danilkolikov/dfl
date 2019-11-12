@@ -8,7 +8,10 @@ Module with functions for desugaring of AST
 -}
 module Frontend.Desugaring.Processor
     ( desugarParsedModule
-    , DesugaringOutput
+    , DesugaringOutput(..)
+    , InfixOperators
+    , ImportedGroups(..)
+    , emptyImportedGroups
     , DesugaringError(..)
     , DesugaringDebugOutput(..)
     , GroupingDebugOutput(..)
@@ -35,7 +38,11 @@ import qualified Frontend.Syntax.Ast as A
 import Util.Debug
 
 -- | Result of desugaring
-type DesugaringOutput = Module Exp
+data DesugaringOutput = DesugaringOutput
+    { getDesugaringOutputModule :: Module Exp
+    , getDesugaringOutputGroups :: ImportedGroups
+    , getDesugaringOutputFixity :: InfixOperators
+    } deriving (Eq, Show)
 
 -- | A type of errors which can be encountered during desugaring
 data DesugaringError
@@ -112,4 +119,9 @@ desugarParsedModule' importedGroups infixOperators parsedModule = do
         mempty {getDesugaringDebugOutputRecord = Just desugaredRecords}
     let final = desugarModule desugaredRecords
     writeDebugOutput mempty {getDesugaringDebugOutputFinal = Just final}
-    return final
+    return
+        DesugaringOutput
+            { getDesugaringOutputModule = final
+            , getDesugaringOutputGroups = importedGroups
+            , getDesugaringOutputFixity = infixOperators
+            }

@@ -18,11 +18,13 @@ import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import Data.Bifunctor (first)
 import qualified Data.HashMap.Lazy as HM
 
+import Frontend.Base
 import qualified Frontend.Desugaring.Initial.Ast as I
 import Frontend.Module.Base
 import Frontend.Module.Implicit
 import Frontend.Module.Import.NameMapping
 import Frontend.Module.Import.Selecting
+import Frontend.Module.Import.Unpacking
 import Frontend.Syntax.Position
 
 -- | Errors which can be encountered during import prococessing
@@ -36,13 +38,13 @@ type ImportProcessor = ReaderT DefinedModules (Except ImportProcessorError)
 
 -- | Processes imports of a module
 processImports ::
-       DefinedModules -> I.Header -> Either ImportProcessorError ModuleImports
+       DefinedModules -> I.Header -> Either ImportProcessorError FrontendState
 processImports defined header =
     runExcept $ runReaderT (processImports' header) defined
 
-processImports' :: I.Header -> ImportProcessor ModuleImports
+processImports' :: I.Header -> ImportProcessor FrontendState
 processImports' (I.Header _ _ imports) =
-    mconcat <$> mapM (processSingleImport . getValue) imports
+    unpackImports . mconcat <$> mapM (processSingleImport . getValue) imports
 
 processSingleImport :: I.ImpDecl -> ImportProcessor ModuleImports
 processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) = do
