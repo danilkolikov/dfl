@@ -18,7 +18,7 @@ import Data.Maybe (catMaybes)
 import Frontend.Module.Base
 import Frontend.Syntax.Position
 
--- | Creates a mapping between names of imported objects and objects 
+-- | Creates a mapping between names of imported objects and objects
 createNameMapping ::
        Bool
     -> WithLocation UserDefinedIdent
@@ -31,13 +31,15 @@ createNameMapping isQualified _ asName imports
                , getExplicitClasses = classes
                , getExplicitExpressions = expressions
                } <- imports =
-        HM.map HS.singleton $
-        mconcat
-            [ createSingleMapping typeSynonyms
-            , createSingleMapping dataTypes
-            , createSingleMapping classes
-            , createSingleMapping expressions
-            ]
+        NameMapping
+            { getNameMappingTypes =
+                  mconcat
+                      [ createSingleMapping typeSynonyms
+                      , createSingleMapping dataTypes
+                      , createSingleMapping classes
+                      ]
+            , getNameMappingExpressions = createSingleMapping expressions
+            }
   where
     createSingleMapping = mconcat . map processIdent . HM.keys
     processIdent name =
@@ -49,7 +51,11 @@ createNameMapping isQualified _ asName imports
                     renamed = createRenamedPair ident
                     pairs = catMaybes [qualified, unqualified, renamed]
                     identPairs =
-                        map (bimap IdentUserDefined IdentUserDefined) pairs
+                        map
+                            (bimap
+                                 IdentUserDefined
+                                 (HS.singleton . IdentUserDefined))
+                            pairs
                  in HM.fromList identPairs
     createQualifiedPair ident = Just (ident, ident)
     createUnqualifiedPair ident =

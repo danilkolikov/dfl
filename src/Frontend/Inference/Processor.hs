@@ -10,8 +10,6 @@ module Frontend.Inference.Processor
     ( processModule
     , InferenceProcessorOutput(..)
     , TranslatedExpressions
-    , defaultInferenceProcessorOutput
-    , emptyInferenceProcessorOutput
     , InferenceProcessorError(..)
     , InferenceError(..)
     , SignatureCheckError(..)
@@ -35,7 +33,6 @@ import qualified Data.HashMap.Lazy as HM
 
 import Frontend.Desugaring.Final.Ast (Ident)
 import qualified Frontend.Desugaring.Final.Ast as F
-import Frontend.Inference.BuiltIns
 import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Class.Processor
 import Frontend.Inference.DataType.Processor
@@ -115,37 +112,33 @@ data InferenceProcessorOutput = InferenceProcessorOutput
     , getInferenceProcessorOutputExpressions :: TranslatedExpressions
     } deriving (Eq, Show)
 
+instance Semigroup InferenceProcessorOutput where
+    InferenceProcessorOutput tc1 ts1 c1 d1 i1 co1 m1 e1 <> InferenceProcessorOutput tc2 ts2 c2 d2 i2 co2 m2 e2 =
+        InferenceProcessorOutput
+            (tc1 <> tc2)
+            (ts1 <> ts2)
+            (c1 <> c2)
+            (d1 <> d2)
+            (i1 <> i2)
+            (co1 <> co2)
+            (m1 <> m2)
+            (e1 <> e2)
+
+instance Monoid InferenceProcessorOutput where
+    mempty =
+        InferenceProcessorOutput
+            { getInferenceProcessorOutputTypeConstructors = HM.empty
+            , getInferenceProcessorOutputTypeSynonyms = HM.empty
+            , getInferenceProcessorOutputClasses = HM.empty
+            , getInferenceProcessorOutputDataTypes = HM.empty
+            , getInferenceProcessorOutputInstances = HM.empty
+            , getInferenceProcessorOutputConstructors = HM.empty
+            , getInferenceProcessorOutputMethods = HM.empty
+            , getInferenceProcessorOutputExpressions = HM.empty
+            }
+
 -- | Expressions with checked types and translated classes
 type TranslatedExpressions = HM.HashMap Ident T.ExpWithSignature
-
--- | A default output of the processor
-defaultInferenceProcessorOutput :: InferenceProcessorOutput
-defaultInferenceProcessorOutput =
-    InferenceProcessorOutput
-        { getInferenceProcessorOutputTypeConstructors = defaultKindSignatures
-        , getInferenceProcessorOutputTypeSynonyms = defaultTypeSynonyms
-        , getInferenceProcessorOutputClasses = HM.empty
-        , getInferenceProcessorOutputDataTypes = HM.empty
-        , getInferenceProcessorOutputInstances = HM.empty
-        , getInferenceProcessorOutputConstructors = defaultConstructors
-        , getInferenceProcessorOutputMethods = HM.empty
-        , getInferenceProcessorOutputExpressions =
-              HM.map (\sig -> (undefined, sig)) defaultExpressions
-        }
-
--- | An empty output of the processor
-emptyInferenceProcessorOutput :: InferenceProcessorOutput
-emptyInferenceProcessorOutput =
-    InferenceProcessorOutput
-        { getInferenceProcessorOutputTypeConstructors = HM.empty
-        , getInferenceProcessorOutputTypeSynonyms = HM.empty
-        , getInferenceProcessorOutputClasses = HM.empty
-        , getInferenceProcessorOutputDataTypes = HM.empty
-        , getInferenceProcessorOutputInstances = HM.empty
-        , getInferenceProcessorOutputConstructors = HM.empty
-        , getInferenceProcessorOutputMethods = HM.empty
-        , getInferenceProcessorOutputExpressions = HM.empty
-        }
 
 type InferenceProcessor
      = WithDebugOutput InferenceProcessorError InferenceProcessorDebugOutput

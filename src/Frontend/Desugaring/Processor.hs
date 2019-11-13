@@ -11,7 +11,6 @@ module Frontend.Desugaring.Processor
     , DesugaringOutput(..)
     , InfixOperators
     , ImportedGroups(..)
-    , emptyImportedGroups
     , DesugaringError(..)
     , DesugaringDebugOutput(..)
     , GroupingDebugOutput(..)

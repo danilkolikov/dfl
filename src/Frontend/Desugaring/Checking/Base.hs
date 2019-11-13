@@ -48,13 +48,16 @@ data ImportedGroups = ImportedGroups
     , getImportedGroupsExpressions :: ImportedNames -- ^ Imported functions
     } deriving (Eq, Show)
 
--- | An empty group of imported definitions
-emptyImportedGroups :: ImportedGroups
-emptyImportedGroups =
-    ImportedGroups
-        { getImportedGroupsTypes = HM.empty
-        , getImportedGroupsExpressions = HM.empty
-        }
+instance Semigroup ImportedGroups where
+    ImportedGroups t1 e1 <> ImportedGroups t2 e2 =
+        ImportedGroups (t1 <> t2) (e1 <> e2)
+
+instance Monoid ImportedGroups where
+    mempty =
+        ImportedGroups
+            { getImportedGroupsTypes = HM.empty
+            , getImportedGroupsExpressions = HM.empty
+            }
 
 -- | An environment of checking processor
 data CheckingProcessorEnvironment = CheckingProcessorEnvironment

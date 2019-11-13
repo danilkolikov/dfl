@@ -24,14 +24,17 @@ data FrontendState = FrontendState
     , getFrontendStateInference :: InferenceProcessorOutput
     } deriving (Eq, Show)
 
--- | An empty state
-emptyFrontendState :: FrontendState
-emptyFrontendState =
-    FrontendState
-        { getFrontendStateDesugaring = emptyImportedGroups
-        , getFrontendStateFixity = HM.empty
-        , getFrontendStateInference = emptyInferenceProcessorOutput
-        }
+instance Semigroup FrontendState where
+    FrontendState d1 f1 i1 <> FrontendState d2 f2 i2 =
+        FrontendState (d1 <> d2) (f1 <> f2) (i1 <> i2)
+
+instance Monoid FrontendState where
+    mempty =
+        FrontendState
+            { getFrontendStateDesugaring = mempty
+            , getFrontendStateFixity = mempty
+            , getFrontendStateInference = mempty
+            }
 
 -- | A type of errors which can be encountered during processing source files
 data FrontendProcessorError
@@ -54,7 +57,7 @@ emptyFrontendProcessorOutput =
         { getFrontendProcessorOutputDesugaredExpressions =
               error "Desugared expressions are not defined"
         , getFrontendProcessorOutputExpressions = HM.empty
-        , getFrontendProcessorOutputState = emptyFrontendState
+        , getFrontendProcessorOutputState = mempty
         }
 
 -- | A debug output of processing source files

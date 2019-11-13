@@ -51,3 +51,7 @@ deepMerge = HM.unionWith (<>)
 intersectKeys ::
        (Eq k, Hashable k) => HS.HashSet k -> HM.HashMap k a -> HM.HashMap k a
 intersectKeys keys = HM.filterWithKey (\k _ -> k `HS.member` keys)
+
+-- | Flattens nested hash maps, using keys of the nested map
+flatten :: (Eq k, Hashable k) => HM.HashMap k (HM.HashMap k a) -> HM.HashMap k a
+flatten = HM.unions . HM.elems
