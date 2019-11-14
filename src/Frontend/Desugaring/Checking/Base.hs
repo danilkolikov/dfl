@@ -156,11 +156,11 @@ checkName getImported getDefined name = do
                                  , getCheckingProcessorEnvironmentLocalDefinitions = locals
                                  } <- ask
     let name' = getValue name
-        imported = HM.lookup name' $ getImported imports
-        defined = HM.lookup name' $ getDefined topLevel
+        imported = fromMaybe [] . HM.lookup name' $ getImported imports
+        defined = maybeToList . HM.lookup name' $ getDefined topLevel
         sources =
-            map AmbiguitySourceImport (fromMaybe [] imported) ++
-            map AmbiguitySourceThisFile (maybeToList defined)
+            map AmbiguitySourceImport imported ++
+            map AmbiguitySourceThisFile defined
         isLocal = name' `HS.member` locals
     -- If ident is not local, check that it's defined only once
     unless isLocal . lift $ do
@@ -171,7 +171,9 @@ checkName getImported getDefined name = do
             name $>
             if isLocal || isQualified name'
                 then name'
-                else makeQualifiedName moduleName name'
+                else if length imported == 1 -- If name is imported
+                         then getValue $ head imported -- Return correct naming
+                         else makeQualifiedName moduleName name'
     return qualifiedName
 
 -- | Checks that a type name is unambigously defined

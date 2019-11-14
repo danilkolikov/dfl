@@ -99,7 +99,6 @@ processDataType ::
     -> DataType
     -> ExplicitProcessor Explicit
 processDataType name components dataType = do
-    Explicit {getExplicitExpressions = expressions} <- getExplicit
     let selectedConstructors =
             case components of
                 I.ImpExpAll -> HM.keysSet $ getDataTypeConstructors dataType
@@ -116,8 +115,6 @@ processDataType name components dataType = do
             { getExplicitDataTypes =
                   HM.singleton (getValue name) $
                   selectConstructorsOfDataType selectedConstructors
-            , getExplicitExpressions =
-                  intersectKeys selectedConstructors expressions
             }
 
 -- | Processes an import/export of a class
@@ -127,9 +124,7 @@ processClass ::
     -> Class
     -> ExplicitProcessor Explicit
 processClass name components class' = do
-    Explicit { getExplicitDataTypes = dataTypes
-             , getExplicitExpressions = expressions
-             } <- getExplicit
+    Explicit {getExplicitDataTypes = dataTypes} <- getExplicit
     let selectedMethods =
             case components of
                 I.ImpExpAll -> HM.keysSet $ getClassMethods class'
@@ -148,8 +143,6 @@ processClass name components class' = do
                   HM.singleton (getValue name) $
                   selectMethodsOfClass selectedMethods
             , getExplicitDataTypes = intersectKeys classDataType dataTypes
-            , getExplicitExpressions =
-                  intersectKeys (selectedMethods <> classDataType) expressions
             }
 
 -- | Looks up an object in some field of explicit imports/exports

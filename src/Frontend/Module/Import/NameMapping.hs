@@ -38,10 +38,19 @@ createNameMapping isQualified _ asName imports
                       , createSingleMapping dataTypes
                       , createSingleMapping classes
                       ]
-            , getNameMappingExpressions = createSingleMapping expressions
+            , getNameMappingExpressions =
+                  mconcat
+                      [ createSingleMapping expressions
+                      , createComponentsMapping
+                            getDataTypeConstructors
+                            dataTypes
+                      , createComponentsMapping getClassMethods classes
+                      ]
             }
   where
     createSingleMapping = mconcat . map processIdent . HM.keys
+    createComponentsMapping getComponents =
+        mconcat . map (createSingleMapping . getComponents) . HM.elems
     processIdent name =
         case name of
             IdentGenerated {} -> HM.empty -- Don't create mapping for generated idents
