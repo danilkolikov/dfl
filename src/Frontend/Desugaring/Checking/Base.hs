@@ -46,18 +46,15 @@ type ImportedNames = HM.HashMap Ident [WithLocation Ident]
 data ImportedGroups = ImportedGroups
     { getImportedGroupsTypes :: ImportedNames -- ^ Imported type names (data types, new types, type synonyms)
     , getImportedGroupsExpressions :: ImportedNames -- ^ Imported functions
+    , getImportedGroupsModules :: HS.HashSet Ident -- ^ Imported modules
     } deriving (Eq, Show)
 
 instance Semigroup ImportedGroups where
-    ImportedGroups t1 e1 <> ImportedGroups t2 e2 =
-        ImportedGroups (t1 <> t2) (e1 <> e2)
+    ImportedGroups t1 e1 m1 <> ImportedGroups t2 e2 m2 =
+        ImportedGroups (t1 <> t2) (e1 <> e2) (m1 <> m2)
 
 instance Monoid ImportedGroups where
-    mempty =
-        ImportedGroups
-            { getImportedGroupsTypes = HM.empty
-            , getImportedGroupsExpressions = HM.empty
-            }
+    mempty = ImportedGroups mempty mempty mempty
 
 -- | An environment of checking processor
 data CheckingProcessorEnvironment = CheckingProcessorEnvironment
@@ -185,6 +182,16 @@ checkExpressionName ::
        WithLocation Ident -> CheckingProcessor (WithLocation Ident)
 checkExpressionName =
     checkName getImportedGroupsExpressions getGroupingProcessorStateExpressions
+
+-- | Checks that a module name is defined
+checkModuleName :: WithLocation Ident -> CheckingProcessor (WithLocation Ident)
+checkModuleName name = do
+    CheckingProcessorEnvironment {getCheckingProcessorEnvironmentImports = imports} <-
+        ask
+    let moduleNames = getImportedGroupsModules imports
+    if getValue name `HS.member` moduleNames
+        then return name
+        else lift . raiseError $ CheckingErrorUndefinedName name
 
 -- | Is ident qualified?
 isQualified :: Ident -> Bool

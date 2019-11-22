@@ -96,16 +96,18 @@ instance Monoid ModuleImports where
 data NameMapping = NameMapping
     { getNameMappingTypes :: SingleNameMapping
     , getNameMappingExpressions :: SingleNameMapping
+    , getNameMappingModules :: SingleNameMapping
     } deriving (Eq, Show)
 
 -- | A mapping from name to a corresponding qualified name
 type SingleNameMapping = HashMap Ident (HashSet Ident)
 
 instance Semigroup NameMapping where
-    NameMapping t1 e1 <> NameMapping t2 e2 = NameMapping (t1 <> t2) (e1 <> e2)
+    NameMapping t1 e1 m1 <> NameMapping t2 e2 m2 =
+        NameMapping (t1 <> t2) (e1 <> e2) (deepMerge m1 m2)
 
 instance Monoid NameMapping where
-    mempty = NameMapping mempty mempty
+    mempty = NameMapping mempty mempty mempty
 
 -- | A map of defined modules
 type DefinedModules = HashMap UserDefinedIdent ModuleExports

@@ -22,19 +22,32 @@ import Frontend.Module.Implicit
 
 -- | Processes exports of a module
 processExports ::
-       F.Module F.Exp
+       FrontendState
+    -> ModuleImports
+    -> F.Module F.Exp
     -> FrontendState
     -> Either ExplicitProcessorError ModuleExports
-processExports module'@F.Module {F.getModuleExports = exports} output = do
-    let inferenceOutput = getFrontendStateInference output
-        (allDefinitions, instances) = collectExports module' inferenceOutput
-    explicitExports <- selectExplicitExports exports allDefinitions
-    let implicitExports =
-            selectImplicit allDefinitions instances $
-            getInferenceProcessorOutputTypeConstructors inferenceOutput
-    return
-        ModuleExports
-            { getModuleExportsExplicit = explicitExports
-            , getModuleExportsImplicit = implicitExports
-            , getModuleExportsInstances = instances
-            }
+processExports importedState imports module' output
+    | FrontendState {getFrontendStateInference = importedInferenceOutput} <-
+         importedState
+    , ModuleImports { getModuleImportsExplicit = importedExplicit
+                    , getModuleImportsInstances = importedInstances
+                    , getModuleImportsNameMapping = importedMapping
+                    } <- imports
+    , F.Module {F.getModuleExports = exports} <- module' = do
+        let inferenceOutput = getFrontendStateInference output
+            (defined, instances) = collectExports module' inferenceOutput
+            allDefinitions = importedExplicit <> defined
+            allInstances = importedInstances <> instances
+            allInferenceOutput = importedInferenceOutput <> inferenceOutput
+        explicitExports <-
+            selectExplicitExports importedMapping exports allDefinitions
+        let implicitExports =
+                selectImplicit explicitExports allInstances $
+                getInferenceProcessorOutputTypeConstructors allInferenceOutput
+        return
+            ModuleExports
+                { getModuleExportsExplicit = explicitExports
+                , getModuleExportsImplicit = implicitExports
+                , getModuleExportsInstances = allInstances
+                }

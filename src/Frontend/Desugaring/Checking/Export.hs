@@ -26,4 +26,4 @@ checkExport export =
                 ExportDataOrClass
                 (checkTypeName name)
                 (traverse checkExpressionName list)
-        ExportModule name -> return $ ExportModule name
+        ExportModule name -> ExportModule <$> checkModuleName name

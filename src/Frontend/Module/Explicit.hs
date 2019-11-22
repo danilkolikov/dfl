@@ -27,17 +27,43 @@ newtype ExplicitProcessorError =
     ExplicitProcessorErrorUnknownName (WithLocation Ident)
     deriving (Eq, Show)
 
--- | A type of the explicit import/export processor
-type ExplicitProcessor = ReaderT Explicit (Except ExplicitProcessorError)
+-- | Context of the explicit processor
+data ExplicitProcessorContext = ExplicitProcessorContext
+    { getExplicitProcessorContextExplicit :: Explicit
+    , getExplicitProcessorContextNameMapping :: NameMapping
+    } deriving (Eq, Show)
 
--- | Executes an import processor
+-- | A type of the explicit import/export processor
+type ExplicitProcessor
+     = ReaderT ExplicitProcessorContext (Except ExplicitProcessorError)
+
+-- | Executes an explicit processor
 runExplicitProcessor ::
        ExplicitProcessor a -> Explicit -> Either ExplicitProcessorError a
-runExplicitProcessor processor = runExcept . runReaderT processor
+runExplicitProcessor processor explicit =
+    runExplicitProcessor' processor explicit mempty
+
+-- | Executes an explicit processor
+runExplicitProcessor' ::
+       ExplicitProcessor a
+    -> Explicit
+    -> NameMapping
+    -> Either ExplicitProcessorError a
+runExplicitProcessor' processor explicit mapping =
+    let context =
+            ExplicitProcessorContext
+                { getExplicitProcessorContextExplicit = explicit
+                , getExplicitProcessorContextNameMapping = mapping
+                }
+     in runExcept $ runReaderT processor context
+
+-- | Returns the context of the processor
+getContext :: ExplicitProcessor ExplicitProcessorContext
+getContext = ask
 
 -- | Returns the list of defined modules
 getExplicit :: ExplicitProcessor Explicit
-getExplicit = ask
+getExplicit = getExplicitProcessorContextExplicit <$> getContext
 
 -- | Raises an error
 raiseError :: ExplicitProcessorError -> ExplicitProcessor a

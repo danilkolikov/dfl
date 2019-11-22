@@ -46,6 +46,7 @@ builtInImportedGroups =
             { getImportedGroupsTypes = buildMap defaultKindSignatures
             , getImportedGroupsExpressions =
                   buildMap $ defaultConstructors `HM.union` defaultExpressions
+            , getImportedGroupsModules = mempty
             }
 
 builtInFixity :: InfixOperators
@@ -84,11 +85,13 @@ selectImportedGroups :: NameMapping -> ImportedGroups
 selectImportedGroups mapping
     | NameMapping { getNameMappingTypes = types
                   , getNameMappingExpressions = expressions
+                  , getNameMappingModules = modules
                   } <- mapping =
         let wrapMapping = HM.map (map withDummyLocation . HS.toList)
          in ImportedGroups
                 { getImportedGroupsTypes = wrapMapping types
                 , getImportedGroupsExpressions = wrapMapping expressions
+                , getImportedGroupsModules = HM.keysSet modules
                 }
 
 selectFixity :: Explicit -> InfixOperators

@@ -38,18 +38,22 @@ type ImportProcessor = ReaderT DefinedModules (Except ImportProcessorError)
 
 -- | Processes imports of a module
 processImports ::
-       DefinedModules -> I.Header -> Either ImportProcessorError FrontendState
+       DefinedModules
+    -> I.Header
+    -> Either ImportProcessorError (FrontendState, ModuleImports)
 processImports defined header =
     runExcept $ runReaderT (processImports' header) defined
 
-processImports' :: I.Header -> ImportProcessor FrontendState
-processImports' (I.Header _ _ imports) =
-    unpackImports . mconcat <$> mapM (processSingleImport . getValue) imports
+processImports' :: I.Header -> ImportProcessor (FrontendState, ModuleImports)
+processImports' (I.Header _ _ imports) = do
+    moduleImports <- mconcat <$> mapM (processSingleImport . getValue) imports
+    return (unpackImports moduleImports, moduleImports)
 
 processSingleImport :: I.ImpDecl -> ImportProcessor ModuleImports
 processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) = do
     context <- ask
-    let maybeExport = HM.lookup (getValue moduleName) context
+    let moduleName' = getValue moduleName
+        maybeExport = HM.lookup moduleName' context
     ModuleExports { getModuleExportsExplicit = explicitExport
                   , getModuleExportsImplicit = implicitExport
                   , getModuleExportsInstances = instances
@@ -64,7 +68,7 @@ processSingleImport (I.ImpDecl isQualified moduleName altName isHiding imports) 
     let implicitImport =
             selectImplicitImports implicitExport instances explicitImport
         nameMapping =
-            createNameMapping isQualified moduleName altName explicitImport
+            createNameMapping isQualified moduleName' altName explicitImport
     return
         ModuleImports
             { getModuleImportsExplicit = explicitImport

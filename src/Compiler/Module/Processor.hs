@@ -44,14 +44,17 @@ compileModule initialState group = do
         traceStepWithDebugOutput (fileName ++ ".header") $
         processModuleHeader fileName fileContent
     -- Select imported declarations and compile
-    moduleImports <- handleResult $ processImports initialState header
+    (moduleImports, packedImports) <-
+        handleResult $ processImports initialState header
     FrontendProcessorOutput { getFrontendProcessorOutputExpressions = expressions
                             , getFrontendProcessorOutputDesugaredExpressions = desugared
                             , getFrontendProcessorOutputState = state
                             } <-
         traceStepWithDebugOutput (fileName ++ ".frontend") $
         processSourceFile moduleImports fileName tokens
-    moduleExports <- handleResult $ processExports desugared state
+    moduleExports <-
+        handleResult $
+        processExports moduleImports packedImports desugared state
     -- Select exported declarations and save
     writeToFile (fileName ++ ".exp") expressions
     writeToFile (fileName ++ ".out") moduleExports

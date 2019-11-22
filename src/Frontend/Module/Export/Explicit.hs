@@ -13,6 +13,9 @@ module Frontend.Module.Export.Explicit
     , ExplicitProcessorError(..)
     ) where
 
+import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
+
 import qualified Frontend.Desugaring.Final.Ast as F
 import Frontend.Module.Base
 import Frontend.Module.Explicit
@@ -20,10 +23,12 @@ import Frontend.Syntax.Position
 
 -- | Selects explicit exports of a module
 selectExplicitExports ::
-       F.ImpExpList (WithLocation F.Export)
+       NameMapping
+    -> F.ImpExpList (WithLocation F.Export)
     -> Explicit
     -> Either ExplicitProcessorError Explicit
-selectExplicitExports exports = runExplicitProcessor (selectExplicit exports)
+selectExplicitExports mapping exports explicit =
+    runExplicitProcessor' (selectExplicit exports) explicit mapping
 
 instance SelectsExplicit F.Export where
     selectExplicit export =
@@ -31,7 +36,24 @@ instance SelectsExplicit F.Export where
             F.ExportFunction name -> processFunction name
             F.ExportDataOrClass name components ->
                 processDataOrClass name components
-            F.ExportModule name -> processExplicit name
+            F.ExportModule name -> processModule name
 
-processExplicit :: WithLocation Ident -> ExplicitProcessor Explicit
-processExplicit _ = return mempty -- TODO: support export of modules
+processModule :: WithLocation Ident -> ExplicitProcessor Explicit
+processModule name = do
+    ExplicitProcessorContext { getExplicitProcessorContextNameMapping = mapping
+                             } <- getContext
+    let name' = getValue name
+        NameMapping { getNameMappingTypes = types
+                    , getNameMappingExpressions = expressions
+                    , getNameMappingModules = modules
+                    } = mapping
+    moduleNames <- failIfUnknown name $ HM.lookup name' modules
+    let filterNames =
+            map (withDummyLocation . head . HS.toList) .
+            HM.elems .
+            HM.filterWithKey (\k v -> HS.size v == 1 && HS.member k moduleNames)
+        exportedTypes = filterNames types
+        exportedExpressions = filterNames expressions
+    explicitTypes <- mapM (`processDataOrClass` F.ImpExpAll) exportedTypes
+    explicitExpressions <- mapM processFunction exportedExpressions
+    return . mconcat $ explicitTypes ++ explicitExpressions
