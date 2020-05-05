@@ -17,11 +17,11 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast
-import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
+import Util.DependencyResolver (Dependencies, DependencyGraph)
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Gets the graph of dependencies between type synonyms
-getTypeSynonymsDependencyGraph :: TypeSynonyms -> DependencyGraph
+getTypeSynonymsDependencyGraph :: TypeSynonyms -> DependencyGraph Ident
 getTypeSynonymsDependencyGraph typeSynonyms =
     let definedTypeSynonyms = HM.keysSet typeSynonyms
         getSingleTypeSynonymDependencies typeSynonym =
@@ -31,7 +31,7 @@ getTypeSynonymsDependencyGraph typeSynonyms =
      in HM.map getSingleTypeSynonymDependencies typeSynonyms
 
 -- | A type of a dependency getter
-type DependencyGetter = Reader (HS.HashSet Ident) Dependencies
+type DependencyGetter = Reader (HS.HashSet Ident) (Dependencies Ident)
 
 -- | Gets dependencies of a type synonym
 getTypeSynonymDependencies :: TypeSynonym -> DependencyGetter

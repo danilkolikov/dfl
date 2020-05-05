@@ -8,13 +8,11 @@ Module launches the DFL compiler.
 -}
 module Main where
 
-import Data.Semigroup ((<>))
 import Options.Applicative
 import System.Exit
 
 import Compiler.Environment (Environment(..))
-import Compiler.Monad (runCompiler)
-import Compiler.Processor (compileSourceFile)
+import Compiler.Processor (compile)
 
 -- | Parse command line arguments
 parseArguments :: IO Environment
@@ -33,7 +31,7 @@ parseArguments =
 main :: IO ()
 main = do
     environment <- parseArguments
-    result <- runCompiler compileSourceFile environment
-    case result of
-        Nothing -> exitFailure
-        Just _ -> exitSuccess
+    success <- compile environment
+    if success
+        then exitSuccess
+        else exitFailure

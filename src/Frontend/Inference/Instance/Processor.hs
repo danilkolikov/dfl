@@ -19,16 +19,16 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromJust)
 
-import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
+import Core.Ident
 import qualified Frontend.Inference.Class as C
 import Frontend.Inference.Constraint
 import qualified Frontend.Inference.Instance as I
 import qualified Frontend.Inference.Kind.Ast as K
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
-import Frontend.Inference.Util.Debug
-import Frontend.Inference.Util.HashMap
 import Frontend.Syntax.Position
+import Util.Debug
+import Util.HashMap
 
 -- | A type of errors which can be encountered during instance processing
 data InstanceProcessorError
@@ -119,7 +119,8 @@ collectInstance definedInstances instances inst
     | K.Instance {K.getInstanceClass = className, K.getInstanceType = typeName} <-
          inst =
         let instanceName =
-                IdentInstance (getValue className) (getValue typeName)
+                IdentGenerated $
+                GeneratedIdentInstance (getValue className) (getValue typeName)
          in case HM.lookup instanceName (definedInstances <> instances) of
                 Just _ ->
                     raiseError $
@@ -142,7 +143,8 @@ convertInstance K.Instance { K.getInstanceContext = context
                            } =
     let instanceClass = getValue className
         instanceType = getValue typeName
-        instanceName = IdentInstance instanceClass instanceType
+        instanceName =
+            IdentGenerated $ GeneratedIdentInstance instanceClass instanceType
      in I.Instance
             { I.getInstanceContext =
                   map removePositionsOfSimpleConstraint context
@@ -180,7 +182,8 @@ processDefaultInstance dataTypeSignatures classes instanceName defaultInstance
                     getters
         superClassGetters <- mapM lookupGetter context
         let inputIdent =
-                withDummyLocation $ IdentGenerated IdentEnvironmentInstances 0
+                withDummyLocation . IdentGenerated $
+                GeneratedIdent GeneratedIdentEnvironmentInstances 0
             inputVar = withDummyLocation $ K.ExpVar inputIdent
             makeSuperClassArg getterName =
                 let getter =
@@ -283,9 +286,13 @@ processInstance dataTypeSignatures classes instances inst
                 classes
         let typeName' = getValue typeName
             typeParams' = map getValue typeParams
-            instanceName = IdentInstance (getValue className) typeName'
+            instanceName =
+                IdentGenerated $
+                GeneratedIdentInstance (getValue className) typeName'
             makeInstanceArg =
-                withDummyLocation . IdentGenerated IdentEnvironmentInstances
+                withDummyLocation .
+                IdentGenerated .
+                GeneratedIdent GeneratedIdentEnvironmentInstances
             instanceArgs =
                 zip
                     (map removePositionsOfSimpleConstraint context)
@@ -341,7 +348,8 @@ getInstanceSuperClassArg ::
     -> InstanceProcessor (WithLocation K.Exp)
 getInstanceSuperClassArg classes instances typeName typeParams instanceParams constraint
     | SimpleConstraint className _ <- constraint = do
-        let instanceName = IdentInstance className typeName
+        let instanceName =
+                IdentGenerated $ GeneratedIdentInstance className typeName
             instanceExp =
                 withDummyLocation . K.ExpVar . withDummyLocation $ instanceName
         I.Instance { I.getInstanceContext = instanceContext
@@ -404,12 +412,12 @@ getInstanceMethodArg ::
     -> HM.HashMap Ident Ident
     -> Ident
     -> Ident
-    -> HM.HashMap Ident K.Expression
+    -> HM.HashMap Ident (WithLocation K.Exp)
     -> Ident
     -> InstanceProcessor (WithLocation K.Exp)
 getInstanceMethodArg className classGetters defaultInstanceName instanceName methods methodName =
     case HM.lookup methodName methods of
-        Just K.Expression {K.getExpressionBody = exp'} -> return exp'
+        Just exp' -> return exp'
         Nothing -> do
             getter <-
                 lookupMapValue

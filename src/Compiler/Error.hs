@@ -8,41 +8,29 @@ Definitions of errors, which can be encountered during compilation
 -}
 module Compiler.Error where
 
-import Frontend.Desugaring.Processor (DesugaringError)
-import Frontend.Inference.Processor (InferenceProcessorError)
-import Frontend.Syntax.Processor
-    ( FixityResolutionError
-    , LexicalError
-    , ParserError
-    )
+import Compiler.Module.Base
+import Compiler.Prettify.CompilationError ()
+import Compiler.Prettify.Utils
+import Frontend.HeaderProcessor
+import Frontend.Module.Export.Processor
+import Frontend.Module.Import.Processor
+import Frontend.Processor
+import Util.DependencyResolver
 
--- | Errors which can be encountered during compilation
-data CompilationError
-    = CompilerErrorLexer LexicalError -- ^ Lexical error
-    | CompilerErrorParser ParserError -- ^ Parser error
-    | CompilerErrorFixity FixityResolutionError -- ^ Error of fixity resolution
-    | CompilerErrorDesugaring DesugaringError -- ^ Desugaring error
-    | CompilerErrorInference InferenceProcessorError -- ^ Error of the inference step
-    deriving (Eq, Show)
+-- | Class for types which represent a compilation error
+class (Prettifiable a) =>
+      IsCompilationError a
 
--- | Class of types which can be converted to a CompilationError
-class IsCompilationError a where
-    wrapToCompilationError :: a -> CompilationError -- ^ Wrap object into CompilationError
 
-instance IsCompilationError CompilationError where
-    wrapToCompilationError = id
+instance IsCompilationError FrontendProcessorError
 
-instance IsCompilationError LexicalError where
-    wrapToCompilationError = CompilerErrorLexer
+instance IsCompilationError HeaderProcessorError
 
-instance IsCompilationError ParserError where
-    wrapToCompilationError = CompilerErrorParser
+instance (Prettifiable a) =>
+         IsCompilationError (DependencyResolverError a)
 
-instance IsCompilationError FixityResolutionError where
-    wrapToCompilationError = CompilerErrorFixity
+instance IsCompilationError DependencyBuilderError
 
-instance IsCompilationError DesugaringError where
-    wrapToCompilationError = CompilerErrorDesugaring
+instance IsCompilationError ImportProcessorError
 
-instance IsCompilationError InferenceProcessorError where
-    wrapToCompilationError = CompilerErrorInference
+instance IsCompilationError ExplicitProcessorError

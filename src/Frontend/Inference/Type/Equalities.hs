@@ -13,15 +13,15 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromJust)
 
+import Core.Ident
+import Core.PredefinedIdents
 import Frontend.Inference.Equalities
 import qualified Frontend.Inference.Expression as T
 import qualified Frontend.Inference.Let.Ast as L
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
-import Frontend.Inference.Util.HashMap
-import Frontend.Inference.Variables hiding (Type(..))
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position
+import Util.HashMap
 
 -- | Collects equalities between types of expressions
 generateEqualitiesForExpressions ::
@@ -101,12 +101,14 @@ generateEqualitiesForExp expr =
             let makeType name =
                     return
                         ( T.ExpConst (getValue c)
-                        , (TypeConstr $ IdentNamed name, KindStar, SortSquare))
+                        , ( TypeConstr $ IdentUserDefined name
+                          , KindStar
+                          , SortSquare))
              in case getValue c of
-                    L.ConstInt _ -> makeType iNT_NAME
-                    L.ConstFloat _ -> makeType fLOAT_NAME
-                    L.ConstChar _ -> makeType cHAR_NAME
-                    L.ConstString _ -> makeType sTRING_NAME
+                    L.ConstInt _ -> makeType iNT
+                    L.ConstFloat _ -> makeType fLOAT
+                    L.ConstChar _ -> makeType cHAR
+                    L.ConstString _ -> makeType sTRING
         L.ExpAbstraction var inner -> do
             args <- createNewTypeVariables [getValue var]
             (innerExp, (exprType, exprKind, exprSort)) <-

@@ -10,8 +10,10 @@ module Frontend.Desugaring.Spec where
 
 import qualified Frontend.Desugaring.Initial.Spec as Initial
 import qualified Frontend.Desugaring.Final.Spec as Final
+import qualified Frontend.Desugaring.Record.Test as Record
 
 testSuite :: IO ()
 testSuite = do
     Initial.testSuite
     Final.testSuite
+    Record.testSuite

@@ -26,6 +26,7 @@ module Frontend.Desugaring.Initial.ToExp
 import Data.Functor (($>))
 import qualified Data.List.NonEmpty as NE (NonEmpty(..), init, last, toList)
 
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToConst (desugarToConst)
 import Frontend.Desugaring.Initial.ToConstraint (desugarToConstraint)
@@ -34,15 +35,16 @@ import Frontend.Desugaring.Initial.ToPattern (desugarToPattern)
 import Frontend.Desugaring.Initial.ToType (desugarToType)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
+import Frontend.Syntax.Token
 
 -- | Desugar declaration to Assignment
 desugarToAssignment :: WithLocation Decl -> [WithLocation D.Assignment] -- ^ Desugar object to assignments
 desugarToAssignment decl =
     map (decl $>) $
     case getValue decl of
-        (DeclGenDecl genDecl) -> desugarGenDecl D.AssignmentType genDecl
+        (DeclGenDecl genDecl) ->
+            desugarGenDecl D.AssignmentType D.AssignmentFixity genDecl
         (DeclFunction lhs rhs) ->
             [ case getValue lhs of
                   Left fun ->
@@ -59,6 +61,10 @@ desugarToAssignment decl =
 class DesugarToExp a where
     desugarToExp :: WithLocation a -> WithLocation D.Exp -- ^ Desugar object to exp
 
+-- | Class for types which can be desugared to InfixExp
+class DesugarToInfixExp a where
+    desugarToInfixExp :: WithLocation a -> WithLocation D.InfixExp -- ^ Desugars an object to InfixExp
+
 instance DesugarToExp RHS where
     desugarToExp rhs =
         rhs $>
@@ -71,9 +77,9 @@ instance DesugarToExp RHS where
                 let desugaredDecls = concatMap desugarToAssignment decls
                     gdRHSToGdPat (GdRHS pat exp') = GdPat pat exp'
                     guardedExp = fmap (desugarGdPat . (gdRHSToGdPat <$>)) gdrhs
-                    unitPat = makePattern uNIT_NAME
+                    unitPat = makePattern uNIT
                     alt = rhs $> D.AltGuarded unitPat guardedExp desugaredDecls
-                    unitExp = makeExp uNIT_NAME
+                    unitExp = makeExp uNIT
                  in D.ExpCase unitExp (alt NE.:| [])
 
 instance DesugarToExp Exp where
@@ -86,20 +92,21 @@ instance DesugarToExp Exp where
                     desugaredType = desugarToType type'
                  in exp' $> D.ExpTyped desugaredE desugaredContext desugaredType
 
-instance DesugarToExp InfixExp where
-    desugarToExp infixExp =
+instance DesugarToInfixExp InfixExp where
+    desugarToInfixExp infixExp =
+        infixExp $>
         case getValue infixExp of
-            InfixExpLExp exp' -> desugarToExp exp'
-            InfixExpNegated _ exp' ->
-                let desugaredExp = desugarToExp exp'
-                 in infixExp $>
-                    D.ExpApplication
-                        (makeExp nEGATE_NAME)
-                        (desugaredExp NE.:| [])
+            InfixExpLExp exp' -> D.InfixExpSimple $ desugarToExp exp'
+            InfixExpNegated op exp' ->
+                D.InfixExpNegated (desugarToIdent op) (desugarToInfixExp exp')
             InfixExpApplication l op r ->
-                let func = desugarOperator op
-                    args = fmap desugarToExp (l NE.:| [r])
-                 in infixExp $> D.ExpApplication func args
+                D.InfixExpApplication
+                    (desugarToInfixExp l)
+                    (desugarToIdent op)
+                    (desugarToInfixExp r)
+
+instance DesugarToExp InfixExp where
+    desugarToExp e = e $> D.ExpInfix (desugarToInfixExp e)
 
 instance DesugarToExp LExp where
     desugarToExp lExp =
@@ -154,18 +161,16 @@ instance DesugarToExp AExp where
             AExpTuple f s rest ->
                 let args = f NE.:| (s : rest)
                     desugaredArgs = fmap desugarToExp args
-                    function =
-                        makeExp' $
-                        D.IdentParametrised tUPLE_NAME $ length rest + 2
+                    function = makeExp $ tUPLE (length rest + 2)
                  in D.ExpApplication function desugaredArgs
             AExpList (f NE.:| rest) ->
                 let desugaredL = desugarToExp f
                     desugaredR =
                         case rest of
-                            [] -> makeConstr lIST_NAME
+                            [] -> makeConstr lIST
                             (s:exps) ->
                                 desugarToExp (aExp $> AExpList (s NE.:| exps))
-                    function = makeConstr cOLON_NAME
+                    function = makeConstr cOLON
                  in D.ExpApplication function (desugaredL NE.:| [desugaredR])
             AExpSequence f s e ->
                 let desugaredF = desugarToExp f
@@ -173,20 +178,20 @@ instance DesugarToExp AExp where
                     desugaredE = desugarToExp <$> e
                  in case (desugaredS, desugaredE) of
                         (Nothing, Nothing) ->
-                            let function = makeExp eNUM_FROM_NAME
+                            let function = makeExp eNUM_FROM
                              in D.ExpApplication function (desugaredF NE.:| [])
                         (Just s', Nothing) ->
-                            let function = makeExp eNUM_FROM_THEN_NAME
+                            let function = makeExp eNUM_FROM_THEN
                              in D.ExpApplication
                                     function
                                     (desugaredF NE.:| [s'])
                         (Nothing, Just e') ->
-                            let function = makeExp eNUM_FROM_TO_NAME
+                            let function = makeExp eNUM_FROM_TO
                              in D.ExpApplication
                                     function
                                     (desugaredF NE.:| [e'])
                         (Just s', Just e') ->
-                            let function = makeExp eNUM_FROM_THEN_TO_NAME
+                            let function = makeExp eNUM_FROM_THEN_TO
                              in D.ExpApplication
                                     function
                                     (desugaredF NE.:| [s', e'])
@@ -291,21 +296,39 @@ desugarGdPat gdPat
             desugaredExp = desugarToExp exp'
          in gdPat $> D.GuardedExp desugaredGuards desugaredExp
 
+desugarFixity :: Fixity -> D.Fixity
+desugarFixity fixity =
+    case fixity of
+        Infix -> D.Infix
+        InfixL -> D.InfixL
+        InfixR -> D.InfixR
+
 -- | Desugar fixty and type declarations
 desugarGenDecl ::
-       (WithLocation D.Ident -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
+       (WithLocation UserDefinedIdent -> [WithLocation D.Constraint] -> WithLocation D.Type -> a)
+    -> (WithLocation UserDefinedIdent -> D.Fixity -> Int -> a)
     -> WithLocation GenDecl
     -> [a]
-desugarGenDecl wrap genDecl =
+desugarGenDecl wrapType wrapFixity genDecl =
     case getValue genDecl of
-        GenDeclFixity {} -> []
+        GenDeclFixity fixity prec ops ->
+            let (IntT prec') = getValue prec
+                fixity' = getValue fixity
+             in NE.toList $
+                fmap
+                    (\var ->
+                         wrapFixity
+                             (desugarToIdent var)
+                             (desugarFixity fixity')
+                             prec')
+                    ops
         GenDeclTypeSig vars context type' ->
             let desugaredContext = map desugarToConstraint context
                 desugaredType = desugarToType type'
              in NE.toList $
                 fmap
                     (\var ->
-                         wrap
+                         wrapType
                              (desugarToIdent var)
                              desugaredContext
                              desugaredType)
@@ -313,7 +336,8 @@ desugarGenDecl wrap genDecl =
 
 -- | Desugar left hand side of a function
 desugarFunLHS ::
-       FunLHS -> (WithLocation D.Ident, NE.NonEmpty (WithLocation D.Pattern))
+       FunLHS
+    -> (WithLocation UserDefinedIdent, NE.NonEmpty (WithLocation D.Pattern))
 desugarFunLHS (FunLHSSimple var pats) =
     (desugarToIdent var, fmap desugarToPattern pats)
 desugarFunLHS (FunLHSInfix l op r) =

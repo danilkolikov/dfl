@@ -56,7 +56,7 @@ data Instance = Instance
     , getInstanceClass :: WithLocation Ident -- ^ Name of a type class
     , getInstanceType :: WithLocation Ident -- ^ Name of a type
     , getInstanceTypeArgs :: [WithLocation Ident] -- ^ Arguments of a type
-    , getInstanceMethods :: HM.HashMap Ident Expression -- ^ Methods of an instance
+    , getInstanceMethods :: HM.HashMap Ident (WithLocation Exp) -- ^ Methods of an instance
     } deriving (Show, Eq)
 
 -- | Definition of an expression
@@ -70,7 +70,7 @@ data Expression = Expression
 data Method = Method
     { getMethodName :: WithLocation Ident -- ^ Name of a method
     , getMethodType :: TypeSignature -- ^ Type signature
-    , getMethodDefault :: Maybe (WithLocation Exp) -- ^ Optional default implementation
+    , getMethodBody :: Maybe (WithLocation Exp) -- ^ Optional default implementation
     } deriving (Show, Eq)
 
 -- | Expression

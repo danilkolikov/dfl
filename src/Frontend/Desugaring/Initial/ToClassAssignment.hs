@@ -29,7 +29,8 @@ desugarToClassAssignment ::
 desugarToClassAssignment cDecl =
     map (cDecl $>) $
     case getValue cDecl of
-        CDeclGenDecl genDecl -> desugarGenDecl D.ClassAssignmentType genDecl
+        CDeclGenDecl genDecl ->
+            desugarGenDecl D.ClassAssignmentType D.ClassAssignmentFixity genDecl
         CDeclFunction lhs rhs ->
             [ case getValue lhs of
                   Left fun ->

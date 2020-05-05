@@ -14,12 +14,11 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
+import System.Directory (doesFileExist)
 
-import Compiler.Base (Compiler(..), getSourceFileName)
-import Compiler.DebugOutput (DebugOutput(..), DebugOutputType(..))
-import Compiler.Environment (Environment)
-import Compiler.Prettify.CompilationError (prettifyCompilationError)
-import Compiler.Prettify.Output (prettifyOutput)
+import Compiler.Base
+import Compiler.Environment
+import Compiler.Prettify.Utils
 
 -- | Monad, encapsulation compilation of a single source file
 newtype CompilerMonad a = CompilerMonad
@@ -36,31 +35,12 @@ instance MonadIO CompilerMonad where
 instance Compiler CompilerMonad where
     getEnvironmentComponent = CompilerMonad . lift . asks
     readFileContent = liftIO . readFile
+    doesFileExist = liftIO . System.Directory.doesFileExist
     handleResult res =
         case res of
             Left e -> do
-                liftIO . putStrLn . prettifyCompilationError $ e
+                liftIO . putStrLn . prettify $ e
                 fail "An error was encountered"
             Right r -> return r
-    writeDebugOutput DebugOutput { getDebugOutputType = type'
-                                 , getDebugOutputValue = value
-                                 } = do
-        fileName <- getOutputFileName (debugOutputTypeToSuffix type')
-        liftIO $ writeFile fileName value
-    writeOutput output = do
-        fileName <- getOutputFileName "out"
-        liftIO $ writeFile fileName (prettifyOutput output)
-
--- | Get name of an output file
-getOutputFileName :: (Compiler m) => String -> m String
-getOutputFileName suffix = (++ '.' : suffix) <$> getSourceFileName
-
--- | Get appropriate suffix for a debug output type
-debugOutputTypeToSuffix :: DebugOutputType -> String
-debugOutputTypeToSuffix type' =
-    case type' of
-        DebugOutputTypeLexems -> "lexems"
-        DebugOutputTypeAst -> "ast"
-        DebugOutputTypeDesugaredAst -> "desugared"
-        DebugOutputTypeFixityResolution -> "fixity"
-        DebugOutputTypeInference -> "inference"
+    writeToFile fileName output = do
+        liftIO . writeFile fileName $ prettify output

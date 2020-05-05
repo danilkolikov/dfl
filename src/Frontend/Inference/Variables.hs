@@ -24,7 +24,7 @@ module Frontend.Inference.Variables
     , generateKSVariables
     , generateTKSVariables
     , Ident(..)
-    , IdentEnvironment(..)
+    , GeneratedIdentEnvironment(..)
     , generateSortIdent
     , generateKindIdent
     , generateTypeIdent
@@ -41,7 +41,7 @@ import Control.Monad.Trans.State.Lazy
     , runStateT
     )
 
-import Frontend.Desugaring.Final.Ast (Ident(..), IdentEnvironment(..))
+import Core.Ident
 import Frontend.Inference.Kind
 import Frontend.Inference.Sort
 import Frontend.Inference.Type
@@ -94,12 +94,12 @@ generateIdent ::
        (Monad m)
     => (VariableGeneratorState -> Int)
     -> (Int -> VariableGeneratorState -> VariableGeneratorState)
-    -> IdentEnvironment
+    -> GeneratedIdentEnvironment
     -> VariableGeneratorT m Ident
 generateIdent getCounter setCounter env = do
     counter <- gets getCounter
     modify $ setCounter (counter + 1)
-    return $ IdentGenerated env counter
+    return . IdentGenerated $ GeneratedIdent env counter
 
 -- | Generate a sort variable
 generateSortVariable :: (Monad m) => VariableGeneratorT m Sort
@@ -111,7 +111,7 @@ generateSortIdent =
     generateIdent
         getVariableGeneratorStateSort
         (\n s -> s {getVariableGeneratorStateSort = n})
-        IdentEnvironmentSortVariable
+        GeneratedIdentEnvironmentSortVariable
 
 -- | Generate a kind variable
 generateKindVariable :: (Monad m) => VariableGeneratorT m Kind
@@ -123,7 +123,7 @@ generateKindIdent =
     generateIdent
         getVariableGeneratorStateKind
         (\n s -> s {getVariableGeneratorStateKind = n})
-        IdentEnvironmentKindVariable
+        GeneratedIdentEnvironmentKindVariable
 
 -- | Generate a type variable
 generateTypeVariable :: (Monad m) => VariableGeneratorT m Type
@@ -135,7 +135,7 @@ generateTypeIdent =
     generateIdent
         getVariableGeneratorStateType
         (\n s -> s {getVariableGeneratorStateType = n})
-        IdentEnvironmentTypeVariable
+        GeneratedIdentEnvironmentTypeVariable
 
 -- | Generates kind and sort variables
 generateKSVariables :: (Monad m) => VariableGeneratorT m (Kind, Sort)

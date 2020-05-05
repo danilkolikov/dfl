@@ -10,10 +10,8 @@ module Frontend.Inference.Spec
     ( testSuite
     ) where
 
-import qualified Frontend.Inference.DependencyResolverTest as DependencyResolver
 import qualified Frontend.Inference.UnificationTest as Unification
 
 testSuite :: IO ()
 testSuite = do
-    DependencyResolver.testSuite
     Unification.testSuite

@@ -10,25 +10,30 @@ Lexer of DFL. Definitions of tokens follow ones from
 module Frontend.Syntax.Lexer
     ( Lexer
     , Lexable(..)
+    , LexerError(..)
+    , LayoutError(..)
     , sourceLexer
     , programLexer
+    , runLexer
     , whitespace
     ) where
 
 import Control.Applicative ((<$>), empty, liftA2)
 import Control.Monad.Combinators (between, choice, many, sepBy, skipMany)
+import Data.Bifunctor (first)
 import Data.Char (isDigit, isLower, isSpace, isUpper)
-import Data.Functor ((<$))
+import Data.Functor (($>))
 import qualified Data.HashMap.Lazy as HM
 import Data.Hashable (Hashable)
 import qualified Data.Set as S
-
 import Text.Megaparsec
-    ( Parsec
+    ( ErrorFancy(..)
+    , Parsec
     , (<?>)
     , anySingle
     , customFailure
     , eof
+    , runParser
     , satisfy
     , takeWhile1P
     , takeWhileP
@@ -45,9 +50,11 @@ import Text.Megaparsec.Char
     )
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import Frontend.Syntax.Layout (LayoutError, restoreMissingTokens)
+import Frontend.Syntax.Layout (LayoutError(..), restoreMissingTokens)
+import Frontend.Syntax.ParserError
 import Frontend.Syntax.Position
     ( SourceLocation(..)
+    , SourcePosition(..)
     , WithLocation(..)
     , getSourcePosition
     , getValue
@@ -72,8 +79,8 @@ operatorLexer :: Lexer String
 operatorLexer = takeWhile1P (Just "symbol") isSymbol
 
 prefixedOperatorLexer :: Lexer Char -> Lexer String
-prefixedOperatorLexer first =
-    liftA2 (:) first (takeWhileP (Just "symbol") isSymbol)
+prefixedOperatorLexer prefix =
+    liftA2 (:) prefix (takeWhileP (Just "symbol") isSymbol)
 
 isSmall :: Char -> Bool
 isSmall c = isLower c || c == '_'
@@ -85,8 +92,8 @@ isNameCharacter :: Char -> Bool
 isNameCharacter c = isSmall c || isLarge c || isDigit c || c == '\''
 
 nameLexer :: Lexer Char -> Lexer String
-nameLexer first =
-    liftA2 (:) first (takeWhileP (Just "letter, digit or \'") isNameCharacter)
+nameLexer prefix =
+    liftA2 (:) prefix (takeWhileP (Just "letter, digit or \'") isNameCharacter)
 
 lowerCaseNameLexer :: Lexer String
 lowerCaseNameLexer = nameLexer (satisfy isSmall)
@@ -213,7 +220,7 @@ instance Lexable Token where
             , TokenChar <$> lexer
             , TokenString <$> lexer
             , liftA2 TokenName moduleLexer lexer
-            , TokenEOF EOF <$ eof
+            , eof $> TokenEOF EOF
             ]
 
 instance (Lexable a) => Lexable (WithLocation a) where
@@ -254,3 +261,24 @@ sourceLexer = do
 -- | Safely select the first successful lexer
 safeChoice :: [Lexer a] -> Lexer a
 safeChoice = choice . map try
+
+-- | Errors which can be encountered during lexing
+data LexerError
+    = LexerErrorLexer SourcePosition
+                      (Maybe Char)
+                      [String] -- ^ Lexer error
+    | LexerErrorLayout LayoutError -- ^ Error caused by a wrong layout of a file
+    | LexerErrorUnexpected SourcePosition -- ^ Unknown error from the parser's machinery
+    deriving (Show, Eq)
+
+-- | Do lexical analysis
+runLexer :: String -> String -> Either LexerError [WithLocation Token]
+runLexer fileName fileContent =
+    wrapLexerError (runParser sourceLexer fileName fileContent)
+  where
+    wrapLexerError = first wrapLexicalBundle
+    wrapFancyError position err =
+        case err of
+            ErrorCustom layout -> LexerErrorLayout layout
+            _ -> LexerErrorUnexpected position
+    wrapLexicalBundle = wrapPositionBundle LexerErrorLexer wrapFancyError

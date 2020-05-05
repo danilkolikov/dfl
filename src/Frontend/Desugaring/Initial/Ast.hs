@@ -7,44 +7,12 @@ License     :  MIT
 Desugared version of AST of DFL. Contains significantly less kinds of nodes,
 but still has nodes related to records.
 -}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Frontend.Desugaring.Initial.Ast where
 
-import Data.Hashable
 import Data.List.NonEmpty (NonEmpty)
-import GHC.Generics (Generic)
 
-import Frontend.Syntax.EntityName (EntityName)
+import Core.Ident (UserDefinedIdent)
 import Frontend.Syntax.Position (WithLocation)
-
--- | Sets of generated identifiers
-data IdentEnvironment
-    = IdentEnvironmentRecordDesugaring -- ^ Identifiers, generated during record desugaring
-    | IdentEnvironmentExpressionDesugaring -- ^ Identifiers, generated during expression desugaring
-    | IdentEnvironmentDependencyResolution -- ^ Identifiers, generated during dependency resolution
-    | IdentEnvironmentTypeVariable -- ^ Identifiers, generated for type variables
-    | IdentEnvironmentKindVariable -- ^ Identifiers, generated for kind variables
-    | IdentEnvironmentSortVariable -- ^ Identifiers, generated for sort variables
-    | IdentEnvironmentInstances -- ^ Identifiers, generated during type inference of instances
-    | IdentEnvironmentLet -- ^ Identifiers, generated during desugaring of let expressions
-    | IdentEnvironmentTranslation -- ^ Identifiers, generated during translation of expressions
-    deriving (Generic, Eq, Ord, Show)
-
-instance Hashable IdentEnvironment
-
--- | Identifiers in AST
-data Ident
-    = IdentNamed EntityName -- ^ Name
-    | IdentParametrised EntityName
-                        Int -- ^ Name with a parameter. E.G. - tuples with different number of arguments
-    | IdentGenerated IdentEnvironment
-                     Int -- ^ Automatically generated name
-    | IdentScoped [Ident] -- ^ Scoped identifier
-    | IdentInstance Ident Ident -- ^ Instance identifiers
-    deriving (Generic, Eq, Ord, Show)
-
-instance Hashable Ident
 
 -- | Constant values
 data Const
@@ -56,18 +24,25 @@ data Const
 
 -- | Definition of a module
 data Module =
-    Module (WithLocation Ident) -- ^ Module name
+    Module (WithLocation UserDefinedIdent) -- ^ Module name
            (ImpExpList (WithLocation Export)) -- ^ Exports
            [WithLocation ImpDecl] -- ^ Imports
            [WithLocation TopDecl] -- ^ Top-level declarations
     deriving (Show, Eq)
 
+-- | Header of a module
+data Header =
+    Header (WithLocation UserDefinedIdent) -- ^ Module name
+           (ImpExpList (WithLocation Export)) -- ^ Exports
+           [WithLocation ImpDecl] -- ^ Imports
+    deriving (Show, Eq)
+
 -- | Export of a module
 data Export
-    = ExportFunction (WithLocation Ident) -- ^ Export single function
-    | ExportDataOrClass (WithLocation Ident)
-                        (ImpExpList (WithLocation Ident)) -- ^ Export data or class
-    | ExportModule (WithLocation Ident) -- ^ Export module
+    = ExportFunction (WithLocation UserDefinedIdent) -- ^ Export single function
+    | ExportDataOrClass (WithLocation UserDefinedIdent)
+                        (ImpExpList (WithLocation UserDefinedIdent)) -- ^ Export data or class
+    | ExportModule (WithLocation UserDefinedIdent) -- ^ Export module
     deriving (Show, Eq)
 
 -- | List of exports or imports
@@ -77,20 +52,40 @@ data ImpExpList a
     | ImpExpAll -- ^ Import or export all definitions
     deriving (Show, Eq)
 
+instance Functor ImpExpList where
+    fmap f list =
+        case list of
+            ImpExpNothing -> ImpExpNothing
+            ImpExpAll -> ImpExpAll
+            ImpExpSome ne -> ImpExpSome (fmap f ne)
+
+instance Foldable ImpExpList where
+    foldr f b list =
+        case list of
+            ImpExpNothing -> b
+            ImpExpAll -> b
+            ImpExpSome ne -> foldr f b ne
+
+instance Traversable ImpExpList where
+    traverse f list = case list of
+      ImpExpNothing -> pure ImpExpNothing
+      ImpExpAll -> pure ImpExpAll
+      ImpExpSome ne -> ImpExpSome <$> traverse f ne
+
 -- | Import declaration.
 data ImpDecl =
     ImpDecl Bool -- ^ Is it qualified?
-            (WithLocation Ident) -- ^ Module name
-            (Maybe (WithLocation Ident)) -- ^ Alternative name
+            (WithLocation UserDefinedIdent) -- ^ Module name
+            (Maybe (WithLocation UserDefinedIdent)) -- ^ Alternative name
             Bool -- ^ Should we hide following imports?
             (ImpExpList (WithLocation Import)) -- ^ List of imports
     deriving (Show, Eq)
 
 -- | Single import
 data Import
-    = ImportFunction (WithLocation Ident) -- ^ Import function
-    | ImportDataOrClass (WithLocation Ident)
-                        (ImpExpList (WithLocation Ident)) -- ^ Import data or class
+    = ImportFunction (WithLocation UserDefinedIdent) -- ^ Import function
+    | ImportDataOrClass (WithLocation UserDefinedIdent)
+                        (ImpExpList (WithLocation UserDefinedIdent)) -- ^ Import data or class
     deriving (Show, Eq)
 
 -- | Top-level declarations
@@ -100,17 +95,17 @@ data TopDecl
     | TopDeclData [WithLocation Constraint]
                   (WithLocation SimpleType)
                   [WithLocation Constr]
-                  [WithLocation Ident] -- ^ Definition of a data type
+                  [WithLocation UserDefinedIdent] -- ^ Definition of a data type
     | TopDeclNewType [WithLocation Constraint]
                      (WithLocation SimpleType)
                      (WithLocation NewConstr)
-                     [WithLocation Ident] -- ^ Definition of a `newtype`
+                     [WithLocation UserDefinedIdent] -- ^ Definition of a `newtype`
     | TopDeclClass [WithLocation SimpleClass]
-                   (WithLocation Ident)
-                   (WithLocation Ident)
+                   (WithLocation UserDefinedIdent)
+                   (WithLocation UserDefinedIdent)
                    [WithLocation ClassAssignment] -- ^ Definition of a class
     | TopDeclInstance [WithLocation SimpleClass]
-                      (WithLocation Ident)
+                      (WithLocation UserDefinedIdent)
                       (WithLocation Inst)
                       [WithLocation InstAssignment] -- ^ Definition of an instance
     | TopDeclAssignment (WithLocation Assignment) -- ^ Assignment
@@ -118,50 +113,50 @@ data TopDecl
 
 -- | Constructor of a data type
 data Constr
-    = ConstrSimple (WithLocation Ident)
+    = ConstrSimple (WithLocation UserDefinedIdent)
                    [WithLocation Type] -- ^ Usual constructor
-    | ConstrRecord (WithLocation Ident)
+    | ConstrRecord (WithLocation UserDefinedIdent)
                    [WithLocation FieldDecl] -- ^ Record constructor
     deriving (Show, Eq)
 
 -- | Definition of a field in a record
 data FieldDecl =
-    FieldDecl (WithLocation Ident) -- ^ Name of a field
+    FieldDecl (WithLocation UserDefinedIdent) -- ^ Name of a field
               (WithLocation Type) -- ^ Type of a field
     deriving (Show, Eq)
 
 -- | Instance
 data Inst =
-    Inst (WithLocation Ident) -- ^ Name of a type
-         [WithLocation Ident] -- ^ Arguments of a type
+    Inst (WithLocation UserDefinedIdent) -- ^ Name of a type
+         [WithLocation UserDefinedIdent] -- ^ Arguments of a type
     deriving (Show, Eq)
 
 -- | Constructor of a `newtype`
 data NewConstr
-    = NewConstrSimple (WithLocation Ident)
+    = NewConstrSimple (WithLocation UserDefinedIdent)
                       (WithLocation Type) -- ^ Simple constructor
-    | NewConstrRecord (WithLocation Ident)
-                      (WithLocation Ident)
+    | NewConstrRecord (WithLocation UserDefinedIdent)
+                      (WithLocation UserDefinedIdent)
                       (WithLocation Type) -- ^ Record-style constructor
     deriving (Show, Eq)
 
 -- | Constraint on a type
 data Constraint =
-    Constraint (WithLocation Ident) -- ^ Name of a class
-               (WithLocation Ident) -- ^ Argument
+    Constraint (WithLocation UserDefinedIdent) -- ^ Name of a class
+               (WithLocation UserDefinedIdent) -- ^ Argument
                [WithLocation Type] -- ^ Optional arguments of the argument
     deriving (Show, Eq)
 
 -- | Simple type
 data SimpleType =
-    SimpleType (WithLocation Ident) -- ^ Type name
-               [WithLocation Ident] -- ^ Type arguments
+    SimpleType (WithLocation UserDefinedIdent) -- ^ Type name
+               [WithLocation UserDefinedIdent] -- ^ Type arguments
     deriving (Show, Eq)
 
 -- | Simple class
 data SimpleClass =
-    SimpleClass (WithLocation Ident) -- ^ Class name
-                (WithLocation Ident) -- ^ Class arguments
+    SimpleClass (WithLocation UserDefinedIdent) -- ^ Class name
+                (WithLocation UserDefinedIdent) -- ^ Class arguments
     deriving (Show, Eq)
 
 -- | Type
@@ -170,46 +165,68 @@ data Type
                       (NonEmpty (WithLocation Type)) -- ^ Application of a type constructor
     | TypeFunction (WithLocation Type)
                    (WithLocation Type) -- ^ Function type
-    | TypeVar (WithLocation Ident) -- ^ Type variable
-    | TypeConstr (WithLocation Ident) -- ^ Type constructor
+    | TypeVar (WithLocation UserDefinedIdent) -- ^ Type variable
+    | TypeConstr (WithLocation UserDefinedIdent) -- ^ Type constructor
     deriving (Show, Eq)
+
+-- | Fixity of an operator
+data Fixity
+    = InfixL -- ^ Left associativity
+    | InfixR -- ^ Right associativity
+    | Infix -- ^ Non-associative
+    deriving (Show, Eq, Ord)
 
 -- | Assignment in top-level, `let` or `where` blocks
 data Assignment
-    = AssignmentName (WithLocation Ident)
+    = AssignmentName (WithLocation UserDefinedIdent)
                      (NonEmpty (WithLocation Pattern))
                      (WithLocation Exp) -- ^ Assign some expression to a name
     | AssignmentPattern (WithLocation Pattern)
                         (WithLocation Exp) -- ^ Assign some expression to a pattern
-    | AssignmentType (WithLocation Ident)
+    | AssignmentType (WithLocation UserDefinedIdent)
                      [WithLocation Constraint]
                      (WithLocation Type) -- ^ Define type of a name
+    | AssignmentFixity (WithLocation UserDefinedIdent)
+                       Fixity
+                       Int -- ^ Assigns fixity to an operator
     deriving (Show, Eq)
 
 -- | Assignment in a class definition
 data ClassAssignment
-    = ClassAssignmentName (WithLocation Ident)
+    = ClassAssignmentName (WithLocation UserDefinedIdent)
                           [WithLocation Pattern]
                           (WithLocation Exp) -- ^ Assign expression to a name
-    | ClassAssignmentType (WithLocation Ident)
+    | ClassAssignmentType (WithLocation UserDefinedIdent)
                           [WithLocation Constraint]
                           (WithLocation Type) -- ^ Define type of an expression
+    | ClassAssignmentFixity (WithLocation UserDefinedIdent)
+                            Fixity
+                            Int -- ^ Assigns fixity to an operator
     deriving (Show, Eq)
 
 -- | Assignemnt in an instance definition
 data InstAssignment =
-    InstAssignmentName (WithLocation Ident)
+    InstAssignmentName (WithLocation UserDefinedIdent)
                        [WithLocation Pattern]
                        (WithLocation Exp) -- ^ Assign expression to a name
     deriving (Show, Eq)
 
+-- | Infix pattern
+data InfixPattern
+    = InfixPatternApplication (WithLocation InfixPattern)
+                              (WithLocation UserDefinedIdent)
+                              (WithLocation InfixPattern)
+    | InfixPatternSimple (WithLocation Pattern)
+    deriving (Eq, Show)
+
 -- | Pattern
 data Pattern
-    = PatternConstr (WithLocation Ident)
+    = PatternInfix (WithLocation InfixPattern) -- ^ Infix pattern
+    | PatternConstr (WithLocation UserDefinedIdent)
                     [WithLocation Pattern] -- ^ Application of a constructor
-    | PatternRecord (WithLocation Ident)
+    | PatternRecord (WithLocation UserDefinedIdent)
                     [WithLocation PatternBinding] -- ^ Application of a record constructor
-    | PatternVar (WithLocation Ident)
+    | PatternVar (WithLocation UserDefinedIdent)
                  (Maybe (WithLocation Pattern)) -- ^ Variable with possible pattern
     | PatternConst (WithLocation Const) -- ^ Constant
     | PatternWildcard -- ^ Wildcard
@@ -217,13 +234,24 @@ data Pattern
 
 -- | Record pattern binding
 data PatternBinding =
-    PatternBinding (WithLocation Ident) -- ^ Field name
+    PatternBinding (WithLocation UserDefinedIdent) -- ^ Field name
                    (WithLocation Pattern) -- ^ Pattern
     deriving (Show, Eq)
 
+-- | Infix expression
+data InfixExp
+    = InfixExpApplication (WithLocation InfixExp)
+                          (WithLocation UserDefinedIdent)
+                          (WithLocation InfixExp)
+    | InfixExpNegated (WithLocation UserDefinedIdent)
+                      (WithLocation InfixExp)
+    | InfixExpSimple (WithLocation Exp)
+    deriving (Eq, Show)
+
 -- | Expression
 data Exp
-    = ExpTyped (WithLocation Exp)
+    = ExpInfix (WithLocation InfixExp) -- ^ Nested InfixExpression
+    | ExpTyped (WithLocation Exp)
                [WithLocation Constraint]
                (WithLocation Type) -- ^ Expression with an explicitly specified type
     | ExpAbstraction (NonEmpty (WithLocation Pattern))
@@ -236,8 +264,8 @@ data Exp
             (WithLocation Exp) -- ^ Do statement
     | ExpApplication (WithLocation Exp)
                      (NonEmpty (WithLocation Exp)) -- ^ Application of expressions
-    | ExpVar (WithLocation Ident) -- ^ Variable
-    | ExpConstr (WithLocation Ident) -- ^ Constructor
+    | ExpVar (WithLocation UserDefinedIdent) -- ^ Variable
+    | ExpConstr (WithLocation UserDefinedIdent) -- ^ Constructor
     | ExpConst (WithLocation Const) -- ^ Constant
     | ExpListCompr (WithLocation Exp)
                    (NonEmpty (WithLocation Stmt)) -- ^ List comprehension
@@ -245,7 +273,7 @@ data Exp
                      (WithLocation Exp) -- ^ Left section
     | ExpRightSection (WithLocation Exp)
                       (WithLocation Exp) -- ^ Right section
-    | ExpRecordConstr (WithLocation Ident)
+    | ExpRecordConstr (WithLocation UserDefinedIdent)
                       [WithLocation Binding] -- ^ Construction of a record
     | ExpRecordUpdate (WithLocation Exp)
                       (NonEmpty (WithLocation Binding)) -- ^ Update of a record
@@ -261,7 +289,7 @@ data Stmt
 
 -- | Record field binding
 data Binding =
-    Binding (WithLocation Ident) -- ^ Field name
+    Binding (WithLocation UserDefinedIdent) -- ^ Field name
             (WithLocation Exp) -- ^ Expression
     deriving (Show, Eq)
 

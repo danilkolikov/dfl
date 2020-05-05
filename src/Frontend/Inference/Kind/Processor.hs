@@ -21,7 +21,7 @@ import qualified Frontend.Inference.Kind.Ast as A
 import Frontend.Inference.Kind.Base
 import Frontend.Inference.Kind.Checker
 import Frontend.Inference.Signature
-import Frontend.Inference.Util.Debug
+import Util.Debug
 
 type KindProcessor = WithDebugOutput KindProcessorError KindProcessorDebugOutput
 
@@ -35,7 +35,7 @@ data KindProcessorError
 -- | A type of debug output of kind inference
 data KindProcessorDebugOutput = KindProcessorDebugOutput
     { getKindProcessorDebugOutputInference :: Maybe (InferenceDebugOutput KindInferenceEnvironmentItem TypeConstructorSignature)
-    , getKindProcessorDebugOutputInstances :: Maybe (SingleGroupInferenceDebugOutput [F.Instance] [()])
+    , getKindProcessorDebugOutputInstances :: Maybe (SingleGroupInferenceDebugOutput [F.Instance F.Exp] [()])
     , getKindProcessorDebugOutputCheck :: Maybe [SingleGroupInferenceDebugOutput F.TypeSignature TypeConstructorSignature]
     } deriving (Eq, Show)
 
@@ -49,7 +49,7 @@ instance Monoid KindProcessorDebugOutput where
 -- | Infers kinds of types in a module, checks instance declarations and type expressions
 inferKinds ::
        Signatures TypeConstructorSignature
-    -> F.Module
+    -> F.Module F.Exp
     -> ( Either KindProcessorError ( Signatures TypeConstructorSignature
                                    , A.AstWithKinds)
        , KindProcessorDebugOutput)
@@ -58,7 +58,7 @@ inferKinds signatures module' =
 
 processModule ::
        Signatures TypeConstructorSignature
-    -> F.Module
+    -> F.Module F.Exp
     -> KindProcessor (Signatures TypeConstructorSignature, A.AstWithKinds)
 processModule initialSignatures module' = do
     inferredSignatures <-

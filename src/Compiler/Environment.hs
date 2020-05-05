@@ -11,6 +11,6 @@ module Compiler.Environment where
 -- | Environment of compilation
 data Environment
  = Environment
-    { getSourceFile :: String -- ^ Path to the source file
+    { getMainSourceFile :: String -- ^ Path to the source file
     , isDebugOutputEnabled :: Bool  -- ^ Should print debug output?
     }

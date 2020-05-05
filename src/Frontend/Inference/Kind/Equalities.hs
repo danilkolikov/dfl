@@ -15,6 +15,8 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromJust)
 
+import Core.Ident
+import Core.PredefinedIdents
 import Frontend.Desugaring.Final.Ast
 import Frontend.Inference.Equalities
 import Frontend.Inference.Kind.Environment
@@ -24,9 +26,8 @@ import Frontend.Inference.Signature hiding
     , TypeSignature(..)
     )
 import Frontend.Inference.Substitution (Substitution)
-import Frontend.Inference.Util.HashMap
-import Frontend.Syntax.EntityName (fUNCTION_NAME)
 import Frontend.Syntax.Position
+import Util.HashMap
 
 -- | Type of functions which generate equalities for the provided map
 type BaseEqualitiesGeneratorFunction a b = a -> EqualitiesGenerator b
@@ -143,7 +144,7 @@ instance WithEqualitiesAndSignature DataType where
             generateEqualities $ map snd constructors
             return (KindStar, SortSquare)
 
-instance WithEqualitiesAndSignature Class where
+instance WithEqualitiesAndSignature (Class a) where
     generateEqualitiesAndSignature Class { getClassName = name
                                          , getClassParam = param
                                          , getClassContext = context
@@ -188,7 +189,7 @@ instance WithEqualities Constructor where
         writeKindStar kinds
         writeSortSquare sorts
 
-instance WithEqualities Method where
+instance WithEqualities (Method a) where
     generateEqualities = generateEqualities . getMethodType
 
 instance WithEqualities TypeSignature where
@@ -233,7 +234,7 @@ instance WithEqualitiesAndSignature TypeSignature where
                 generateTypeEqualities type'
         generateEqualitiesUsingSignature params generator signature
 
-instance WithEqualities Instance where
+instance WithEqualities (Instance a) where
     generateEqualities Instance { getInstanceContext = context
                                 , getInstanceClass = className
                                 , getInstanceType = typeName
@@ -299,7 +300,7 @@ findKindOfType ::
        WithLocation Ident
     -> EqualitiesGenerator ((Kind, Sort), Substitution Kind)
 findKindOfType typeName
-    | getValue typeName == IdentNamed fUNCTION_NAME =
+    | getValue typeName == IdentUserDefined fUNCTION =
         return
             ( ( KindFunction KindStar (KindFunction KindStar KindStar)
               , SortSquare)

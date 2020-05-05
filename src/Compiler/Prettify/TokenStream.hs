@@ -6,6 +6,7 @@ License     :  MIT
 
 Functions for pretty printing of TokenStream
 -}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Compiler.Prettify.TokenStream where
 
 import Data.Char (toUpper)
@@ -16,6 +17,9 @@ import Compiler.Prettify.Utils
 import Frontend.Syntax.Position
 import Frontend.Syntax.Stream (TokenStream(..))
 import Frontend.Syntax.Token
+
+instance Prettifiable TokenStream where
+    prettify = prettifyTokenStream
 
 prettifyTokenStream :: TokenStream -> String
 prettifyTokenStream (TokenStream tokens) =

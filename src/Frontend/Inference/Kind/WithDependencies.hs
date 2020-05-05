@@ -13,20 +13,20 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
 import Frontend.Desugaring.Final.Ast
-import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
 import Frontend.Inference.Kind.Environment
 import Frontend.Syntax.Position (WithLocation(..))
+import Util.DependencyResolver (Dependencies, DependencyGraph)
 
 -- | Class for types which have dependencies
 class WithDependencies a where
     getName :: a -> Ident -- ^ Get name of an object
-    getDependencies :: a -> Dependencies -- ^ Get its dependencies
-    getDependencyGraph :: [a] -> DependencyGraph -- ^ Construct a dependency graph
+    getDependencies :: a -> Dependencies Ident -- ^ Get its dependencies
+    getDependencyGraph :: [a] -> DependencyGraph Ident -- ^ Construct a dependency graph
     getDependencyGraph =
         HM.fromList . map (\x -> (getName x, getDependencies x))
 
 -- | Get dependency graph of a module
-getModuleDependencyGraph :: KindInferenceEnvironment -> DependencyGraph
+getModuleDependencyGraph :: KindInferenceEnvironment -> DependencyGraph Ident
 getModuleDependencyGraph = getDependencyGraph . HM.elems
 
 instance WithDependencies KindInferenceEnvironmentItem where
@@ -55,7 +55,7 @@ instance WithDependencies DataType where
                 map (getConstructorDependencies . snd) constructors
          in HS.unions dependencies
 
-instance WithDependencies Class where
+instance WithDependencies (Class a) where
     getName = getValue . getClassName
     getDependencies Class { getClassContext = constraints
                           , getClassMethods = methods
@@ -68,7 +68,7 @@ instance WithDependencies Class where
          in HS.unions dependencies
 
 -- | Get dependencies of a type
-getTypeDependencies :: Type -> Dependencies
+getTypeDependencies :: Type -> Dependencies Ident
 getTypeDependencies TypeVar {} = HS.empty
 getTypeDependencies (TypeConstr name) = HS.singleton (getValue name)
 getTypeDependencies (TypeFunction from to) =
@@ -80,26 +80,26 @@ getTypeDependencies (TypeApplication func args) =
      in HS.unions dependencies
 
 -- | Get dependencies of a constructor
-getConstructorDependencies :: Constructor -> Dependencies
+getConstructorDependencies :: Constructor -> Dependencies Ident
 getConstructorDependencies c =
     let types = getConstructorArgs c
         dependencies = map (getTypeDependencies . getValue) types
      in HS.unions dependencies
 
 -- | Get dependencies of a constraint
-getConstraintDependencies :: Constraint -> Dependencies
+getConstraintDependencies :: Constraint -> Dependencies Ident
 getConstraintDependencies (ConstraintParam className _) =
     HS.singleton (getValue className)
 getConstraintDependencies (ConstraintAppliedParam className _ _) =
     HS.fromList $ map getValue [className]
 
 -- | Get dependencies of a simple constraint
-getSimpleConstraintDependencies :: SimpleConstraint -> Dependencies
+getSimpleConstraintDependencies :: SimpleConstraint -> Dependencies Ident
 getSimpleConstraintDependencies (SimpleConstraint className _) =
     HS.singleton $ getValue className
 
 -- | Get dependencies of a type signature
-getTypeSignatureDependencies :: TypeSignature -> Dependencies
+getTypeSignatureDependencies :: TypeSignature -> Dependencies Ident
 getTypeSignatureDependencies (TypeSignature context type') =
     let contextDependencies = map (getConstraintDependencies . getValue) context
         typeDependencies = getTypeDependencies $ getValue type'

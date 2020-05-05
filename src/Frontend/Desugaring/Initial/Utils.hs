@@ -8,49 +8,30 @@ Utility functions for the initial step of desugaring
 -}
 module Frontend.Desugaring.Initial.Utils where
 
+import Core.Ident (UserDefinedIdent)
+import Core.PredefinedIdents
 import Frontend.Desugaring.Initial.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..), withDummyLocation)
 
--- | Make custom named ident
-makeIdent :: EntityName -> WithLocation Ident
-makeIdent = makeIdent' . IdentNamed
-
 -- | Make custom ident
-makeIdent' :: Ident -> WithLocation Ident
-makeIdent' = withDummyLocation
-
--- | Make custom named type constructor
-makeTypeConstr :: EntityName -> WithLocation Type
-makeTypeConstr = makeTypeConstr' . IdentNamed
+makeIdent :: UserDefinedIdent -> WithLocation UserDefinedIdent
+makeIdent = withDummyLocation
 
 -- | Make custom type constructor
-makeTypeConstr' :: Ident -> WithLocation Type
-makeTypeConstr' = withDummyLocation . TypeConstr . withDummyLocation
-
--- | Make custom named pattern constructor
-makePattern :: EntityName -> WithLocation Pattern
-makePattern = makePattern' . IdentNamed
+makeTypeConstr :: UserDefinedIdent -> WithLocation Type
+makeTypeConstr = withDummyLocation . TypeConstr . withDummyLocation
 
 -- | Make custom pattern constructor
-makePattern' :: Ident -> WithLocation Pattern
-makePattern' = withDummyLocation . (`PatternConstr` []) . withDummyLocation
-
--- | Make custom named expression
-makeExp :: EntityName -> WithLocation Exp
-makeExp = makeExp' . IdentNamed
+makePattern :: UserDefinedIdent -> WithLocation Pattern
+makePattern = withDummyLocation . (`PatternConstr` []) . withDummyLocation
 
 -- | Make custom expression
-makeExp' :: Ident -> WithLocation Exp
-makeExp' = withDummyLocation . ExpVar . withDummyLocation
-
--- | Make custom named constructor
-makeConstr :: EntityName -> WithLocation Exp
-makeConstr = makeConstr' . IdentNamed
+makeExp :: UserDefinedIdent -> WithLocation Exp
+makeExp = withDummyLocation . ExpVar . withDummyLocation
 
 -- | Make custom constructor
-makeConstr' :: Ident -> WithLocation Exp
-makeConstr' = withDummyLocation . ExpConstr . withDummyLocation
+makeConstr :: UserDefinedIdent -> WithLocation Exp
+makeConstr = withDummyLocation . ExpConstr . withDummyLocation
 
 -- | Wildcard pattern
 wildcardPattern :: WithLocation Pattern
@@ -58,12 +39,12 @@ wildcardPattern = withDummyLocation PatternWildcard
 
 -- | Pattern that matches True
 truePattern :: WithLocation Pattern
-truePattern = makePattern tRUE_NAME
+truePattern = makePattern tRUE
 
 -- | Pattern that matches False
 falsePattern :: WithLocation Pattern
-falsePattern = makePattern fALSE_NAME
+falsePattern = makePattern fALSE
 
 -- | undefined
 undefinedExp :: WithLocation Exp
-undefinedExp = makeExp uNDEFINED_NAME
+undefinedExp = makeExp uNDEFINED

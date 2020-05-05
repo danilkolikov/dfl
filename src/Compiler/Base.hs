@@ -9,12 +9,11 @@ Definitions of base functions for compilation of files
 module Compiler.Base where
 
 import Control.Monad (when)
-import Data.Bifunctor (first)
 
 import Compiler.DebugOutput
 import Compiler.Environment
 import Compiler.Error
-import Compiler.Output
+import Compiler.Prettify.Utils
 
 -- | A class of objects which can compile DFL source files
 class (Monad m) =>
@@ -22,33 +21,21 @@ class (Monad m) =>
     where
     getEnvironmentComponent :: (Environment -> a) -> m a -- ^ Get a component of the environment
     readFileContent :: String -> m String -- ^ Read content of a source file
-    handleResult :: Either CompilationError a -> m a -- ^ Handle result of a step of compilation
-    writeDebugOutput :: DebugOutput -> m () -- ^ Write debug output of a step
-    writeOutput :: Output -> m () -- ^ Write result of compilation
+    doesFileExist :: String -> m Bool -- ^ Check if file exist
+    handleResult :: (IsCompilationError e) => Either e a -> m a -- ^ Handle result of a step of compilation
+    writeToFile :: (Prettifiable a) => String -> a -> m () -- ^ Write output to file
 
--- | Get the name of a source file to compile
-getSourceFileName :: (Compiler m) => m String
-getSourceFileName = getEnvironmentComponent getSourceFile
-
--- | Execute a single step of compilation
-processStep :: (Compiler m, IsCompilationError e) => Either e a -> m a
-processStep = handleResult . first wrapToCompilationError
-
--- | Execute a single step and write a debug output
-traceStep ::
-       (Compiler m, IsCompilationError e, HasDebugOutput a) => Either e a -> m a
-traceStep step = do
-    result <- processStep step
-    shouldTrace <- getEnvironmentComponent isDebugOutputEnabled
-    when shouldTrace . writeDebugOutput . getDebugOutput $ result
-    return result
-
--- | Write a debug output and execute a single step
+-- | Writes a debug output and executes a single step
 traceStepWithDebugOutput ::
-       (Compiler m, IsCompilationError e, HasDebugOutput d)
-    => (Either e a, d)
+       (Compiler m, IsCompilationError e, IsDebugOutput d)
+    => String
+    -> (Either e a, d)
     -> m a
-traceStepWithDebugOutput (step, debugOutput) = do
+traceStepWithDebugOutput outputFile (step, debugOutput) = do
     shouldTrace <- getEnvironmentComponent isDebugOutputEnabled
-    when shouldTrace . writeDebugOutput . getDebugOutput $ debugOutput
-    processStep step
+    when shouldTrace . writeToFile outputFile $ debugOutput
+    handleResult step
+
+-- | Raises a compilation error
+raiseCompilationError :: (Compiler m, IsCompilationError e) => e -> m a
+raiseCompilationError = handleResult . Left

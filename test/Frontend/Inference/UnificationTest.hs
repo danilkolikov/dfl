@@ -14,14 +14,14 @@ import Test.Hspec
 
 import qualified Data.HashMap.Lazy as HM
 
-import Frontend.Desugaring.Final.Ast (Ident(..))
+import Core.Ident
 import Frontend.Inference.AlgebraicExp
 import Frontend.Inference.Unification
 
 testSuite :: IO ()
 testSuite =
     hspec $ do
-        let ident = IdentNamed . return
+        let ident = IdentUserDefined . IdentSimple . IdentNamed
             var = AlgebraicExpVar . ident
             func name = AlgebraicExpFunc (ident name)
         describe "unifyVar" $ do

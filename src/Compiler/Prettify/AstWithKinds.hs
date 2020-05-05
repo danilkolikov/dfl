@@ -13,7 +13,7 @@ module Compiler.Prettify.AstWithKinds where
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NE (toList)
 
-import Compiler.Prettify.DesugaredAst ()
+import Compiler.Prettify.Desugaring.Ast ()
 import Compiler.Prettify.LetExpression ()
 import Compiler.Prettify.PrettyPrintable
 import Compiler.Prettify.PrettyPrinter

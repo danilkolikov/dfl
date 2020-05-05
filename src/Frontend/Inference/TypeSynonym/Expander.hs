@@ -20,9 +20,9 @@ import qualified Data.HashMap.Lazy as HM
 import Frontend.Inference.Kind.Ast
 import Frontend.Inference.Signature
 import Frontend.Inference.TypeSynonym.Expand
-import Frontend.Inference.Util.HashMap
 import Frontend.Inference.Variables
 import Frontend.Syntax.Position
+import Util.HashMap
 
 -- | Expands type synonyms in AST
 expandModule ::
@@ -68,11 +68,10 @@ expandTypeSignature signature = do
             }
 
 expandMethod :: Method -> TypeSynonymExpander Method
-expandMethod method@Method {getMethodType = type', getMethodDefault = body'} = do
+expandMethod method@Method {getMethodType = type', getMethodBody = body'} = do
     expandedType <- expandTypeSignature type'
     expandedBody <- traverse expandExp body'
-    return
-        method {getMethodType = expandedType, getMethodDefault = expandedBody}
+    return method {getMethodType = expandedType, getMethodBody = expandedBody}
 
 expandClass :: Class -> TypeSynonymExpander Class
 expandClass class'@Class {getClassMethods = methods} = do
@@ -87,7 +86,7 @@ expandInstance inst@Instance { getInstanceClass = className
     typeSynonyms <- ask
     when (getValue typeName `HM.member` typeSynonyms) . raiseError $
         TypeSynonymExpandingErrorSynonymInInstance className typeName
-    expandedMethods <- mapHashMapM expandExpression methods
+    expandedMethods <- mapHashMapM expandExp methods
     return inst {getInstanceMethods = expandedMethods}
 
 expandConstructor :: Constructor -> TypeSynonymExpander Constructor

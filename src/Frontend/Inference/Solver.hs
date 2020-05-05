@@ -21,7 +21,7 @@ import Frontend.Inference.Equalities
 import Frontend.Inference.Signature
 import Frontend.Inference.Substitution
 import Frontend.Inference.Unification
-import Frontend.Inference.Util.Debug
+import Util.Debug
 import Frontend.Inference.WithVariables
 
 -- | A solution of a system of type, kind and sort equalities

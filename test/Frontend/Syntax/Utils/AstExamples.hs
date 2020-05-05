@@ -115,7 +115,7 @@ instance WithExamples Literal where
             , liftE1 LiteralString
             ]
 
-instance WithExamples Module where
+instance (WithExamples a) => WithExamples (Module a) where
     getExample = selectFromRandom [liftE3 ModuleExplicit, liftE1 ModuleImplicit]
 
 instance WithExamples Body where

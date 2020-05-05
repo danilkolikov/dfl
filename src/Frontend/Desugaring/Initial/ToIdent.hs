@@ -8,11 +8,13 @@ Desugaring of AST nodes to objects, representing Ident-s.
 -}
 module Frontend.Desugaring.Initial.ToIdent
     ( DesugarToIdent(..)
+    , DesugarToSimpleIdent(..)
     ) where
 
 import Data.Functor (($>))
 
-import Frontend.Desugaring.Initial.Ast
+import Core.Ident (SimpleIdent(..), UserDefinedIdent(..))
+import Core.PredefinedIdents
 import Frontend.Syntax.Ast
     ( DClass(..)
     , FuncLabel(..)
@@ -22,69 +24,111 @@ import Frontend.Syntax.Ast
     , OpLabel(..)
     , Qualified(..)
     )
-import Frontend.Syntax.EntityName
-import Frontend.Syntax.NamedEntity (NamedEntity(..))
 import Frontend.Syntax.Position (WithLocation(..))
-import Frontend.Syntax.Token (ConId, ConSym, VarId, VarSym)
+import Frontend.Syntax.Token (ConId(..), ConSym(..), VarId(..), VarSym(..))
+
+-- | Class for types which can be desugared to SimpleIdent
+class DesugarToSimpleIdent a where
+    desugarToSimpleIdent :: a -> SimpleIdent
+
+instance DesugarToSimpleIdent ConId where
+    desugarToSimpleIdent (ConId s) = IdentNamed s
+
+instance DesugarToSimpleIdent ConSym where
+    desugarToSimpleIdent (ConSym s) = IdentNamed s
+
+instance DesugarToSimpleIdent VarId where
+    desugarToSimpleIdent (VarId s) = IdentNamed s
+
+instance DesugarToSimpleIdent VarSym where
+    desugarToSimpleIdent (VarSym s) = IdentNamed s
 
 -- | Class for types which can be desugared to Ident-s
 class DesugarToIdent a where
-    desugarToIdent :: WithLocation a -> WithLocation Ident -- ^ Desugar object to Ident
+    desugarToIdent :: WithLocation a -> WithLocation UserDefinedIdent -- ^ Desugar object to Ident
 
-instance (NamedEntity a, NamedEntity b) => DesugarToIdent (OpLabel a b) where
-    desugarToIdent = desugarNamedIdent
+desugarSimpleIdentToIdent ::
+       (DesugarToSimpleIdent a)
+    => WithLocation a
+    -> WithLocation UserDefinedIdent
+desugarSimpleIdentToIdent c =
+    c $> IdentSimple (desugarToSimpleIdent $ getValue c)
 
-instance (NamedEntity a, NamedEntity b) => DesugarToIdent (FuncLabel a b) where
-    desugarToIdent = desugarNamedIdent
+instance (DesugarToIdent a, DesugarToIdent b) =>
+         DesugarToIdent (OpLabel a b) where
+    desugarToIdent opLabel =
+        case getValue opLabel of
+            OpLabelId name -> desugarToIdent (opLabel $> name)
+            OpLabelSym sym -> desugarToIdent (opLabel $> sym)
 
-instance (NamedEntity a, NamedEntity b) => DesugarToIdent (Either a b) where
-    desugarToIdent = desugarNamedIdent
+instance (DesugarToIdent a, DesugarToIdent b) =>
+         DesugarToIdent (FuncLabel a b) where
+    desugarToIdent funcLabel =
+        case getValue funcLabel of
+            FuncLabelId name -> desugarToIdent (funcLabel $> name)
+            FuncLabelSym sym -> desugarToIdent (funcLabel $> sym)
+
+instance (DesugarToIdent a, DesugarToIdent b) =>
+         DesugarToIdent (Either a b) where
+    desugarToIdent value =
+        case getValue value of
+            Left a -> desugarToIdent (value $> a)
+            Right b -> desugarToIdent (value $> b)
 
 instance (DesugarToIdent a) => DesugarToIdent (WithLocation a) where
-    desugarToIdent = (getValue . desugarToIdent <$>)
+    desugarToIdent (WithLocation a _) = desugarToIdent a
 
 instance DesugarToIdent ConId where
-    desugarToIdent = desugarNamedIdent
+    desugarToIdent = desugarSimpleIdentToIdent
 
 instance DesugarToIdent ConSym where
-    desugarToIdent = desugarNamedIdent
+    desugarToIdent = desugarSimpleIdentToIdent
 
 instance DesugarToIdent VarId where
-    desugarToIdent = desugarNamedIdent
+    desugarToIdent = desugarSimpleIdentToIdent
 
 instance DesugarToIdent VarSym where
-    desugarToIdent = desugarNamedIdent
+    desugarToIdent = desugarSimpleIdentToIdent
 
-instance (NamedEntity a) => DesugarToIdent (Qualified a) where
-    desugarToIdent = desugarNamedIdent
+instance (DesugarToSimpleIdent a) => DesugarToIdent (Qualified a) where
+    desugarToIdent c =
+        c $>
+        case getValue c of
+            Qualified path a ->
+                if null path
+                    then IdentSimple (desugarToSimpleIdent a)
+                    else IdentQualified
+                             (map getPath path)
+                             (desugarToSimpleIdent a)
+      where
+        getPath (ConId name) = name
 
 instance DesugarToIdent GConSym where
-    desugarToIdent = desugarNamedIdent
+    desugarToIdent gc =
+        gc $>
+        case getValue gc of
+            GConSymColon -> cOLON
+            GConSymOp s -> getValue $ desugarToIdent (gc $> s)
 
 instance DesugarToIdent GCon where
     desugarToIdent gCon =
         gCon $>
         case getValue gCon of
             GConNamed name -> getValue $ desugarToIdent name
-            GConUnit -> IdentNamed uNIT_NAME
-            GConList -> IdentNamed lIST_NAME
-            GConTuple n -> IdentParametrised tUPLE_NAME n
+            GConUnit -> uNIT
+            GConList -> lIST
+            GConTuple n -> tUPLE n
 
 instance DesugarToIdent GTyCon where
     desugarToIdent gTyCon =
         gTyCon $>
         case getValue gTyCon of
             GTyConNamed name -> getValue $ desugarToIdent name
-            GTyConUnit -> IdentNamed uNIT_NAME
-            GTyConList -> IdentNamed lIST_NAME
-            GTyConTuple n -> IdentParametrised tUPLE_NAME n
-            GTyConFunction -> IdentNamed fUNCTION_NAME
+            GTyConUnit -> uNIT
+            GTyConList -> lIST
+            GTyConTuple n -> tUPLE n
+            GTyConFunction -> fUNCTION
 
 instance DesugarToIdent DClass where
     desugarToIdent dClass
         | DClass name <- getValue dClass = desugarToIdent name
-
--- Helper functions
-desugarNamedIdent :: (NamedEntity a) => WithLocation a -> WithLocation Ident
-desugarNamedIdent (WithLocation ident loc) =
-    WithLocation (IdentNamed $ getEntityName ident) loc

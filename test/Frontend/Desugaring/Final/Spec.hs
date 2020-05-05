@@ -10,22 +10,12 @@ module Frontend.Desugaring.Final.Spec
     ( testSuite
     ) where
 
-import qualified Frontend.Desugaring.Final.DataTypeDesugaringTest as DataType
-import qualified Frontend.Desugaring.Final.ExpressionDesugaringAssignmentTest as ExpressionDesugaringAssignment
-import qualified Frontend.Desugaring.Final.ExpressionDesugaringBaseTest as ExpressionDesugaringBase
-import qualified Frontend.Desugaring.Final.ExpressionDesugaringCaseTest as ExpressionDesugaringCase
-import qualified Frontend.Desugaring.Final.ExpressionDesugaringStmtTest as ExpressionDesugaringStmt
-import qualified Frontend.Desugaring.Final.ProcessorTest as Processor
-import qualified Frontend.Desugaring.Final.RecordDesugaringTest as RecordDesugaring
-import qualified Frontend.Desugaring.Final.TypeSynonymDesugaringTest as TypeSynonym
+import qualified Frontend.Desugaring.Final.BaseTest as Base
+import qualified Frontend.Desugaring.Final.CaseTest as Case
+import qualified Frontend.Desugaring.Final.StmtTest as Stmt
 
 testSuite :: IO ()
 testSuite = do
-    Processor.testSuite
-    TypeSynonym.testSuite
-    DataType.testSuite
-    RecordDesugaring.testSuite
-    ExpressionDesugaringBase.testSuite
-    ExpressionDesugaringStmt.testSuite
-    ExpressionDesugaringAssignment.testSuite
-    ExpressionDesugaringCase.testSuite
+    Base.testSuite
+    Case.testSuite
+    Stmt.testSuite

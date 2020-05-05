@@ -49,7 +49,7 @@ instance (AstCheckable a) => AstCheckable (NE.NonEmpty a) where
 instance (AstCheckable a) => AstCheckable (WithLocation a) where
     checkAst (WithLocation x _) = checkAst x
 
-instance AstCheckable Module where
+instance (AstCheckable a) => AstCheckable (Module a) where
     checkAst (ModuleExplicit _ _ body) = checkAst body
     checkAst (ModuleImplicit body) = checkAst body
 

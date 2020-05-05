@@ -8,34 +8,14 @@ Processor of compilation of DFL files
 -}
 module Compiler.Processor where
 
-import qualified Data.HashMap.Lazy as HM
+import Data.Maybe (isJust)
 
-import Compiler.Base
-import Compiler.Output
-import Frontend.Desugaring.Processor
-import Frontend.Inference.Processor
-import Frontend.Syntax.Processor
+import Compiler.Environment
+import Compiler.Module.Processor
+import Compiler.Monad
 
--- | Compile a single source file
-compileSourceFile :: (Compiler m) => m ()
-compileSourceFile = do
-    let initialInfixOperators = HM.empty
-        initialDesugaringState = emptyDesugaringState
-        initialInferenceState = defaultInferenceProcessorOutput
-    fileName <- getSourceFileName
-    fileContent <- readFileContent fileName
-    lexems <- traceStep $ lexicalAnalysis fileName fileContent
-    ast <- traceStep $ parsing fileName lexems
-    FixityResolutionOutput { getFixityResolutionOutputAst = resolvedFixity
-                           , getFixityResolutionOutputOperators = infixOperators
-                           } <-
-        traceStep $ fixityResolution initialInfixOperators ast
-    DesugaringOutput {getDesugaringOutputAst = desugared} <-
-        traceStep $ desugarParsedModule resolvedFixity initialDesugaringState
-    inferenceOutput <-
-        traceStepWithDebugOutput $ processModule initialInferenceState desugared
-    writeOutput
-        Output
-            { getInfixOperators = infixOperators
-            , getInferenceOutput = inferenceOutput
-            }
+-- | Compiles source files
+compile :: Environment -> IO Bool
+compile environment = do
+    result <- runCompiler compileMultipleModules environment
+    return $ isJust result

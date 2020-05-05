@@ -12,11 +12,11 @@ module Frontend.Desugaring.Initial.ToInst
 
 import Data.Functor (($>))
 
+import Core.PredefinedIdents
 import qualified Frontend.Desugaring.Initial.Ast as D
 import Frontend.Desugaring.Initial.ToIdent (desugarToIdent)
 import Frontend.Desugaring.Initial.Utils
 import Frontend.Syntax.Ast
-import Frontend.Syntax.EntityName
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Desugar object to Inst
@@ -28,8 +28,8 @@ desugarToInst inst =
             D.Inst (desugarToIdent name) (map desugarToIdent vars)
         InstTuple f s rest ->
             D.Inst
-                (makeIdent' $ D.IdentParametrised tUPLE_NAME (length rest + 2))
+                (makeIdent $ tUPLE (length rest + 2))
                 (map desugarToIdent (f : s : rest))
-        InstList t -> D.Inst (makeIdent lIST_NAME) [desugarToIdent t]
+        InstList t -> D.Inst (makeIdent lIST) [desugarToIdent t]
         InstFunction from to ->
-            D.Inst (makeIdent fUNCTION_NAME) (map desugarToIdent [from, to])
+            D.Inst (makeIdent fUNCTION) (map desugarToIdent [from, to])

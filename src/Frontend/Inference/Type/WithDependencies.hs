@@ -15,20 +15,20 @@ import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 
-import Frontend.Inference.DependencyResolver (Dependencies, DependencyGraph)
+import Util.DependencyResolver (Dependencies, DependencyGraph)
 import Frontend.Inference.Let.Ast
 import Frontend.Syntax.Position (WithLocation(..))
 
 -- | Get graph of dependencies between expressions
 getExpressionsDependencyGraph ::
-       HS.HashSet Ident -> Expressions -> DependencyGraph
+       HS.HashSet Ident -> Expressions -> DependencyGraph Ident
 getExpressionsDependencyGraph definedIdents exprs =
     let getSingleExpressionDependencies expr =
             runReader (getExpressionDependencies expr) definedIdents
      in HM.map getSingleExpressionDependencies exprs
 
 -- | Type of a dependency getter
-type DependencyGetter = Reader (HS.HashSet Ident) Dependencies
+type DependencyGetter = Reader (HS.HashSet Ident) (Dependencies Ident)
 
 -- | Get dependencies of an expression
 getExpressionDependencies :: Expression -> DependencyGetter
